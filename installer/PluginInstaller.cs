@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Windows.Forms;
@@ -7,6 +8,7 @@ namespace TiaGitAddIn.Installer
 {
     internal static class Program
     {
+        private const string GitDownloadUrl = "https://git-scm.com/download/win";
         private static readonly byte[] Magic = Encoding.ASCII.GetBytes("TGADDIN1");
 
         [STAThread]
@@ -45,13 +47,22 @@ namespace TiaGitAddIn.Installer
                 }
 
                 tempPath = null;
-                MessageBox.Show(
+                string installedMessage =
                     "Installed " + payload.FileName + " to:" + Environment.NewLine + Environment.NewLine +
                     destination + Environment.NewLine + Environment.NewLine +
-                    "Restart TIA Portal, then enable the add-in in the Add-ins task card.",
-                    "TIA Git Add-In",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
+                    "Restart TIA Portal, then enable the add-in in the Add-ins task card.";
+                if (FindGit() == null)
+                {
+                    PromptToInstallGit(installedMessage);
+                }
+                else
+                {
+                    MessageBox.Show(
+                        installedMessage,
+                        "TIA Git Add-In",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
             }
             catch (Exception ex)
             {
@@ -75,6 +86,107 @@ namespace TiaGitAddIn.Installer
                     "TIA Git Add-In",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
+            }
+        }
+
+        private static void PromptToInstallGit(string installedMessage)
+        {
+            DialogResult answer = MessageBox.Show(
+                installedMessage + Environment.NewLine + Environment.NewLine +
+                "Git for Windows was not found. The add-in needs Git to work." + Environment.NewLine + Environment.NewLine +
+                "Download Git for Windows now?",
+                "TIA Git Add-In",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+            if (answer != DialogResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = GitDownloadUrl,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    "Could not open the download page." + Environment.NewLine + Environment.NewLine +
+                    GitDownloadUrl + Environment.NewLine + Environment.NewLine + ex.Message,
+                    "TIA Git Add-In",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private static string FindGit()
+        {
+            string fromPath = FindGitOnPath(Environment.GetEnvironmentVariable("PATH"));
+            if (fromPath != null)
+            {
+                return fromPath;
+            }
+
+            string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            string programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string[] candidates = new string[]
+            {
+                Path.Combine(programFiles, "Git", "cmd", "git.exe"),
+                Path.Combine(programFiles, "Git", "bin", "git.exe"),
+                Path.Combine(programFilesX86, "Git", "cmd", "git.exe"),
+                Path.Combine(localAppData, "Programs", "Git", "cmd", "git.exe")
+            };
+
+            for (int i = 0; i < candidates.Length; i++)
+            {
+                if (FileExists(candidates[i]))
+                {
+                    return candidates[i];
+                }
+            }
+
+            return null;
+        }
+
+        private static string FindGitOnPath(string pathVariable)
+        {
+            if (pathVariable == null || pathVariable.Trim().Length == 0)
+            {
+                return null;
+            }
+
+            string[] entries = pathVariable.Split(Path.PathSeparator);
+            for (int i = 0; i < entries.Length; i++)
+            {
+                string directory = entries[i].Trim().Trim('"');
+                if (directory.Length == 0)
+                {
+                    continue;
+                }
+
+                string candidate = Path.Combine(directory, "git.exe");
+                if (FileExists(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool FileExists(string path)
+        {
+            try
+            {
+                return !string.IsNullOrEmpty(path) && File.Exists(path);
+            }
+            catch (Exception)
+            {
+                return false;
             }
         }
 

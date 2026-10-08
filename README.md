@@ -31,15 +31,19 @@ Git revision review therefore continues to use the project-owned native SimaticM
 
 ### Git Integration
 
-- **VCI-Aware**: Automatically detects Git repositories associated with TIA Portal VCI workspaces.
-- **Core Operations**: View status, history, and commit changes without leaving TIA Portal.
-- **Transparent Execution**: Uses your local `git.exe` for all operations.
+- **VCI-Aware**: Uses the selected TIA Portal VCI workspace as the Git working tree.
+- **First use**: If that folder is not a Git repository yet, the add-in asks to create one there. You do not need to open a command prompt.
+- **Core Operations**: View status, history, branches, and commit changes without leaving TIA Portal. The History and Branch pages load when you open them.
+- **Restore**: Restoring a commit creates a branch named `restore-<short hash>` and checks it out. The original branch is left unchanged.
+- **Transparent Execution**: Uses your local `git.exe`. It is found on `PATH`, or at `C:\Program Files\Git\cmd\git.exe`.
+
+Text diffs for SCL, generic XML, and plain text files show added lines in green and removed lines in red. The note that semantic comparison is unavailable means the add-in is comparing those files as text. LAD blocks that can be parsed use the graphical comparison instead.
 
 ## Prerequisites
 
 - **TIA Portal V21** (required for the Add-In API and Publisher).
 - **.NET SDK** compatible with the repo `global.json`.
-- **Local Git** installation available in system PATH.
+- **Git for Windows**. The add-in looks for `git.exe` on `PATH` and in `C:\Program Files\Git\cmd\git.exe`.
 
 ## Build & Installation
 
@@ -55,10 +59,21 @@ The build process automatically packages the result into a `.addin` file using t
 
 ### Installation
 
-1. Copy the `TiaGitAddIn.addin` file to `%APPDATA%\Siemens\Automation\Portal V21\UserAddIns`. Create that folder if it does not exist. Do not use `SystemAddIns`.
+Build `plugin_installer.exe`, then run it:
+
+```powershell
+python installer/build_plugin_installer.py
+.\installer\out\plugin_installer.exe
+```
+
+The installer copies `TiaGitAddIn.addin` to `%APPDATA%\Siemens\Automation\Portal V21\UserAddIns`. If Git for Windows is not installed, it offers to open the download page.
+
+To install the package yourself:
+
+1. Copy `src/TiaGitAddIn/bin/Debug/net48/TiaGitAddIn.addin` to `%APPDATA%\Siemens\Automation\Portal V21\UserAddIns`. Create that folder if it does not exist. Do not use `SystemAddIns`.
 2. Open TIA Portal V21.
 3. Enable the Add-In in the "Add-ins" task card.
-4. Right-click on a VCI workspace item to find the "Git" menu items.
+4. Right-click a VCI workspace item and choose **Open Git Panel...**.
 
 ## Development Roadmap
 
@@ -83,6 +98,7 @@ The build process automatically packages the result into a `.addin` file using t
 ## Project Structure
 
 ```text
+installer/             Builds plugin_installer.exe and copies the add-in into UserAddIns
 src/
   TiaGitAddIn/
     Entry/               TIA Portal Add-In entry points and menu registration
