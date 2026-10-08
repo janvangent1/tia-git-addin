@@ -66,7 +66,7 @@ namespace TiaGitAddIn.Services
         {
             foreach (string line in SplitLines(output))
             {
-                string[] fields = line.Split(FieldSeparator);
+                string[] fields = line.Split('\t');
                 if (fields.Length < 2)
                 {
                     continue;

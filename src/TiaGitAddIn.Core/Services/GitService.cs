@@ -16,7 +16,9 @@ namespace TiaGitAddIn.Services
         string repositoryRoot) : IGitService
     {
         private const string PrettyCommitFormat = "%H%x1f%an%x1f%aI%x1f%s%x1f%P";
-        private const string BranchListFormat = "%(HEAD)%x1f%(refname:short)%x1f%(upstream:short)%x1f%(upstream:track)";
+        // git branch --format uses for-each-ref placeholders. %09 is a tab; %x1f is git-log
+        // pretty syntax and is printed literally, which makes the branch list look empty.
+        private const string BranchListFormat = "%(HEAD)%09%(refname:short)%09%(upstream:short)%09%(upstream:track)";
         private static readonly Regex CommitHashPattern = new Regex("^[0-9a-fA-F]{7,64}$", RegexOptions.Compiled);
 
         public async Task<GitStatus> GetStatusAsync(CancellationToken ct = default)

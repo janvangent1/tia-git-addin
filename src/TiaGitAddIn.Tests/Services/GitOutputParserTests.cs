@@ -37,6 +37,27 @@ namespace TiaGitAddIn.Tests.Services
         }
 
         [Fact]
+        public void ParseBranchesReadsTabSeparatedBranchFormat()
+        {
+            var branches = GitOutputParser.ParseBranches(
+                "*\tmain\torigin/main\t[ahead 2, behind 1]\n" +
+                " \trestore-abc1234\t\t\n" +
+                " \torigin/main\t\t\n").ToList();
+
+            Assert.Equal(3, branches.Count);
+            Assert.Equal("main", branches[0].Name);
+            Assert.True(branches[0].IsCurrent);
+            Assert.Equal("origin/main", branches[0].TrackingBranch);
+            Assert.Equal(2, branches[0].AheadBy);
+            Assert.Equal(1, branches[0].BehindBy);
+            Assert.Equal("restore-abc1234", branches[1].Name);
+            Assert.False(branches[1].IsCurrent);
+            Assert.Null(branches[1].TrackingBranch);
+            Assert.Equal("origin/main", branches[2].Name);
+            Assert.False(branches[2].IsCurrent);
+        }
+
+        [Fact]
         public void ParseCommitLogSkipsMalformedLines()
         {
             var commits = GitOutputParser.ParseCommitLog(
