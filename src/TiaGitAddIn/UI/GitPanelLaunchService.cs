@@ -66,8 +66,7 @@ namespace TiaGitAddIn.UI
                 string? repositoryRoot = repositoryDiscovery.FindRepositoryRoot(workspacePath);
                 if (repositoryRoot == null || repositoryRoot.Trim().Length == 0)
                 {
-                    return GitPanelLaunchResult.Fail(
-                        "The selected VCI workspace is not inside a Git repository.");
+                    return GitPanelLaunchResult.Fail(GitUserMessages.WorkspaceNotARepository);
                 }
 
                 GitConfiguration configuration = configurationService.Load(repositoryRoot);

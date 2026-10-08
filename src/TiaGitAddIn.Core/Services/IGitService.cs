@@ -31,6 +31,12 @@ namespace TiaGitAddIn.Services
 
         Task<OperationResult> CheckoutBranchAsync(string branchName, CancellationToken ct = default);
 
+        Task<OperationResult> RestoreCommitAsync(string commitHash, CancellationToken ct = default);
+
+        Task<OperationResult> DiscardAsync(IReadOnlyList<string> filePaths, CancellationToken ct = default);
+
+        Task<OperationResult> SetLocalIdentityAsync(string name, string email, CancellationToken ct = default);
+
         Task<IReadOnlyList<CommitInfo>> GetCommitLogAsync(int maxCount, CancellationToken ct = default);
 
         Task<DiffResult> GetWorkingTreeDiffAsync(CancellationToken ct = default);

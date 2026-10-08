@@ -96,7 +96,7 @@ namespace TiaGitAddIn.UI.ViewModels
                 var result = await gitService.CreateBranchAsync(NewBranchName, ct).ConfigureAwait(false);
                 InvokeOnUI(() =>
                 {
-                    LastOperationMessage = result.DisplayMessage;
+                    LastOperationMessage = GitUserMessages.Describe(result);
                     if (result.Success) NewBranchName = string.Empty;
                 });
                 if (result.Success) await LoadBranchesCoreAsync(ct).ConfigureAwait(false);
@@ -110,7 +110,7 @@ namespace TiaGitAddIn.UI.ViewModels
             return RunBusyAsync($"Switching to {target.Name}…", async ct =>
             {
                 var result = await gitService.SwitchBranchAsync(target.Name, ct).ConfigureAwait(false);
-                InvokeOnUI(() => LastOperationMessage = result.DisplayMessage);
+                InvokeOnUI(() => LastOperationMessage = GitUserMessages.Describe(result));
                 if (result.Success) await LoadBranchesCoreAsync(ct).ConfigureAwait(false);
             });
         }
@@ -119,14 +119,14 @@ namespace TiaGitAddIn.UI.ViewModels
             RunBusyAsync("Fetching…", async ct =>
             {
                 var result = await gitService.FetchAsync(ct: ct).ConfigureAwait(false);
-                InvokeOnUI(() => LastOperationMessage = result.DisplayMessage);
+                InvokeOnUI(() => LastOperationMessage = GitUserMessages.Describe(result));
             });
 
         private Task PullAsync() =>
             RunBusyAsync("Pulling…", async ct =>
             {
                 var result = await gitService.PullAsync(ct: ct).ConfigureAwait(false);
-                InvokeOnUI(() => LastOperationMessage = result.DisplayMessage);
+                InvokeOnUI(() => LastOperationMessage = GitUserMessages.Describe(result));
                 if (result.Success) await LoadBranchesCoreAsync(ct).ConfigureAwait(false);
             });
 
@@ -134,7 +134,7 @@ namespace TiaGitAddIn.UI.ViewModels
             RunBusyAsync("Pushing…", async ct =>
             {
                 var result = await gitService.PushAsync(ct: ct).ConfigureAwait(false);
-                InvokeOnUI(() => LastOperationMessage = result.DisplayMessage);
+                InvokeOnUI(() => LastOperationMessage = GitUserMessages.Describe(result));
             });
 
         protected override void ReportStatus(string message) => LastOperationMessage = message;

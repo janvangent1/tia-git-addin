@@ -13,6 +13,7 @@ namespace TiaGitAddIn.UI.ViewModels
     public sealed class StatusViewModel : ViewModelBase
     {
         private readonly IGitService gitService;
+        private readonly Func<Task>? showChangesAsync;
         private ObservableCollection<FileStatusItemViewModel> stagedEntries = new();
         private ObservableCollection<FileStatusItemViewModel> unstagedEntries = new();
         private ObservableCollection<FileStatusItemViewModel> untrackedEntries = new();
@@ -22,13 +23,19 @@ namespace TiaGitAddIn.UI.ViewModels
         private string statusSummary = "Status not loaded";
         private string lastOperationMessage = string.Empty;
 
-        public StatusViewModel(IGitService gitService, IUiDispatcher? uiDispatcher = null)
+        public StatusViewModel(
+            IGitService gitService,
+            IUiDispatcher? uiDispatcher = null,
+            Func<Task>? showChangesAsync = null)
             : base(uiDispatcher)
         {
             this.gitService = gitService ?? throw new ArgumentNullException(nameof(gitService));
+            this.showChangesAsync = showChangesAsync;
             RefreshCommand = new AsyncCommand(() => RefreshAsync(), () => !IsBusy);
+            ShowChangesCommand = new AsyncCommand(() => ShowChangesAsync(), () => !IsBusy && HasComparableChanges);
             StageSelectedCommand = new AsyncCommand(p => StageSelectedAsync(p), _ => !IsBusy);
             UnstageSelectedCommand = new AsyncCommand(p => UnstageSelectedAsync(p), _ => !IsBusy);
+            DiscardSelectedCommand = new AsyncCommand(p => DiscardSelectedAsync(p), _ => !IsBusy);
             StageAllCommand = new AsyncCommand(() => StageAllAsync(), () => !IsBusy);
             CancelCommand = new RelayCommand(_ => RequestCancel(), _ => IsBusy);
         }
@@ -82,10 +89,14 @@ namespace TiaGitAddIn.UI.ViewModels
         }
 
         public AsyncCommand RefreshCommand { get; }
+        public AsyncCommand ShowChangesCommand { get; }
         public AsyncCommand StageSelectedCommand { get; }
         public AsyncCommand UnstageSelectedCommand { get; }
+        public AsyncCommand DiscardSelectedCommand { get; }
         public AsyncCommand StageAllCommand { get; }
         public RelayCommand CancelCommand { get; }
+
+        private bool HasComparableChanges => StagedEntries.Count > 0 || UnstagedEntries.Count > 0;
 
         public Task RefreshAsync() =>
             RunBusyAsync("Refreshing status…", LoadStatusCoreAsync);
@@ -100,12 +111,19 @@ namespace TiaGitAddIn.UI.ViewModels
                 CurrentBranch = string.IsNullOrWhiteSpace(status.CurrentBranch) ? "(unknown)" : status.CurrentBranch;
                 TrackingSummary = BuildTrackingSummary(status);
                 StagedEntries = new ObservableCollection<FileStatusItemViewModel>(status.StagedEntries.Select(e => new FileStatusItemViewModel(e)));
-                UnstagedEntries = new ObservableCollection<FileStatusItemViewModel>(status.UnstagedEntries.Select(e => new FileStatusItemViewModel(e)));
+                UnstagedEntries = new ObservableCollection<FileStatusItemViewModel>(
+                    status.UnstagedEntries
+                        .Where(e => e.WorkTreeStatus != FileStatus.Untracked && e.IndexStatus != FileStatus.Untracked)
+                        .Select(e => new FileStatusItemViewModel(e)));
                 UntrackedEntries = new ObservableCollection<FileStatusItemViewModel>(status.UntrackedEntries.Select(e => new FileStatusItemViewModel(e)));
                 Entries = new ObservableCollection<FileStatusItemViewModel>(status.Entries.Select(e => new FileStatusItemViewModel(e)));
                 StatusSummary = status.IsClean ? "Working tree clean" : $"{status.Entries.Count} changed files";
+                ShowChangesCommand.RaiseCanExecuteChanged();
             });
         }
+
+        public Task ShowChangesAsync() =>
+            showChangesAsync == null ? Task.CompletedTask : showChangesAsync();
 
         public Task StageSelectedAsync(object? parameter) =>
             ExecuteOnSelectionAsync(parameter, "Staging files…", gitService.StageAsync);
@@ -113,11 +131,14 @@ namespace TiaGitAddIn.UI.ViewModels
         public Task UnstageSelectedAsync(object? parameter) =>
             ExecuteOnSelectionAsync(parameter, "Unstaging files…", gitService.UnstageAsync);
 
+        public Task DiscardSelectedAsync(object? parameter) =>
+            ExecuteOnSelectionAsync(parameter, "Discarding changes…", gitService.DiscardAsync);
+
         public Task StageAllAsync() =>
             RunBusyAsync("Staging all files…", async ct =>
             {
                 OperationResult result = await gitService.StageAllAsync(ct).ConfigureAwait(false);
-                InvokeOnUI(() => LastOperationMessage = result.DisplayMessage);
+                InvokeOnUI(() => LastOperationMessage = GitUserMessages.Describe(result));
                 if (result.Success)
                 {
                     await LoadStatusCoreAsync(ct).ConfigureAwait(false);
@@ -138,7 +159,7 @@ namespace TiaGitAddIn.UI.ViewModels
             return RunBusyAsync(message, async ct =>
             {
                 OperationResult result = await operation(paths, ct).ConfigureAwait(false);
-                InvokeOnUI(() => LastOperationMessage = result.DisplayMessage);
+                InvokeOnUI(() => LastOperationMessage = GitUserMessages.Describe(result));
                 if (result.Success)
                 {
                     await LoadStatusCoreAsync(ct).ConfigureAwait(false);
@@ -181,8 +202,10 @@ namespace TiaGitAddIn.UI.ViewModels
             InvokeOnUI(() =>
             {
                 RefreshCommand.RaiseCanExecuteChanged();
+                ShowChangesCommand.RaiseCanExecuteChanged();
                 StageSelectedCommand.RaiseCanExecuteChanged();
                 UnstageSelectedCommand.RaiseCanExecuteChanged();
+                DiscardSelectedCommand.RaiseCanExecuteChanged();
                 StageAllCommand.RaiseCanExecuteChanged();
                 CancelCommand.RaiseCanExecuteChanged();
             });

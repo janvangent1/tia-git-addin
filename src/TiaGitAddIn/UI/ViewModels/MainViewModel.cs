@@ -39,12 +39,12 @@ namespace TiaGitAddIn.UI.ViewModels
                 throw new ArgumentNullException(nameof(configurationService));
 
             RepositoryPath = repositoryPath;
-            Status = new StatusViewModel(gitService, UiDispatcher);
+            Status = new StatusViewModel(gitService, UiDispatcher, ShowWorkingTreeDiffAsync);
             Commit = new CommitViewModel(gitService, Status.RefreshAsync, UiDispatcher);
             Branch = new BranchViewModel(gitService, UiDispatcher);
-            History = new HistoryViewModel(gitService, UiDispatcher);
+            History = new HistoryViewModel(gitService, UiDispatcher, RefreshStatusAndBranchesAsync);
             Diff = new DiffViewModel(gitService, revisionProvider, comparisonCoordinator, mapper, logger, UiDispatcher);
-            Settings = new SettingsViewModel(configurationService, repositoryPath, UiDispatcher);
+            Settings = new SettingsViewModel(configurationService, repositoryPath, gitService, UiDispatcher);
 
             CancelCommand = new RelayCommand(_ => CancelAll(), _ => IsBusy);
 
@@ -55,7 +55,17 @@ namespace TiaGitAddIn.UI.ViewModels
             Diff.PropertyChanged += OnChildPropertyChanged;
         }
 
+        public const int DiffTabIndex = 4;
+
+        private int selectedTabIndex;
+
         public string RepositoryPath { get; }
+
+        public int SelectedTabIndex
+        {
+            get => selectedTabIndex;
+            set => SetProperty(ref selectedTabIndex, value);
+        }
 
         public StatusViewModel Status { get; }
         public CommitViewModel Commit { get; }
@@ -67,6 +77,15 @@ namespace TiaGitAddIn.UI.ViewModels
         public RelayCommand CancelCommand { get; }
 
         public Task RefreshAsync() => Status.RefreshAsync();
+
+        private Task ShowWorkingTreeDiffAsync()
+        {
+            SelectedTabIndex = DiffTabIndex;
+            return Diff.LoadWorkingTreeDiffAsync();
+        }
+
+        private Task RefreshStatusAndBranchesAsync() =>
+            Task.WhenAll(Status.RefreshAsync(), Branch.RefreshAsync());
 
         private void OnChildPropertyChanged(object sender, PropertyChangedEventArgs e)
         {

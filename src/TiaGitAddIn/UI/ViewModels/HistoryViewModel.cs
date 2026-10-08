@@ -13,17 +13,23 @@ namespace TiaGitAddIn.UI.ViewModels
         private const int DefaultMaxCount = 100;
 
         private readonly IGitService gitService;
+        private readonly Func<Task>? refreshStatusAsync;
         private ObservableCollection<CommitInfo> commits = new();
         private CommitInfo? selectedCommit;
         private ObservableCollection<string> changedFiles = new();
         private string lastOperationMessage = string.Empty;
         private CancellationTokenSource? changedFilesCts;
 
-        public HistoryViewModel(IGitService gitService, IUiDispatcher? uiDispatcher = null)
+        public HistoryViewModel(
+            IGitService gitService,
+            IUiDispatcher? uiDispatcher = null,
+            Func<Task>? refreshStatusAsync = null)
             : base(uiDispatcher)
         {
             this.gitService = gitService ?? throw new ArgumentNullException(nameof(gitService));
+            this.refreshStatusAsync = refreshStatusAsync;
             RefreshCommand = new AsyncCommand(() => RefreshAsync(), () => !IsBusy);
+            RestoreCommand = new AsyncCommand(() => RestoreSelectedCommitAsync(), () => !IsBusy && SelectedCommit != null);
             CancelCommand = new RelayCommand(_ => RequestCancel(), _ => IsBusy);
         }
 
@@ -40,6 +46,7 @@ namespace TiaGitAddIn.UI.ViewModels
             {
                 if (SetProperty(selectedCommit, value, updated => selectedCommit = updated))
                 {
+                    RestoreCommand.RaiseCanExecuteChanged();
                     LoadChangedFilesAsync(value);
                 }
             }
@@ -58,6 +65,7 @@ namespace TiaGitAddIn.UI.ViewModels
         }
 
         public AsyncCommand RefreshCommand { get; }
+        public AsyncCommand RestoreCommand { get; }
         public RelayCommand CancelCommand { get; }
 
         public Task RefreshAsync() =>
@@ -72,6 +80,26 @@ namespace TiaGitAddIn.UI.ViewModels
                     LastOperationMessage = $"Loaded {log.Count} commits.";
                 });
             });
+
+        public Task RestoreSelectedCommitAsync()
+        {
+            CommitInfo? commit = SelectedCommit;
+            if (commit == null)
+            {
+                return Task.CompletedTask;
+            }
+
+            string shortHash = commit.Hash.Length <= 7 ? commit.Hash : commit.Hash.Substring(0, 7);
+            return RunBusyAsync($"Restoring {shortHash}…", async ct =>
+            {
+                OperationResult result = await gitService.RestoreCommitAsync(commit.Hash, ct).ConfigureAwait(false);
+                InvokeOnUI(() => LastOperationMessage = GitUserMessages.Describe(result));
+                if (result.Success && refreshStatusAsync != null)
+                {
+                    await refreshStatusAsync().ConfigureAwait(false);
+                }
+            });
+        }
 
         private async void LoadChangedFilesAsync(CommitInfo? commit)
         {
@@ -111,6 +139,7 @@ namespace TiaGitAddIn.UI.ViewModels
             InvokeOnUI(() =>
             {
                 RefreshCommand.RaiseCanExecuteChanged();
+                RestoreCommand.RaiseCanExecuteChanged();
                 CancelCommand.RaiseCanExecuteChanged();
             });
         }

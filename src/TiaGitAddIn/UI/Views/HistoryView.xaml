@@ -177,9 +177,16 @@
                         Foreground="DimGray"/>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
-                <Button Content="Refresh"
-                        Command="{Binding RefreshCommand}"
-                        Padding="10,2"/>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Restore this commit"
+                            Command="{Binding RestoreCommand}"
+                            Margin="0,0,8,0"
+                            Padding="10,2"
+                            ToolTip="Create a new branch at the selected commit and check it out. Later commits stay on the current branch."/>
+                    <Button Content="Refresh"
+                            Command="{Binding RefreshCommand}"
+                            Padding="10,2"/>
+                </StackPanel>
             </StatusBarItem>
         </StatusBar>
     </Grid>

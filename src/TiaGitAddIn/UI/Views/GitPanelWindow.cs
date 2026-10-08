@@ -85,7 +85,7 @@ namespace TiaGitAddIn.UI.Views
 
         private static FrameworkElement BuildTabs(MainViewModel vm)
         {
-            return new TabControl
+            TabControl tabs = new TabControl
             {
                 Items =
                 {
@@ -121,6 +121,11 @@ namespace TiaGitAddIn.UI.Views
                     }
                 }
             };
+            tabs.SetBinding(TabControl.SelectedIndexProperty, new Binding(nameof(MainViewModel.SelectedTabIndex))
+            {
+                Mode = BindingMode.TwoWay
+            });
+            return tabs;
         }
 
         private static FrameworkElement BuildBusyOverlay()

@@ -31,6 +31,57 @@ namespace TiaGitAddIn.Tests.UI
             Assert.Equal(new[] { "second.xml" }, viewModel.ChangedFiles);
         }
 
+        [Fact]
+        public async Task RestoreSelectedCommitRestoresHashAndRefreshesStatus()
+        {
+            var gitService = new FakeGitService(new TaskCompletionSource<IReadOnlyList<string>>());
+            int refreshCount = 0;
+            var viewModel = new HistoryViewModel(gitService, refreshStatusAsync: () =>
+            {
+                refreshCount++;
+                return Task.CompletedTask;
+            });
+            viewModel.SelectedCommit = new CommitInfo { Hash = "abcdef1234567890", Subject = "Older" };
+
+            await viewModel.RestoreSelectedCommitAsync();
+
+            Assert.Equal("abcdef1234567890", gitService.RestoredHash);
+            Assert.Equal(1, refreshCount);
+            Assert.Contains("restore-abcdef1", viewModel.LastOperationMessage, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task RestoreWithoutSelectionDoesNothing()
+        {
+            var gitService = new FakeGitService(new TaskCompletionSource<IReadOnlyList<string>>());
+            var viewModel = new HistoryViewModel(gitService);
+
+            await viewModel.RestoreSelectedCommitAsync();
+
+            Assert.Null(gitService.RestoredHash);
+        }
+
+        [Fact]
+        public async Task FailedRestoreDoesNotRefreshStatus()
+        {
+            var gitService = new FakeGitService(new TaskCompletionSource<IReadOnlyList<string>>())
+            {
+                RestoreResult = OperationResult.Fail("Commit or discard the current workspace changes before restoring an older commit.")
+            };
+            int refreshCount = 0;
+            var viewModel = new HistoryViewModel(gitService, refreshStatusAsync: () =>
+            {
+                refreshCount++;
+                return Task.CompletedTask;
+            });
+            viewModel.SelectedCommit = new CommitInfo { Hash = "abcdef1234567890" };
+
+            await viewModel.RestoreSelectedCommitAsync();
+
+            Assert.Equal(0, refreshCount);
+            Assert.Contains("Commit or discard", viewModel.LastOperationMessage, StringComparison.Ordinal);
+        }
+
         private static async Task WaitUntilAsync(Func<bool> condition)
         {
             for (int i = 0; i < 20; i++)
@@ -94,6 +145,23 @@ namespace TiaGitAddIn.Tests.UI
 
             public Task<OperationResult> CheckoutBranchAsync(string branchName, CancellationToken ct = default) =>
                 Task.FromResult(OperationResult.Ok("Branch checked out."));
+
+            public string? RestoredHash { get; private set; }
+
+            public OperationResult RestoreResult { get; set; } =
+                OperationResult.Ok("Restored abcdef1 on branch restore-abcdef1.");
+
+            public Task<OperationResult> RestoreCommitAsync(string commitHash, CancellationToken ct = default)
+            {
+                RestoredHash = commitHash;
+                return Task.FromResult(RestoreResult);
+            }
+
+            public Task<OperationResult> DiscardAsync(IReadOnlyList<string> filePaths, CancellationToken ct = default) =>
+                Task.FromResult(OperationResult.Ok("Discarded changes."));
+
+            public Task<OperationResult> SetLocalIdentityAsync(string name, string email, CancellationToken ct = default) =>
+                Task.FromResult(OperationResult.Ok("Name and email saved for this repository."));
 
             public Task<IReadOnlyList<CommitInfo>> GetCommitLogAsync(int maxCount, CancellationToken ct = default) =>
                 Task.FromResult<IReadOnlyList<CommitInfo>>(new List<CommitInfo>());

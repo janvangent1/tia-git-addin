@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using TiaGitAddIn.Configuration;
@@ -15,6 +16,8 @@ namespace TiaGitAddIn.Services
         string repositoryRoot) : IGitService
     {
         private const string PrettyCommitFormat = "%H%x1f%an%x1f%aI%x1f%s%x1f%P";
+        private const string BranchListFormat = "%(HEAD)%x1f%(refname:short)%x1f%(upstream:short)%x1f%(upstream:track)";
+        private static readonly Regex CommitHashPattern = new Regex("^[0-9a-fA-F]{7,64}$", RegexOptions.Compiled);
 
         public async Task<GitStatus> GetStatusAsync(CancellationToken ct = default)
         {
@@ -135,7 +138,7 @@ namespace TiaGitAddIn.Services
         public async Task<IReadOnlyList<BranchInfo>> GetBranchesAsync(CancellationToken ct = default)
         {
             GitProcessResult result = await RunAsync(
-                new[] { "branch", "-a", "--format=%(HEAD)%x1f%(refname:short)%x1f%(upstream:short)%x1f%(upstream:track)" },
+                new[] { "branch", "-a", "--format=" + BranchListFormat },
                 ct).ConfigureAwait(false);
 
             EnsureSuccess(result, "Unable to read branches.");
@@ -197,6 +200,156 @@ namespace TiaGitAddIn.Services
                 ct).ConfigureAwait(false);
 
             return ToOperationResult(result, "Branch checked out.", "Unable to check out branch.");
+        }
+
+        public async Task<OperationResult> RestoreCommitAsync(string commitHash, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(commitHash) || !CommitHashPattern.IsMatch(commitHash))
+            {
+                return OperationResult.Fail("Select a valid commit to restore.");
+            }
+
+            using (await serializer.AcquireAsync(ct).ConfigureAwait(false))
+            {
+                GitProcessResult statusResult = await RunAsync(
+                    new[] { "status", "--porcelain=v1", "-b" },
+                    ct).ConfigureAwait(false);
+                if (!statusResult.IsSuccess)
+                {
+                    return ToOperationResult(statusResult, string.Empty, "Unable to read Git status.");
+                }
+
+                if (!GitOutputParser.ParseStatus(statusResult.StandardOutput).IsClean)
+                {
+                    return OperationResult.Fail(
+                        "Commit or discard the current workspace changes before restoring an older commit.");
+                }
+
+                GitProcessResult branchResult = await RunAsync(
+                    new[] { "branch", "-a", "--format=" + BranchListFormat },
+                    ct).ConfigureAwait(false);
+                if (!branchResult.IsSuccess)
+                {
+                    return ToOperationResult(branchResult, string.Empty, "Unable to read branches.");
+                }
+
+                string branchName = ChooseRestoreBranchName(
+                    commitHash,
+                    GitOutputParser.ParseBranches(branchResult.StandardOutput).Select(branch => branch.Name));
+
+                GitProcessResult switchResult = await RunAsync(
+                    new[] { "switch", "-c", branchName, commitHash },
+                    ct).ConfigureAwait(false);
+
+                string shortHash = commitHash.Substring(0, 7);
+                return ToOperationResult(
+                    switchResult,
+                    $"Restored {shortHash} on branch {branchName}. Synchronize the workspace into the TIA project to update the blocks.",
+                    "Unable to restore the selected commit.");
+            }
+        }
+
+        public static string ChooseRestoreBranchName(string commitHash, IEnumerable<string> existingBranchNames)
+        {
+            if (string.IsNullOrWhiteSpace(commitHash) || commitHash.Length < 7)
+            {
+                throw new ArgumentException("Commit hash must be at least 7 characters.", nameof(commitHash));
+            }
+
+            string baseName = "restore-" + commitHash.Substring(0, 7).ToLowerInvariant();
+            var existing = new HashSet<string>(existingBranchNames ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+            if (!existing.Contains(baseName))
+            {
+                return baseName;
+            }
+
+            for (int suffix = 2; suffix <= 100; suffix++)
+            {
+                string candidate = baseName + "-" + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                if (!existing.Contains(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            throw new InvalidOperationException("Unable to choose a restore branch name.");
+        }
+
+        public async Task<OperationResult> DiscardAsync(IReadOnlyList<string> filePaths, CancellationToken ct = default)
+        {
+            if (filePaths == null || filePaths.Count == 0)
+            {
+                return OperationResult.Ok("No files to discard.");
+            }
+
+            foreach (string path in filePaths)
+            {
+                ValidationResult validation = PathValidator.Validate(path);
+                if (!validation.IsValid)
+                {
+                    return OperationResult.Fail(validation.ErrorMessage);
+                }
+            }
+
+            List<string> args = new() { "restore", "--source=HEAD", "--worktree", "--staged", "--" };
+            args.AddRange(filePaths);
+            GitProcessResult result = await RunExclusiveAsync(args, ct).ConfigureAwait(false);
+            return ToOperationResult(result, "Discarded changes.", "Unable to discard changes.");
+        }
+
+        public async Task<OperationResult> SetLocalIdentityAsync(string name, string email, CancellationToken ct = default)
+        {
+            if (!IsSafeIdentityValue(name))
+            {
+                return OperationResult.Fail("Enter a name that does not start with '-' or contain a new line.");
+            }
+
+            if (!IsSafeIdentityValue(email) || email.IndexOf('@') < 1)
+            {
+                return OperationResult.Fail("Enter an email address.");
+            }
+
+            using (await serializer.AcquireAsync(ct).ConfigureAwait(false))
+            {
+                GitProcessResult nameResult = await RunAsync(
+                    new[] { "config", "user.name", name },
+                    ct).ConfigureAwait(false);
+                if (!nameResult.IsSuccess)
+                {
+                    return ToOperationResult(nameResult, string.Empty, "Unable to save the Git name for this repository.");
+                }
+
+                GitProcessResult emailResult = await RunAsync(
+                    new[] { "config", "user.email", email },
+                    ct).ConfigureAwait(false);
+                return ToOperationResult(
+                    emailResult,
+                    "Name and email saved for this repository.",
+                    "Unable to save the Git email for this repository.");
+            }
+        }
+
+        private static bool IsSafeIdentityValue(string? value)
+        {
+            if (value == null)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(value) || value.Length > 200 || value.StartsWith("-", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            foreach (char character in value)
+            {
+                if (char.IsControl(character))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public async Task<IReadOnlyList<CommitInfo>> GetCommitLogAsync(

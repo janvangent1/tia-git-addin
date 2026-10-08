@@ -42,6 +42,26 @@
                 Margin="5"
                 VerticalAlignment="Center"/>
 
+        <Label Content="Your Name:"
+                Grid.Row="1"
+                Grid.Column="0"
+                VerticalAlignment="Center"/>
+        <TextBox Text="{Binding CommitAuthorName, UpdateSourceTrigger=PropertyChanged}"
+                Grid.Row="1"
+                Grid.Column="1"
+                Margin="5"
+                VerticalAlignment="Center"/>
+
+        <Label Content="Your Email:"
+                Grid.Row="2"
+                Grid.Column="0"
+                VerticalAlignment="Center"/>
+        <TextBox Text="{Binding CommitAuthorEmail, UpdateSourceTrigger=PropertyChanged}"
+                Grid.Row="2"
+                Grid.Column="1"
+                Margin="5"
+                VerticalAlignment="Center"/>
+
         <Label Content="Repository Path:"
                 Grid.Row="3"
                 Grid.Column="0"

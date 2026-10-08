@@ -55,7 +55,7 @@ The build process automatically packages the result into a `.addin` file using t
 
 ### Installation
 
-1. Copy the `TiaGitAddIn.addin` file to your TIA Portal Add-Ins folder (typically `%TIA_INSTALL_DIR%\AddIns`).
+1. Copy the `TiaGitAddIn.addin` file to `%APPDATA%\Siemens\Automation\Portal V21\UserAddIns`. Create that folder if it does not exist. Do not use `SystemAddIns`.
 2. Open TIA Portal V21.
 3. Enable the Add-In in the "Add-ins" task card.
 4. Right-click on a VCI workspace item to find the "Git" menu items.

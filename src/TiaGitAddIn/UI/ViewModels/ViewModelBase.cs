@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using TiaGitAddIn.Services;
 using TiaGitAddIn.UI;
 
 namespace TiaGitAddIn.UI.ViewModels
@@ -92,7 +93,7 @@ namespace TiaGitAddIn.UI.ViewModels
             }
             catch (Exception ex)
             {
-                InvokeOnUI(() => ReportStatus($"Error: {ex.Message}"));
+                InvokeOnUI(() => ReportStatus(GitUserMessages.DescribeException(ex.Message)));
             }
             finally
             {

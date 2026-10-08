@@ -79,6 +79,15 @@ namespace TiaGitAddIn.Tests.UI
             public Task<OperationResult> CheckoutBranchAsync(string branchName, CancellationToken ct = default) =>
                 Task.FromResult(OperationResult.Ok("Branch checked out."));
 
+            public Task<OperationResult> RestoreCommitAsync(string commitHash, CancellationToken ct = default) =>
+                Task.FromResult(OperationResult.Ok("Commit restored."));
+
+            public Task<OperationResult> DiscardAsync(IReadOnlyList<string> filePaths, CancellationToken ct = default) =>
+                Task.FromResult(OperationResult.Ok("Discarded changes."));
+
+            public Task<OperationResult> SetLocalIdentityAsync(string name, string email, CancellationToken ct = default) =>
+                Task.FromResult(OperationResult.Ok("Name and email saved for this repository."));
+
             public Task<IReadOnlyList<CommitInfo>> GetCommitLogAsync(int maxCount, CancellationToken ct = default) =>
                 Task.FromResult<IReadOnlyList<CommitInfo>>(new List<CommitInfo>());
 

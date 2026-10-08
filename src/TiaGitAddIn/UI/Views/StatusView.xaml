@@ -95,11 +95,19 @@
                                     <TextBlock Text="{Binding FilePath}"
                                             Grid.Column="1"
                                             Margin="5,0"/>
-                                    <Button Content="Stage"
-                                            Command="{Binding DataContext.StageSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}"
-                                            Grid.Column="2"
-                                            Padding="5,0"/>
+                                    <StackPanel Grid.Column="2"
+                                                Orientation="Horizontal">
+                                        <Button Content="Stage"
+                                                Command="{Binding DataContext.StageSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Padding="5,0"/>
+                                        <Button Content="Discard"
+                                                Command="{Binding DataContext.DiscardSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Margin="4,0,0,0"
+                                                Padding="5,0"
+                                                ToolTip="Put this file back to the last commit."/>
+                                    </StackPanel>
                                 </Grid>
                             </DataTemplate>
                         </ListView.ItemTemplate>
@@ -154,8 +162,13 @@
                     <TextBlock Text="{Binding LastOperationMessage}"
                             Margin="0,0,10,0"
                             Foreground="DimGray"/>
+                    <Button Content="Show changes"
+                            Command="{Binding ShowChangesCommand}"
+                            Padding="10,0"
+                            ToolTip="Compare the current workspace files with the last commit."/>
                     <Button Content="Stage All"
                             Command="{Binding StageAllCommand}"
+                            Margin="5,0,0,0"
                             Padding="10,0"/>
                     <Button Content="Refresh"
                             Command="{Binding RefreshCommand}"

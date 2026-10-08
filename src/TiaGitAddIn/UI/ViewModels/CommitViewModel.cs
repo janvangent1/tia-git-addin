@@ -71,7 +71,7 @@ namespace TiaGitAddIn.UI.ViewModels
             return RunBusyAsync("Committing…", async ct =>
             {
                 OperationResult result = await gitService.CommitAsync(message, ct).ConfigureAwait(false);
-                InvokeOnUI(() => LastOperationMessage = result.DisplayMessage);
+                InvokeOnUI(() => LastOperationMessage = GitUserMessages.Describe(result));
                 if (result.Success)
                 {
                     InvokeOnUI(() => CommitMessage = string.Empty);

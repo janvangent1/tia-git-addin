@@ -82,6 +82,43 @@ namespace TiaGitAddIn.Tests.UI
             Assert.Equal("Working tree clean", viewModel.StatusSummary);
         }
 
+        [Fact]
+        public async Task DiscardSelectedAsyncSendsTheFilePath()
+        {
+            var status = new GitStatus
+            {
+                Entries = new List<FileStatusEntry>
+                {
+                    new FileStatusEntry { FilePath = "Blocks/Program.xml", WorkTreeStatus = FileStatus.Modified }
+                }
+            };
+            var gitService = new FakeGitService(status, new GitStatus());
+            var viewModel = new StatusViewModel(gitService);
+
+            await viewModel.RefreshAsync();
+            await viewModel.DiscardSelectedAsync(viewModel.UnstagedEntries[0]);
+
+            Assert.Equal(new[] { "Blocks/Program.xml" }, gitService.DiscardedPaths);
+            Assert.Equal("Discarded changes.", viewModel.LastOperationMessage);
+        }
+
+        [Fact]
+        public async Task ShowChangesAsyncInvokesTheDiffCallback()
+        {
+            int calls = 0;
+            var viewModel = new StatusViewModel(
+                new FakeGitService(),
+                showChangesAsync: () =>
+                {
+                    calls++;
+                    return Task.CompletedTask;
+                });
+
+            await viewModel.ShowChangesAsync();
+
+            Assert.Equal(1, calls);
+        }
+
         private sealed class FakeGitService : IGitService
         {
             private readonly Queue<GitStatus> statuses;
@@ -135,6 +172,20 @@ namespace TiaGitAddIn.Tests.UI
 
             public Task<OperationResult> CheckoutBranchAsync(string branchName, CancellationToken ct = default) =>
                 Task.FromResult(OperationResult.Ok("Branch checked out."));
+
+            public Task<OperationResult> RestoreCommitAsync(string commitHash, CancellationToken ct = default) =>
+                Task.FromResult(OperationResult.Ok("Commit restored."));
+
+            public List<string> DiscardedPaths { get; } = new List<string>();
+
+            public Task<OperationResult> DiscardAsync(IReadOnlyList<string> filePaths, CancellationToken ct = default)
+            {
+                DiscardedPaths.AddRange(filePaths);
+                return Task.FromResult(OperationResult.Ok("Discarded changes."));
+            }
+
+            public Task<OperationResult> SetLocalIdentityAsync(string name, string email, CancellationToken ct = default) =>
+                Task.FromResult(OperationResult.Ok("Name and email saved for this repository."));
 
             public Task<IReadOnlyList<CommitInfo>> GetCommitLogAsync(int maxCount, CancellationToken ct = default) =>
                 Task.FromResult<IReadOnlyList<CommitInfo>>(new List<CommitInfo>());
