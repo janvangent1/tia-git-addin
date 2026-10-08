@@ -87,6 +87,12 @@
                 <TextBlock Text="{Binding LastOperationMessage}"
                            Foreground="DimGray"/>
             </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <Button Content="Export PDF"
+                        Command="{Binding ExportPdfCommand}"
+                        Padding="10,2"
+                        ToolTip="Save the changed-file list and the open text diff as a PDF. Ladder diagrams are left out."/>
+            </StatusBarItem>
         </StatusBar>
     </Grid>
 </UserControl>

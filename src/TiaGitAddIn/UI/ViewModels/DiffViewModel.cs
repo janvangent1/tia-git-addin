@@ -1,12 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Win32;
 using TiaGitAddIn.Logging;
 using TiaGitAddIn.Models;
 using TiaGitAddIn.Models.Comparison;
+using TiaGitAddIn.Reporting;
 using TiaGitAddIn.Services;
 using TiaGitAddIn.Services.Comparison;
 using TiaGitAddIn.Services.Revision;
@@ -22,6 +25,7 @@ namespace TiaGitAddIn.UI.ViewModels
         private ObservableCollection<DiffEntryViewModel> entries = new();
         private DiffEntryViewModel? selectedEntry;
         private string lastOperationMessage = string.Empty;
+        private string reportTitle = "Diff";
         private string? currentDiffCommitHash;
         private ComparisonPresentationViewModel? currentPresentation;
 
@@ -48,6 +52,7 @@ namespace TiaGitAddIn.UI.ViewModels
                 viewModel => CurrentPresentation = viewModel,
                 effectiveLogger);
 
+            ExportPdfCommand = new RelayCommand(_ => ExportPdf(), _ => !IsBusy && Entries.Count > 0);
             CancelCommand = new RelayCommand(_ => RequestCancel(), _ => IsBusy);
         }
 
@@ -82,6 +87,7 @@ namespace TiaGitAddIn.UI.ViewModels
             private set => SetProperty(currentPresentation, value, updated => currentPresentation = updated);
         }
 
+        public RelayCommand ExportPdfCommand { get; }
         public RelayCommand CancelCommand { get; }
 
         public Task LoadCommitDiffAsync(string commitHash)
@@ -129,20 +135,138 @@ namespace TiaGitAddIn.UI.ViewModels
 
         private void ApplyDiffResult(DiffResult result, string title)
         {
+            reportTitle = title;
             InvokeOnUI(() =>
             {
                 Entries = new ObservableCollection<DiffEntryViewModel>(
                     result.Entries.Select(e => new DiffEntryViewModel(e)));
                 SelectedEntry = Entries.FirstOrDefault();
                 LastOperationMessage = $"{title} · {result.Entries.Count} file(s) changed.";
+                ExportPdfCommand.RaiseCanExecuteChanged();
             });
+        }
+
+        private void ExportPdf()
+        {
+            if (Entries.Count == 0)
+            {
+                LastOperationMessage = "There is no diff to export. Select a commit or use Show changes first.";
+                return;
+            }
+
+            SaveFileDialog dialog = new()
+            {
+                Filter = "PDF files (*.pdf)|*.pdf",
+                FileName = "git-diff.pdf",
+                Title = "Export diff",
+                AddExtension = true,
+                DefaultExt = ".pdf"
+            };
+
+            if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                return;
+            }
+
+            try
+            {
+                PdfReport report = BuildPdfReport();
+                PdfReportWriter.Write(report, dialog.FileName);
+                LastOperationMessage = "Exported diff to " + dialog.FileName;
+            }
+            catch (Exception ex)
+            {
+                LastOperationMessage = "Unable to export the PDF. " + ex.Message;
+            }
+        }
+
+        private PdfReport BuildPdfReport()
+        {
+            IReadOnlyList<string> files = Entries
+                .Select(entry => entry.ChangeType + "  " + entry.FilePath)
+                .ToList();
+            string? selectedFile = SelectedEntry?.FilePath;
+
+            if (CurrentPresentation is LadComparisonViewModel)
+            {
+                return DiffPdfReport.Create(reportTitle, files, selectedFile, true, null, false);
+            }
+
+            if (CurrentPresentation is TextComparisonViewModel text)
+            {
+                IReadOnlyList<DiffPdfTextLine> lines = text.Lines
+                    .Select(line => new DiffPdfTextLine(line.StatusLabel, line.Text))
+                    .ToList();
+                return DiffPdfReport.Create(reportTitle, files, selectedFile, false, lines, text.IsTruncated);
+            }
+
+            if (CurrentPresentation is InterfaceComparisonViewModel interfaceComparison)
+            {
+                return DiffPdfReport.Create(
+                    reportTitle,
+                    files,
+                    selectedFile,
+                    false,
+                    FlattenInterface(interfaceComparison),
+                    false);
+            }
+
+            return DiffPdfReport.Create(
+                reportTitle,
+                files,
+                selectedFile,
+                false,
+                null,
+                false,
+                CurrentPresentation == null
+                    ? "The file comparison is not loaded yet, so only the file list is included."
+                    : null);
+        }
+
+        private static IReadOnlyList<DiffPdfTextLine> FlattenInterface(InterfaceComparisonViewModel comparison)
+        {
+            var lines = new List<DiffPdfTextLine>();
+            foreach (InterfaceSectionRowViewModel section in comparison.Sections)
+            {
+                lines.Add(new DiffPdfTextLine(" ", section.Name));
+                foreach (InterfaceMemberRowViewModel member in section.Members)
+                {
+                    AppendInterfaceMember(lines, member, 1);
+                }
+            }
+
+            return lines;
+        }
+
+        private static void AppendInterfaceMember(
+            List<DiffPdfTextLine> lines,
+            InterfaceMemberRowViewModel member,
+            int depth)
+        {
+            string marker = member.StatusLabel == "Added"
+                ? "+"
+                : member.StatusLabel == "Removed"
+                    ? "-"
+                    : " ";
+            string indent = new string(' ', depth * 2);
+            lines.Add(new DiffPdfTextLine(
+                marker,
+                indent + member.Name + "  " + member.LeftDatatype + " -> " + member.RightDatatype));
+            foreach (InterfaceMemberRowViewModel child in member.Children)
+            {
+                AppendInterfaceMember(lines, child, depth + 1);
+            }
         }
 
         protected override void ReportStatus(string message) => LastOperationMessage = message;
 
         protected override void OnBusyChanged()
         {
-            InvokeOnUI(() => CancelCommand.RaiseCanExecuteChanged());
+            InvokeOnUI(() =>
+            {
+                ExportPdfCommand.RaiseCanExecuteChanged();
+                CancelCommand.RaiseCanExecuteChanged();
+            });
         }
     }
 

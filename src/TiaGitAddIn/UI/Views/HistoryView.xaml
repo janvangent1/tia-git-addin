@@ -178,6 +178,11 @@
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
                 <StackPanel Orientation="Horizontal">
+                    <Button Content="Export PDF"
+                            Command="{Binding ExportPdfCommand}"
+                            Margin="0,0,8,0"
+                            Padding="10,2"
+                            ToolTip="Save the loaded commit list, and the selected commit's changed files, as a PDF."/>
                     <Button Content="Restore this commit"
                             Command="{Binding RestoreCommand}"
                             Margin="0,0,8,0"

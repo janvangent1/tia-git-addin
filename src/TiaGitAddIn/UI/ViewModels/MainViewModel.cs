@@ -42,7 +42,7 @@ namespace TiaGitAddIn.UI.ViewModels
             Status = new StatusViewModel(gitService, UiDispatcher, ShowWorkingTreeDiffAsync);
             Commit = new CommitViewModel(gitService, Status.RefreshAsync, UiDispatcher);
             Branch = new BranchViewModel(gitService, UiDispatcher);
-            History = new HistoryViewModel(gitService, UiDispatcher, RefreshStatusAndBranchesAsync);
+            History = new HistoryViewModel(gitService, UiDispatcher, RefreshStatusAndBranchesAsync, repositoryPath);
             Diff = new DiffViewModel(gitService, revisionProvider, comparisonCoordinator, mapper, logger, UiDispatcher);
             Settings = new SettingsViewModel(configurationService, repositoryPath, gitService, UiDispatcher);
 
