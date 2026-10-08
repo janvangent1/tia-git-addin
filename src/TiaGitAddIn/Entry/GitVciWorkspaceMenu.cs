@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Windows;
+using System.Windows.Interop;
 using Siemens.Engineering.AddIn.Menu;
 using Siemens.Engineering.AddIn.VersionControl;
 using TiaGitAddIn.Logging;
@@ -97,8 +98,27 @@ namespace TiaGitAddIn.Entry
             {
                 try
                 {
+                    EnsureWpfApplication();
                     MainViewModel viewModel = createViewModel();
                     GitPanelWindow window = new(viewModel);
+                    bool loggedWindowHandleRace = false;
+                    window.Dispatcher.UnhandledException += (_, args) =>
+                    {
+                        if (!WpfHostExceptions.IsTransientWindowHandleError(args.Exception))
+                        {
+                            return;
+                        }
+
+                        args.Handled = true;
+                        if (loggedWindowHandleRace)
+                        {
+                            return;
+                        }
+
+                        loggedWindowHandleRace = true;
+                        logger.Info("Ignored a transient invalid window handle while opening the Git panel.");
+                    };
+                    new WindowInteropHelper(window).EnsureHandle();
                     window.ShowDialog();
                 }
                 catch (Exception ex)
@@ -112,5 +132,19 @@ namespace TiaGitAddIn.Entry
             thread.IsBackground = true;
             thread.Start();
         }
+
+        private static void EnsureWpfApplication()
+        {
+            if (Application.Current != null)
+            {
+                return;
+            }
+
+            new Application
+            {
+                ShutdownMode = ShutdownMode.OnExplicitShutdown
+            };
+        }
+
     }
 }

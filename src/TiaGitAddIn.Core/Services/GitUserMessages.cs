@@ -10,8 +10,11 @@ namespace TiaGitAddIn.Services
         public const string IdentityRequired =
             "Git needs your name and email. Open Settings, enter them, and click Save Settings.";
 
-        public const string WorkspaceNotARepository =
-            "The selected VCI workspace is not inside a Git repository. Open a command prompt in the workspace folder and run: git init";
+        public const string RepositoryInitDeclined =
+            "The Git panel was not opened. This VCI workspace is not a Git repository yet.";
+
+        public const string GitNotFoundBeforeRepository =
+            "Git was not found, so no repository was created. Install Git for Windows. git.exe is usually at C:\\Program Files\\Git\\cmd\\git.exe.";
 
         public static string Describe(OperationResult result)
         {

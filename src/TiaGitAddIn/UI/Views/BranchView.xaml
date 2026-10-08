@@ -5,9 +5,13 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="clr-namespace:TiaGitAddIn.UI.Views"
              xmlns:vm="clr-namespace:TiaGitAddIn.UI.ViewModels"
+             xmlns:conv="clr-namespace:TiaGitAddIn.UI.Converters"
              mc:Ignorable="d"
              d:DesignHeight="450"
         d:DesignWidth="800">
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
+    </UserControl.Resources>
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

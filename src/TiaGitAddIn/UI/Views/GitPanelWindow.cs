@@ -125,7 +125,30 @@ namespace TiaGitAddIn.UI.Views
             {
                 Mode = BindingMode.TwoWay
             });
+            tabs.SelectionChanged += OnTabSelectionChanged;
             return tabs;
+        }
+
+        private static void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!ReferenceEquals(e.Source, sender))
+            {
+                return;
+            }
+
+            if (sender is not TabControl tabs || tabs.SelectedItem is not TabItem item)
+            {
+                return;
+            }
+
+            if (item.Content is HistoryView historyView && historyView.DataContext is HistoryViewModel history)
+            {
+                _ = history.RefreshAsync();
+            }
+            else if (item.Content is BranchView branchView && branchView.DataContext is BranchViewModel branch)
+            {
+                _ = branch.RefreshAsync();
+            }
         }
 
         private static FrameworkElement BuildBusyOverlay()

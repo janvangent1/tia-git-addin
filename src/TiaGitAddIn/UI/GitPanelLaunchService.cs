@@ -16,13 +16,19 @@ namespace TiaGitAddIn.UI
         IRepositoryDiscovery repositoryDiscovery,
         IConfigurationService configurationService,
         Func<string, string, IGitService> createGitService,
-        IAddInLogger logger)
+        IAddInLogger logger,
+        IGitRepositoryInitializer repositoryInitializer,
+        IRepositoryInitPrompt repositoryInitPrompt,
+        Func<string> resolveGitExecutable)
     {
         private readonly IVciWorkspaceLocator workspaceLocator = workspaceLocator ?? throw new ArgumentNullException(nameof(workspaceLocator));
         private readonly IRepositoryDiscovery repositoryDiscovery = repositoryDiscovery ?? throw new ArgumentNullException(nameof(repositoryDiscovery));
         private readonly IConfigurationService configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
         private readonly Func<string, string, IGitService> createGitService = createGitService ?? throw new ArgumentNullException(nameof(createGitService));
         private readonly IAddInLogger logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        private readonly IGitRepositoryInitializer repositoryInitializer = repositoryInitializer ?? throw new ArgumentNullException(nameof(repositoryInitializer));
+        private readonly IRepositoryInitPrompt repositoryInitPrompt = repositoryInitPrompt ?? throw new ArgumentNullException(nameof(repositoryInitPrompt));
+        private readonly Func<string> resolveGitExecutable = resolveGitExecutable ?? throw new ArgumentNullException(nameof(resolveGitExecutable));
 
         public GitPanelLaunchService()
             : this(
@@ -34,7 +40,10 @@ namespace TiaGitAddIn.UI
                     new OperationSerializer(),
                     gitPath,
                     repositoryPath),
-                new FileLogger())
+                new FileLogger(),
+                new GitRepositoryInitializer(new GitProcessRunner()),
+                new RepositoryInitPrompt(),
+                () => GitExecutableLocator.Resolve())
         {
         }
 
@@ -48,7 +57,10 @@ namespace TiaGitAddIn.UI
                 repositoryDiscovery,
                 configurationService,
                 createGitService,
-                new FileLogger())
+                new FileLogger(),
+                new GitRepositoryInitializer(new GitProcessRunner()),
+                new RepositoryInitPrompt(),
+                () => GitExecutableLocator.Resolve())
         {
         }
 
@@ -63,13 +75,15 @@ namespace TiaGitAddIn.UI
                         "Unable to resolve a VCI workspace path from the selected TIA item.");
                 }
 
-                string? repositoryRoot = repositoryDiscovery.FindRepositoryRoot(workspacePath);
-                if (repositoryRoot == null || repositoryRoot.Trim().Length == 0)
+                (bool found, string repositoryRoot, string? createdWithGit, string failure) =
+                    EnsureRepository(workspacePath);
+                if (!found)
                 {
-                    return GitPanelLaunchResult.Fail(GitUserMessages.WorkspaceNotARepository);
+                    return GitPanelLaunchResult.Fail(failure);
                 }
 
                 GitConfiguration configuration = configurationService.Load(repositoryRoot);
+                RememberGitExecutable(repositoryRoot, configuration, createdWithGit);
                 string gitExecutablePath = string.IsNullOrWhiteSpace(configuration.GitExecutablePath)
                     ? "git"
                     : configuration.GitExecutablePath!;
@@ -130,6 +144,62 @@ namespace TiaGitAddIn.UI
             {
                 logger.Error("Unable to create Git panel view model.", ex);
                 return GitPanelLaunchResult.Fail("Unable to open Git panel. " + ex.Message);
+            }
+        }
+
+        private (bool Success, string RepositoryRoot, string? CreatedWithGit, string Message) EnsureRepository(
+            string workspacePath)
+        {
+            string? repositoryRoot = repositoryDiscovery.FindRepositoryRoot(workspacePath);
+            if (!string.IsNullOrWhiteSpace(repositoryRoot))
+            {
+                return (true, repositoryRoot!, null, string.Empty);
+            }
+
+            if (!repositoryInitPrompt.Confirm(workspacePath))
+            {
+                return (false, string.Empty, null, GitUserMessages.RepositoryInitDeclined);
+            }
+
+            string gitExecutablePath = resolveGitExecutable();
+            OperationResult initialized = repositoryInitializer
+                .InitializeAsync(workspacePath, gitExecutablePath)
+                .GetAwaiter()
+                .GetResult();
+            if (!initialized.Success)
+            {
+                return (false, string.Empty, null, GitUserMessages.Describe(initialized));
+            }
+
+            string? discoveredRoot = repositoryDiscovery.FindRepositoryRoot(workspacePath);
+            string resolvedRoot = string.IsNullOrWhiteSpace(discoveredRoot)
+                ? workspacePath
+                : discoveredRoot!;
+
+            return (true, resolvedRoot, gitExecutablePath, string.Empty);
+        }
+
+        private void RememberGitExecutable(
+            string repositoryRoot,
+            GitConfiguration configuration,
+            string? createdWithGit)
+        {
+            if (string.IsNullOrWhiteSpace(createdWithGit) ||
+                string.Equals(configuration.GitExecutablePath, createdWithGit, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            configuration.GitExecutablePath = createdWithGit;
+            configuration.RepositoryPath = repositoryRoot;
+            try
+            {
+                configurationService.Save(repositoryRoot, configuration);
+            }
+            catch (Exception ex)
+            {
+                logger.Info(
+                    "Git repository was created, but the Git executable path could not be saved. " + ex.Message);
             }
         }
     }

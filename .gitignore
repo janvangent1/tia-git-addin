@@ -81,3 +81,7 @@ graphify-out/.graphify_root
 SACT_res/
 .fake
 *skills/
+
+# Generated single-file plugin installer
+/plugin_installer.exe
+installer/out/

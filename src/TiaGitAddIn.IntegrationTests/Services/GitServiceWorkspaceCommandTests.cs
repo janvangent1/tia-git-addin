@@ -56,7 +56,6 @@ namespace TiaGitAddIn.IntegrationTests.Services
             Assert.Equal(
                 GitUserMessages.IdentityRequired,
                 GitUserMessages.Describe(OperationResult.Fail("Unable to create commit.", "Please tell me who you are.")));
-            Assert.Contains("git init", GitUserMessages.WorkspaceNotARepository);
         }
 
         private sealed class RecordingRunner : IGitProcessRunner
