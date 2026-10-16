@@ -1,8 +1,9 @@
 """Build plugin_installer.exe by embedding the latest TIA Git .addin file.
 
 This script does not compile anything. It appends the plugin package to
-installer/plugin_installer_stub.exe. Running the resulting exe copies that
-package into the TIA Portal user add-ins folder:
+installer/plugin_installer_stub.exe. Running the resulting exe checks the
+TIA Portal user add-ins folder, lets you browse to it when that folder is
+not the Portal UserAddIns folder, and then copies the package there:
 
     %APPDATA%\\Siemens\\Automation\\Portal V21\\UserAddIns
 
@@ -180,7 +181,7 @@ def launch_ui() -> int:
     )
     ttk.Label(
         frame,
-        text="Embeds a .addin file in plugin_installer.exe. Running that exe copies the plugin into the TIA Portal user add-ins folder.",
+        text="Embeds a .addin file in plugin_installer.exe. Running that exe checks the TIA Portal user add-ins folder, lets you browse if it is not the right folder, and copies the plugin there.",
         wraplength=560,
         justify="left",
     ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(6, 0))
