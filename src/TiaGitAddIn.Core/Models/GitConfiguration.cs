@@ -8,6 +8,8 @@ namespace TiaGitAddIn.Models
 
         public string DefaultRemote { get; set; } = "origin";
 
+        public string RemoteUrl { get; set; } = string.Empty;
+
         public int MaxLogEntries { get; set; } = 200;
 
         public int Version { get; set; } = 1;

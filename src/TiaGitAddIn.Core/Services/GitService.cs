@@ -354,6 +354,215 @@ namespace TiaGitAddIn.Services
             return true;
         }
 
+        public async Task<OperationResult> SetRemoteUrlAsync(string remoteName, string url, CancellationToken ct = default)
+        {
+            string? nameProblem = DescribeRemoteNameProblem(remoteName);
+            if (nameProblem != null)
+            {
+                return OperationResult.Fail(nameProblem);
+            }
+
+            string? urlProblem = DescribeRemoteUrlProblem(url);
+            if (urlProblem != null)
+            {
+                return OperationResult.Fail(urlProblem);
+            }
+
+            string name = remoteName.Trim();
+            string address = url.Trim();
+            using (await serializer.AcquireAsync(ct).ConfigureAwait(false))
+            {
+                GitProcessResult listed = await RunAsync(new[] { "remote", "-v" }, ct).ConfigureAwait(false);
+                if (!listed.IsSuccess)
+                {
+                    return ToOperationResult(listed, string.Empty, "Unable to read remotes.");
+                }
+
+                bool exists = GitOutputParser.ParseRemotes(listed.StandardOutput)
+                    .Any(remote => string.Equals(remote.Name, name, StringComparison.Ordinal));
+                string[] arguments = exists
+                    ? new[] { "remote", "set-url", name, address }
+                    : new[] { "remote", "add", name, address };
+                GitProcessResult result = await RunAsync(arguments, ct).ConfigureAwait(false);
+                return ToOperationResult(
+                    result,
+                    "Remote " + name + " now points at " + address + ".",
+                    "Unable to save the remote repository.");
+            }
+        }
+
+        public static string? DescribeRemoteNameProblem(string? remoteName)
+        {
+            if (remoteName == null || remoteName.Trim().Length == 0)
+            {
+                return "Enter a remote name such as origin.";
+            }
+
+            string name = remoteName.Trim();
+            if (name.Length > 64 || !char.IsLetterOrDigit(name[0]))
+            {
+                return "Enter a remote name such as origin.";
+            }
+
+            for (int index = 0; index < name.Length; index++)
+            {
+                char character = name[index];
+                bool allowed = char.IsLetterOrDigit(character) || character == '.' || character == '_' || character == '-';
+                if (!allowed)
+                {
+                    return "Enter a remote name such as origin.";
+                }
+            }
+
+            return null;
+        }
+
+        public static string? DescribeRemoteUrlProblem(string? url)
+        {
+            if (url == null || url.Trim().Length == 0)
+            {
+                return "Enter a GitHub or Azure DevOps repository URL.";
+            }
+
+            string address = url.Trim();
+            if (address.Length > 500 || address.StartsWith("-", StringComparison.Ordinal) || HasControlOrWhitespace(address))
+            {
+                return "Enter a GitHub or Azure DevOps repository URL.";
+            }
+
+            if (HasEmbeddedPassword(address))
+            {
+                return "Leave the password out of the URL. Git Credential Manager stores it after the first fetch.";
+            }
+
+            if (IsGitHubUrl(address) || IsAzureDevOpsUrl(address))
+            {
+                return null;
+            }
+
+            return "Enter a GitHub or Azure DevOps repository URL.";
+        }
+
+        private static bool IsGitHubUrl(string address)
+        {
+            if (TryTrimPrefix(address, "https://github.com/", out string httpsPath))
+            {
+                return HasOwnerAndRepository(httpsPath);
+            }
+
+            if (TryTrimPrefix(address, "ssh://git@github.com/", out string sshPath))
+            {
+                return HasOwnerAndRepository(sshPath);
+            }
+
+            if (TryTrimPrefix(address, "git@github.com:", out string scpPath))
+            {
+                return HasOwnerAndRepository(scpPath);
+            }
+
+            return false;
+        }
+
+        private static bool IsAzureDevOpsUrl(string address)
+        {
+            if (TryTrimPrefix(address, "git@ssh.dev.azure.com:", out string scpPath))
+            {
+                return TryTrimPrefix(scpPath, "v3/", out string repositoryPath) && HasThreeSegments(repositoryPath);
+            }
+
+            if (TryTrimPrefix(address, "ssh://git@ssh.dev.azure.com/", out string sshPath))
+            {
+                return TryTrimPrefix(sshPath, "v3/", out string repositoryPath) && HasThreeSegments(repositoryPath);
+            }
+
+            if (!TryTrimPrefix(address, "https://", out string remainder))
+            {
+                return false;
+            }
+
+            int slash = remainder.IndexOf('/');
+            if (slash <= 0)
+            {
+                return false;
+            }
+
+            int gitMarker = remainder.IndexOf(
+                "/_git/",
+                slash,
+                remainder.Length - slash,
+                StringComparison.OrdinalIgnoreCase);
+            if (gitMarker < 0)
+            {
+                return false;
+            }
+
+            string repository = remainder.Substring(gitMarker + "/_git/".Length).Trim('/');
+            int nextSlash = repository.IndexOf('/');
+            if (nextSlash >= 0)
+            {
+                repository = repository.Substring(0, nextSlash);
+            }
+
+            return repository.Length > 0;
+        }
+
+        private static bool HasOwnerAndRepository(string path)
+        {
+            string[] parts = path.Trim('/').Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length >= 2 && parts[0].Length > 0 && parts[1].Length > 0;
+        }
+
+        private static bool HasThreeSegments(string path)
+        {
+            string[] parts = path.Trim('/').Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length >= 3;
+        }
+
+        private static bool TryTrimPrefix(string value, string prefix, out string rest)
+        {
+            if (value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                rest = value.Substring(prefix.Length);
+                return true;
+            }
+
+            rest = string.Empty;
+            return false;
+        }
+
+        private static bool HasEmbeddedPassword(string address)
+        {
+            int scheme = address.IndexOf("://", StringComparison.Ordinal);
+            if (scheme < 0)
+            {
+                return false;
+            }
+
+            int start = scheme + 3;
+            int slash = address.IndexOf('/', start);
+            string authority = slash < 0 ? address.Substring(start) : address.Substring(start, slash - start);
+            int at = authority.LastIndexOf('@');
+            if (at <= 0)
+            {
+                return false;
+            }
+
+            return authority.Substring(0, at).IndexOf(':') >= 0;
+        }
+
+        private static bool HasControlOrWhitespace(string value)
+        {
+            foreach (char character in value)
+            {
+                if (char.IsControl(character) || char.IsWhiteSpace(character))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public async Task<IReadOnlyList<CommitInfo>> GetCommitLogAsync(
             int maxCount,
             CancellationToken ct = default)

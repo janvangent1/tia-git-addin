@@ -88,6 +88,9 @@ namespace TiaGitAddIn.Tests.UI
             public Task<OperationResult> SetLocalIdentityAsync(string name, string email, CancellationToken ct = default) =>
                 Task.FromResult(OperationResult.Ok("Name and email saved for this repository."));
 
+            public Task<OperationResult> SetRemoteUrlAsync(string remoteName, string url, CancellationToken ct = default) =>
+                Task.FromResult(OperationResult.Ok("Remote saved."));
+
             public Task<IReadOnlyList<CommitInfo>> GetCommitLogAsync(int maxCount, CancellationToken ct = default) =>
                 Task.FromResult<IReadOnlyList<CommitInfo>>(new List<CommitInfo>());
 

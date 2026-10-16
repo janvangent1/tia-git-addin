@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Win32;
 using TiaGitAddIn.Configuration;
@@ -18,6 +19,8 @@ namespace TiaGitAddIn.UI.ViewModels
         private string commitAuthorEmail = string.Empty;
         private string repositoryPath = string.Empty;
         private string defaultRemote = "origin";
+        private string remoteUrl = string.Empty;
+        private bool remoteUrlEdited;
         private int maxLogEntries = 200;
         private string validationMessage = string.Empty;
         private bool canSaveSettings = true;
@@ -37,6 +40,7 @@ namespace TiaGitAddIn.UI.ViewModels
             SaveCommand = new AsyncCommand(() => SaveAsync(), () => canSaveSettings);
 
             LoadSettings();
+            _ = RefreshRemoteUrlAsync();
         }
 
         public string GitExecutablePath
@@ -84,7 +88,26 @@ namespace TiaGitAddIn.UI.ViewModels
         public string DefaultRemote
         {
             get => defaultRemote;
-            set => SetProperty(defaultRemote, value ?? string.Empty, updated => defaultRemote = updated);
+            set
+            {
+                if (SetProperty(defaultRemote, value ?? string.Empty, updated => defaultRemote = updated))
+                {
+                    Validate();
+                }
+            }
+        }
+
+        public string RemoteUrl
+        {
+            get => remoteUrl;
+            set
+            {
+                if (SetProperty(remoteUrl, value ?? string.Empty, updated => remoteUrl = updated))
+                {
+                    remoteUrlEdited = true;
+                    Validate();
+                }
+            }
         }
 
         public int MaxLogEntries
@@ -110,6 +133,7 @@ namespace TiaGitAddIn.UI.ViewModels
             commitAuthorEmail = config.CommitAuthorEmail ?? string.Empty;
             repositoryPath = config.RepositoryPath ?? repositoryRoot;
             defaultRemote = config.DefaultRemote ?? "origin";
+            remoteUrl = config.RemoteUrl ?? string.Empty;
             maxLogEntries = config.MaxLogEntries;
 
             OnPropertyChanged(string.Empty);
@@ -122,7 +146,8 @@ namespace TiaGitAddIn.UI.ViewModels
             {
                 GitExecutablePath = string.IsNullOrWhiteSpace(GitExecutablePath) ? null : GitExecutablePath,
                 RepositoryPath = RepositoryPath,
-                DefaultRemote = DefaultRemote,
+                DefaultRemote = string.IsNullOrWhiteSpace(DefaultRemote) ? "origin" : DefaultRemote.Trim(),
+                RemoteUrl = RemoteUrl.Trim(),
                 MaxLogEntries = MaxLogEntries,
                 CommitAuthorName = CommitAuthorName.Trim(),
                 CommitAuthorEmail = CommitAuthorEmail.Trim(),
@@ -141,22 +166,81 @@ namespace TiaGitAddIn.UI.ViewModels
 
             bool hasName = !string.IsNullOrWhiteSpace(config.CommitAuthorName);
             bool hasEmail = !string.IsNullOrWhiteSpace(config.CommitAuthorEmail);
-            if (!hasName && !hasEmail)
+            bool saveRemote = config.RemoteUrl.Length > 0;
+            if (!hasName && !hasEmail && !saveRemote)
             {
                 ValidationMessage = "Settings saved successfully.";
                 return Task.CompletedTask;
             }
 
-            return RunBusyAsync("Saving Git identity…", async ct =>
+            return RunBusyAsync("Saving settings…", async ct =>
             {
-                OperationResult result = await gitService.SetLocalIdentityAsync(
-                    config.CommitAuthorName,
-                    config.CommitAuthorEmail,
-                    ct).ConfigureAwait(false);
-                InvokeOnUI(() => ValidationMessage = result.Success
-                    ? "Settings saved. " + result.Message
-                    : GitUserMessages.Describe(result));
+                var notes = new List<string>();
+                if (hasName && hasEmail)
+                {
+                    OperationResult identity = await gitService.SetLocalIdentityAsync(
+                        config.CommitAuthorName,
+                        config.CommitAuthorEmail,
+                        ct).ConfigureAwait(false);
+                    notes.Add(identity.Success ? identity.Message : GitUserMessages.Describe(identity));
+                }
+
+                if (saveRemote)
+                {
+                    OperationResult remote = await gitService.SetRemoteUrlAsync(
+                        config.DefaultRemote,
+                        config.RemoteUrl,
+                        ct).ConfigureAwait(false);
+                    notes.Add(remote.Success ? remote.Message : GitUserMessages.Describe(remote));
+                }
+
+                InvokeOnUI(() => ValidationMessage = "Settings saved. " + string.Join(" ", notes));
             });
+        }
+
+        private async Task RefreshRemoteUrlAsync()
+        {
+            try
+            {
+                IReadOnlyList<RemoteInfo> remotes = await gitService.GetRemotesAsync().ConfigureAwait(false);
+                string name = string.IsNullOrWhiteSpace(DefaultRemote) ? "origin" : DefaultRemote.Trim();
+                RemoteInfo? match = null;
+                foreach (RemoteInfo remote in remotes)
+                {
+                    if (!string.Equals(remote.Name, name, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    match = remote;
+                    if (string.Equals(remote.Purpose, "fetch", StringComparison.OrdinalIgnoreCase))
+                    {
+                        break;
+                    }
+                }
+
+                if (match == null || string.IsNullOrWhiteSpace(match.Url) || remoteUrlEdited)
+                {
+                    return;
+                }
+
+                string currentUrl = match.Url;
+                InvokeOnUI(() =>
+                {
+                    if (remoteUrlEdited)
+                    {
+                        return;
+                    }
+
+                    remoteUrl = currentUrl;
+                    OnPropertyChanged(nameof(RemoteUrl));
+                    Validate();
+                });
+            }
+            catch (Exception)
+            {
+                // Keep the URL stored in the settings file when git cannot list remotes yet.
+            }
         }
 
         protected override void ReportStatus(string message) => ValidationMessage = message;
@@ -201,6 +285,25 @@ namespace TiaGitAddIn.UI.ViewModels
             {
                 canSaveSettings = false;
                 ValidationMessage = "Enter an email address.";
+            }
+            else if (RemoteUrl.Trim().Length > 0)
+            {
+                string? urlProblem = GitService.DescribeRemoteUrlProblem(RemoteUrl);
+                string? nameProblem = GitService.DescribeRemoteNameProblem(DefaultRemote);
+                if (urlProblem != null)
+                {
+                    canSaveSettings = false;
+                    ValidationMessage = urlProblem;
+                }
+                else if (nameProblem != null)
+                {
+                    canSaveSettings = false;
+                    ValidationMessage = nameProblem;
+                }
+                else
+                {
+                    ValidationMessage = string.Empty;
+                }
             }
             else
             {

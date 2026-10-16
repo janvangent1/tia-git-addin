@@ -12,15 +12,20 @@ namespace TiaGitAddIn.UI.ViewModels
     public sealed class BranchViewModel : ViewModelBase
     {
         private readonly IGitService gitService;
+        private readonly Func<string>? remoteNameProvider;
         private ObservableCollection<BranchInfo> branches = new();
         private BranchInfo? selectedBranch;
         private string newBranchName = string.Empty;
         private string lastOperationMessage = string.Empty;
 
-        public BranchViewModel(IGitService gitService, IUiDispatcher? uiDispatcher = null)
+        public BranchViewModel(
+            IGitService gitService,
+            IUiDispatcher? uiDispatcher = null,
+            Func<string>? remoteNameProvider = null)
             : base(uiDispatcher)
         {
             this.gitService = gitService ?? throw new ArgumentNullException(nameof(gitService));
+            this.remoteNameProvider = remoteNameProvider;
 
             RefreshCommand = new AsyncCommand(() => RefreshAsync(), () => !IsBusy);
             CreateBranchCommand = new AsyncCommand(() => CreateBranchAsync(), () => !IsBusy && !string.IsNullOrWhiteSpace(NewBranchName));
@@ -118,14 +123,14 @@ namespace TiaGitAddIn.UI.ViewModels
         private Task FetchAsync() =>
             RunBusyAsync("Fetching…", async ct =>
             {
-                var result = await gitService.FetchAsync(ct: ct).ConfigureAwait(false);
+                var result = await gitService.FetchAsync(CurrentRemoteName(), ct).ConfigureAwait(false);
                 InvokeOnUI(() => LastOperationMessage = GitUserMessages.Describe(result));
             });
 
         private Task PullAsync() =>
             RunBusyAsync("Pulling…", async ct =>
             {
-                var result = await gitService.PullAsync(ct: ct).ConfigureAwait(false);
+                var result = await gitService.PullAsync(CurrentRemoteName(), ct: ct).ConfigureAwait(false);
                 InvokeOnUI(() => LastOperationMessage = GitUserMessages.Describe(result));
                 if (result.Success) await LoadBranchesCoreAsync(ct).ConfigureAwait(false);
             });
@@ -133,9 +138,15 @@ namespace TiaGitAddIn.UI.ViewModels
         private Task PushAsync() =>
             RunBusyAsync("Pushing…", async ct =>
             {
-                var result = await gitService.PushAsync(ct: ct).ConfigureAwait(false);
+                var result = await gitService.PushAsync(CurrentRemoteName(), ct: ct).ConfigureAwait(false);
                 InvokeOnUI(() => LastOperationMessage = GitUserMessages.Describe(result));
             });
+
+        private string CurrentRemoteName()
+        {
+            string? name = remoteNameProvider?.Invoke();
+            return string.IsNullOrWhiteSpace(name) ? "origin" : name.Trim();
+        }
 
         protected override void ReportStatus(string message) => LastOperationMessage = message;
 

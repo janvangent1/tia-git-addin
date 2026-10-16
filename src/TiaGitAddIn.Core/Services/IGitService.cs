@@ -37,6 +37,8 @@ namespace TiaGitAddIn.Services
 
         Task<OperationResult> SetLocalIdentityAsync(string name, string email, CancellationToken ct = default);
 
+        Task<OperationResult> SetRemoteUrlAsync(string remoteName, string url, CancellationToken ct = default);
+
         Task<IReadOnlyList<CommitInfo>> GetCommitLogAsync(int maxCount, CancellationToken ct = default);
 
         Task<DiffResult> GetWorkingTreeDiffAsync(CancellationToken ct = default);

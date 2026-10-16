@@ -16,6 +16,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -84,12 +85,25 @@
                 Margin="5"
                 VerticalAlignment="Center"/>
 
-        <Label Content="Max Log Entries:"
+        <Label Content="Remote URL:"
                 Grid.Row="5"
+                Grid.Column="0"
+                VerticalAlignment="Center"
+                ToolTip="GitHub or Azure DevOps clone URL."/>
+        <TextBox Text="{Binding RemoteUrl, UpdateSourceTrigger=PropertyChanged}"
+                Grid.Row="5"
+                Grid.Column="1"
+                Grid.ColumnSpan="2"
+                Margin="5"
+                VerticalAlignment="Center"
+                ToolTip="Example: https://github.com/org/repo.git or https://dev.azure.com/org/project/_git/repo. Leave the password out. Save points the remote named above at this repository."/>
+
+        <Label Content="Max Log Entries:"
+                Grid.Row="6"
                 Grid.Column="0"
                 VerticalAlignment="Center"/>
         <TextBox Text="{Binding MaxLogEntries, UpdateSourceTrigger=PropertyChanged}"
-                Grid.Row="5"
+                Grid.Row="6"
                 Grid.Column="1"
                 Margin="5"
                 VerticalAlignment="Center"
@@ -97,7 +111,7 @@
                 HorizontalAlignment="Left"/>
 
         <TextBlock Text="{Binding ValidationMessage}"
-                Grid.Row="6"
+                Grid.Row="7"
                 Grid.Column="0"
                 Grid.ColumnSpan="3"
                 Foreground="Red"
@@ -106,7 +120,7 @@
 
         <Button Content="Save Settings"
                 Command="{Binding SaveCommand}"
-                Grid.Row="7"
+                Grid.Row="8"
                 Grid.Column="1"
                 Grid.ColumnSpan="2"
                 HorizontalAlignment="Right"

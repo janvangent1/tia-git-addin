@@ -88,6 +88,8 @@ namespace TiaGitAddIn.Configuration
                     ? "origin"
                     : configuration.DefaultRemote,
 
+                RemoteUrl = configuration.RemoteUrl ?? string.Empty,
+
                 CommitAuthorName = configuration.CommitAuthorName ?? string.Empty,
                 CommitAuthorEmail = configuration.CommitAuthorEmail ?? string.Empty
             };
