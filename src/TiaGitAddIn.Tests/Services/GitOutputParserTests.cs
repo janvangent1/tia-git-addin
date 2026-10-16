@@ -72,6 +72,36 @@ namespace TiaGitAddIn.Tests.Services
         }
 
         [Fact]
+        public void ParseStatusUnquotesPathsThatContainSpaces()
+        {
+            GitStatus status = GitOutputParser.ParseStatus(
+                "## main\n" +
+                " M \"Program blocks/Main.xml\"\n" +
+                "?? \"PLC data types/Recipe.udt\"\n" +
+                "R  \"old name.xml\" -> \"Program blocks/New name.xml\"\n");
+
+            Assert.Equal(
+                new[]
+                {
+                    "Program blocks/Main.xml",
+                    "PLC data types/Recipe.udt",
+                    "Program blocks/New name.xml"
+                },
+                status.Entries.Select(entry => entry.FilePath).ToArray());
+            Assert.Equal("old name.xml", status.Entries[2].OriginalPath);
+            Assert.Equal(FileStatus.Modified, status.Entries[0].WorkTreeStatus);
+            Assert.Equal(FileStatus.Untracked, status.Entries[1].WorkTreeStatus);
+        }
+
+        [Fact]
+        public void ParseStatusDecodesQuotedUtf8Bytes()
+        {
+            GitStatus status = GitOutputParser.ParseStatus(" M \"caf\\303\\251.xml\"\n");
+
+            Assert.Equal("café.xml", Assert.Single(status.Entries).FilePath);
+        }
+
+        [Fact]
         public void ParseStatusReadsFreshRepositoryBranch()
         {
             GitStatus status = GitOutputParser.ParseStatus("## No commits yet on main\n");

@@ -37,10 +37,29 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0"
+        <StackPanel Grid.Row="0"
+                    Orientation="Horizontal"
+                    Margin="4,4,4,2">
+            <Button Content="Previous change"
+                    Command="{Binding PreviousChangeCommand}"
+                    Padding="8,2"
+                    ToolTip="Scroll to the previous changed block."/>
+            <Button Content="Next change"
+                    Command="{Binding NextChangeCommand}"
+                    Margin="6,0,0,0"
+                    Padding="8,2"
+                    ToolTip="Scroll to the next changed block."/>
+            <TextBlock Text="{Binding ChangePositionText}"
+                       Margin="10,0,0,0"
+                       VerticalAlignment="Center"
+                       Foreground="#555555"/>
+        </StackPanel>
+
+        <Border Grid.Row="1"
                 Background="#FFF3CD"
                 BorderBrush="#FFEEBA"
                 BorderThickness="0,0,0,1"
@@ -51,7 +70,7 @@
                        Foreground="#856404"/>
         </Border>
 
-        <ListView Grid.Row="1"
+        <ListView Grid.Row="2"
                   x:Name="LinesListView"
                   BorderThickness="0"
                   ItemsSource="{Binding Lines}"

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using TiaGitAddIn.Models;
 
@@ -243,15 +244,7 @@ namespace TiaGitAddIn.Services
         {
             char index = line[0];
             char workTree = line[1];
-            string path = line.Substring(3);
-            string? originalPath = null;
-
-            string[] renameParts = path.Split([" -> "], StringSplitOptions.None);
-            if (renameParts.Length == 2)
-            {
-                originalPath = renameParts[0];
-                path = renameParts[1];
-            }
+            SplitPorcelainPath(line.Substring(3), out string path, out string? originalPath);
 
             return new FileStatusEntry
             {
@@ -347,5 +340,130 @@ namespace TiaGitAddIn.Services
 
         private static string[] SplitLines(string output) =>
             output.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries);
+
+        // git status --porcelain quotes a path that contains a space or a non-ASCII byte.
+        // The quotes and C-style escapes are syntax, not part of the workspace path.
+        private static void SplitPorcelainPath(string rawPath, out string path, out string? originalPath)
+        {
+            int separator = IndexOfUnquoted(rawPath, " -> ");
+            if (separator < 0)
+            {
+                originalPath = null;
+                path = UnquotePorcelainPath(rawPath);
+                return;
+            }
+
+            originalPath = UnquotePorcelainPath(rawPath.Substring(0, separator));
+            path = UnquotePorcelainPath(rawPath.Substring(separator + 4));
+        }
+
+        private static int IndexOfUnquoted(string value, string token)
+        {
+            bool quoted = false;
+            for (int index = 0; index <= value.Length - token.Length; index++)
+            {
+                char current = value[index];
+                if (current == '\\' && quoted)
+                {
+                    index++;
+                    continue;
+                }
+
+                if (current == '"')
+                {
+                    quoted = !quoted;
+                    continue;
+                }
+
+                if (!quoted && string.CompareOrdinal(value, index, token, 0, token.Length) == 0)
+                {
+                    return index;
+                }
+            }
+
+            return -1;
+        }
+
+        private static string UnquotePorcelainPath(string path)
+        {
+            if (path.Length < 2 || path[0] != '"' || path[path.Length - 1] != '"')
+            {
+                return path;
+            }
+
+            List<byte> bytes = new();
+            for (int index = 1; index < path.Length - 1; index++)
+            {
+                char current = path[index];
+                if (current != '\\')
+                {
+                    bytes.Add((byte)current);
+                    continue;
+                }
+
+                if (index + 1 >= path.Length - 1)
+                {
+                    break;
+                }
+
+                char escaped = path[++index];
+                switch (escaped)
+                {
+                    case 'a':
+                        bytes.Add((byte)'\a');
+                        break;
+                    case 'b':
+                        bytes.Add((byte)'\b');
+                        break;
+                    case 't':
+                        bytes.Add((byte)'\t');
+                        break;
+                    case 'n':
+                        bytes.Add((byte)'\n');
+                        break;
+                    case 'v':
+                        bytes.Add((byte)'\v');
+                        break;
+                    case 'f':
+                        bytes.Add((byte)'\f');
+                        break;
+                    case 'r':
+                        bytes.Add((byte)'\r');
+                        break;
+                    case '\\':
+                        bytes.Add((byte)'\\');
+                        break;
+                    case '"':
+                        bytes.Add((byte)'"');
+                        break;
+                    default:
+                        if (escaped is >= '0' and <= '7')
+                        {
+                            int value = escaped - '0';
+                            for (int extra = 0; extra < 2 && index + 1 < path.Length - 1; extra++)
+                            {
+                                char digit = path[index + 1];
+                                if (digit is < '0' or > '7')
+                                {
+                                    break;
+                                }
+
+                                value = (value << 3) + (digit - '0');
+                                index++;
+                            }
+
+                            bytes.Add((byte)value);
+                        }
+                        else
+                        {
+                            bytes.Add((byte)escaped);
+                        }
+
+                        break;
+                }
+            }
+
+            return Encoding.UTF8.GetString(bytes.ToArray());
+        }
     }
 }

@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using TiaGitAddIn.Models.Comparison;
+using TiaGitAddIn.UI.ViewModels;
 
 namespace TiaGitAddIn.UI.ViewModels.Comparison
 {
@@ -38,8 +41,12 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
     }
 
     /// <summary>Focused view model for <see cref="TextPresentation"/>: the bounded line-by-line diff.</summary>
-    public sealed class TextComparisonViewModel : ComparisonPresentationViewModel
+    public sealed class TextComparisonViewModel : ComparisonPresentationViewModel, INotifyPropertyChanged
     {
+        private readonly int[] changeStarts;
+        private int currentChangeIndex = -1;
+        private TextDiffLineViewModel? currentChangeLine;
+
         public TextComparisonViewModel(TextPresentation presentation, ComparisonViewModelMetadata metadata)
             : base(ComparisonPresentationKind.Text, metadata)
         {
@@ -48,10 +55,96 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
             Lines = presentation.Lines.Select(l => new TextDiffLineViewModel(l)).ToArray();
             IsTruncated = presentation.IsTruncated;
             UsedLinearFallback = presentation.UsedLinearFallback;
+            changeStarts = FindChangeStarts(Lines);
+            PreviousChangeCommand = new RelayCommand(_ => GoToPreviousChange(), _ => CanGoToPreviousChange);
+            NextChangeCommand = new RelayCommand(_ => GoToNextChange(), _ => CanGoToNextChange);
         }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         public IReadOnlyList<TextDiffLineViewModel> Lines { get; }
         public bool IsTruncated { get; }
         public bool UsedLinearFallback { get; }
+
+        /// <summary>The first line of the changed block last jumped to, or null before any jump.</summary>
+        public TextDiffLineViewModel? CurrentChangeLine => currentChangeLine;
+
+        public string ChangePositionText
+        {
+            get
+            {
+                if (changeStarts.Length == 0)
+                {
+                    return "No changes";
+                }
+
+                return currentChangeIndex < 0
+                    ? changeStarts.Length + " changes"
+                    : "Change " + (currentChangeIndex + 1) + " of " + changeStarts.Length;
+            }
+        }
+
+        public RelayCommand PreviousChangeCommand { get; }
+        public RelayCommand NextChangeCommand { get; }
+
+        private bool CanGoToPreviousChange => currentChangeIndex > 0;
+
+        private bool CanGoToNextChange => changeStarts.Length > 0 && currentChangeIndex < changeStarts.Length - 1;
+
+        private void GoToNextChange()
+        {
+            if (!CanGoToNextChange)
+            {
+                return;
+            }
+
+            currentChangeIndex++;
+            PublishCurrentChange();
+        }
+
+        private void GoToPreviousChange()
+        {
+            if (!CanGoToPreviousChange)
+            {
+                return;
+            }
+
+            currentChangeIndex--;
+            PublishCurrentChange();
+        }
+
+        private void PublishCurrentChange()
+        {
+            currentChangeLine = Lines[changeStarts[currentChangeIndex]];
+            OnPropertyChanged(nameof(CurrentChangeLine));
+            OnPropertyChanged(nameof(ChangePositionText));
+            PreviousChangeCommand.RaiseCanExecuteChanged();
+            NextChangeCommand.RaiseCanExecuteChanged();
+        }
+
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        // A change is a contiguous run of added or removed lines. Context and omitted lines separate runs,
+        // so one replacement (removed lines followed immediately by added lines) is a single jump target.
+        private static int[] FindChangeStarts(IReadOnlyList<TextDiffLineViewModel> lines)
+        {
+            List<int> starts = new();
+            bool insideChange = false;
+            for (int index = 0; index < lines.Count; index++)
+            {
+                bool changed = lines[index].Kind is TextDiffLineKind.Added or TextDiffLineKind.Removed;
+                if (changed && !insideChange)
+                {
+                    starts.Add(index);
+                }
+
+                insideChange = changed;
+            }
+
+            return starts.ToArray();
+        }
     }
 }

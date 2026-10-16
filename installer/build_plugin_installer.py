@@ -6,6 +6,9 @@ package into the TIA Portal user add-ins folder:
 
     %APPDATA%\\Siemens\\Automation\\Portal V21\\UserAddIns
 
+Starting the script with no arguments opens a window. Pass a plugin path to
+build from the command line instead.
+
 Examples:
     python installer/build_plugin_installer.py
     python installer/build_plugin_installer.py C:\\builds\\TiaGitAddIn.addin
@@ -29,6 +32,9 @@ class BuildError(Exception):
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    if argv is None and len(sys.argv) == 1:
+        return launch_ui()
+
     parser = argparse.ArgumentParser(
         description="Embed the latest TIA Git .addin file in plugin_installer.exe."
     )
@@ -96,6 +102,15 @@ def build(addin: Optional[str], output: Optional[str], portal_version: int) -> N
     )
 
 
+def list_addin_files(repo_root: Path) -> List[Path]:
+    bin_root = repo_root / "src" / "TiaGitAddIn" / "bin"
+    if not bin_root.is_dir():
+        return []
+    found = [item for item in bin_root.rglob("*.addin") if item.is_file()]
+    found.sort(key=lambda item: item.stat().st_mtime, reverse=True)
+    return found
+
+
 def resolve_addin_path(repo_root: Path, requested: Optional[str]) -> Path:
     if requested:
         path = Path(requested).expanduser()
@@ -103,11 +118,7 @@ def resolve_addin_path(repo_root: Path, requested: Optional[str]) -> Path:
             raise BuildError(f"Add-in file not found: {requested}")
         return path.resolve()
 
-    bin_root = repo_root / "src" / "TiaGitAddIn" / "bin"
-    found = []
-    if bin_root.is_dir():
-        found = [item for item in bin_root.rglob("*.addin") if item.is_file()]
-        found.sort(key=lambda item: item.stat().st_mtime, reverse=True)
+    found = list_addin_files(repo_root)
     if not found:
         raise BuildError(
             "No .addin file found under src\\TiaGitAddIn\\bin.\n\n"
@@ -138,6 +149,216 @@ def verify_embedded(output_path: Path, payload: bytes, file_name: str, portal_ve
     embedded_payload = data[payload_start:payload_end]
     if embedded_name != file_name or embedded_portal != portal_version or embedded_payload != payload:
         raise BuildError("The embedded plugin does not match the source file.")
+
+
+def launch_ui() -> int:
+    import os
+    from datetime import datetime
+
+    enable_windows_dpi()
+    import tkinter as tk
+    from tkinter import filedialog, messagebox, ttk
+    installer_dir = Path(__file__).resolve().parent
+    repo_root = installer_dir.parent
+    default_output = installer_dir / "out" / "plugin_installer.exe"
+    packages = list_addin_files(repo_root)
+
+    root = tk.Tk()
+    root.title("Build TIA Git Add-In Installer")
+    root.resizable(False, False)
+    style = ttk.Style()
+    if "vista" in style.theme_names():
+        style.theme_use("vista")
+    background = style.lookup("TFrame", "background") or "SystemButtonFace"
+
+    frame = ttk.Frame(root, padding=(24, 20, 24, 16))
+    frame.grid(sticky="nsew")
+    frame.columnconfigure(0, weight=1)
+
+    ttk.Label(frame, text="Build plugin installer", font=("Segoe UI", 16, "bold")).grid(
+        row=0, column=0, columnspan=2, sticky="w"
+    )
+    ttk.Label(
+        frame,
+        text="Embeds a .addin file in plugin_installer.exe. Running that exe copies the plugin into the TIA Portal user add-ins folder.",
+        wraplength=560,
+        justify="left",
+    ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(6, 0))
+
+    ttk.Label(frame, text="Plugin file").grid(row=2, column=0, columnspan=2, sticky="w", pady=(18, 4))
+    addin_var = tk.StringVar(value=str(packages[0]) if packages else "")
+    ttk.Entry(frame, textvariable=addin_var, width=72).grid(row=3, column=0, sticky="ew")
+    ttk.Button(frame, text="Browse...", command=lambda: browse_addin(addin_var)).grid(
+        row=3, column=1, padx=(8, 0)
+    )
+
+    package_text = tk.StringVar()
+    package_label = tk.Label(
+        frame,
+        textvariable=package_text,
+        anchor="w",
+        justify="left",
+        bg=background,
+        fg="#5a6268",
+        font=("Segoe UI", 9),
+    )
+    package_label.grid(row=4, column=0, columnspan=2, sticky="w", pady=(4, 0))
+
+    ttk.Label(frame, text="Installer output").grid(row=5, column=0, columnspan=2, sticky="w", pady=(14, 4))
+    output_var = tk.StringVar(value=str(default_output))
+    ttk.Entry(frame, textvariable=output_var, width=72).grid(row=6, column=0, sticky="ew")
+    ttk.Button(frame, text="Browse...", command=lambda: browse_output(output_var, default_output)).grid(
+        row=6, column=1, padx=(8, 0)
+    )
+
+    ttk.Label(frame, text="TIA Portal version").grid(row=7, column=0, sticky="w", pady=(14, 4))
+    portal_var = tk.StringVar(value="21")
+    ttk.Spinbox(frame, from_=1, to=99, textvariable=portal_var, width=8).grid(row=8, column=0, sticky="w")
+
+    destination_text = tk.StringVar()
+    tk.Label(
+        frame,
+        textvariable=destination_text,
+        anchor="w",
+        justify="left",
+        bg=background,
+        fg="#5a6268",
+        font=("Segoe UI", 9),
+    ).grid(row=9, column=0, columnspan=2, sticky="w", pady=(4, 0))
+
+    status_text = tk.StringVar(value="Ready.")
+    status_label = tk.Label(
+        frame,
+        textvariable=status_text,
+        anchor="w",
+        justify="left",
+        wraplength=560,
+        bg=background,
+        fg="#465056",
+        font=("Segoe UI", 9),
+    )
+    status_label.grid(row=10, column=0, columnspan=2, sticky="w", pady=(16, 8))
+
+    buttons = ttk.Frame(frame)
+    buttons.grid(row=11, column=0, columnspan=2, sticky="e")
+    create_button = ttk.Button(buttons, text="Create installer", command=lambda: create_installer())
+    create_button.grid(row=0, column=0, padx=(0, 8))
+    ttk.Button(buttons, text="Open folder", command=lambda: open_output_folder()).grid(row=0, column=1, padx=(0, 8))
+    ttk.Button(buttons, text="Close", command=root.destroy).grid(row=0, column=2)
+
+    def refresh_package(*_args: object) -> None:
+        raw = addin_var.get().strip()
+        if not raw:
+            package_text.set("Choose a .addin file, or build the plugin first.")
+            return
+        path = Path(raw)
+        if not path.is_file():
+            package_text.set("File not found.")
+            return
+        modified = datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+        package_text.set(f"{path.name}   ·   {format_byte_count(path.stat().st_size)}   ·   {modified}")
+
+    def refresh_destination(*_args: object) -> None:
+        version = portal_var.get().strip() or "21"
+        destination_text.set(
+            f"The exe installs into %APPDATA%\\Siemens\\Automation\\Portal V{version}\\UserAddIns"
+        )
+
+    def set_status(text: str, color: str) -> None:
+        status_text.set(text)
+        status_label.configure(fg=color)
+
+    def create_installer() -> None:
+        raw_version = portal_var.get().strip()
+        try:
+            portal_version = int(raw_version)
+        except ValueError:
+            set_status("TIA Portal version must be a number from 1 to 99.", "#a4262c")
+            messagebox.showerror("Could not create the installer", "TIA Portal version must be a number from 1 to 99.")
+            return
+        chosen = addin_var.get().strip()
+        if not chosen:
+            set_status("Choose a plugin .addin file.", "#a4262c")
+            messagebox.showerror("Could not create the installer", "Choose a plugin .addin file.")
+            return
+        output = output_var.get().strip()
+        create_button.state(["disabled"])
+        set_status("Creating the installer...", "#465056")
+        root.update_idletasks()
+        try:
+            build(addin=chosen, output=output or None, portal_version=portal_version)
+        except BuildError as exc:
+            set_status(str(exc), "#a4262c")
+            messagebox.showerror("Could not create the installer", str(exc))
+            return
+        finally:
+            create_button.state(["!disabled"])
+
+        created = Path(output).expanduser().resolve() if output else default_output
+        summary = (
+            f"Created {created}\n"
+            f"Size {format_byte_count(created.stat().st_size)}\n\n"
+            "Running the exe copies the plugin into the TIA Portal user add-ins folder."
+        )
+        set_status(summary.replace("\n\n", "\n"), "#007268")
+        messagebox.showinfo("Installer created", summary)
+
+    def open_output_folder() -> None:
+        raw = output_var.get().strip()
+        folder = (Path(raw).expanduser().resolve().parent if raw else default_output.parent)
+        if not folder.is_dir():
+            messagebox.showinfo("Output folder", "The output folder does not exist yet. It is created when you build the installer.")
+            return
+        os.startfile(folder)  # type: ignore[attr-defined]
+
+    def browse_addin(target: tk.StringVar) -> None:
+        selected = filedialog.askopenfilename(
+            title="Select the plugin file",
+            filetypes=[("TIA add-in", "*.addin"), ("All files", "*.*")],
+        )
+        if selected:
+            target.set(selected)
+
+    def browse_output(target: tk.StringVar, initial: Path) -> None:
+        selected = filedialog.asksaveasfilename(
+            title="Save the installer as",
+            initialdir=str(initial.parent),
+            initialfile=initial.name,
+            defaultextension=".exe",
+            filetypes=[("Executable", "*.exe")],
+        )
+        if selected:
+            target.set(selected)
+
+    if len(packages) > 1:
+        set_status("Several plugin files were found. The newest one is selected.", "#8c5a00")
+    addin_var.trace_add("write", refresh_package)
+    portal_var.trace_add("write", refresh_destination)
+    refresh_package()
+    refresh_destination()
+    root.update_idletasks()
+    width = root.winfo_width()
+    height = root.winfo_height()
+    root.geometry(f"+{(root.winfo_screenwidth() - width) // 2}+{(root.winfo_screenheight() - height) // 2}")
+    create_button.focus_set()
+    root.mainloop()
+    return 0
+
+
+def enable_windows_dpi() -> None:
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        try:
+            import ctypes
+
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            return
 
 
 def format_byte_count(size: int) -> str:
