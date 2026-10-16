@@ -12,6 +12,7 @@ using Siemens.Engineering.HW.Features;
 using Siemens.Engineering.Hmi;
 using Siemens.Engineering.HmiUnified;
 using Siemens.Engineering.HmiUnified.UI.Base;
+using Siemens.Engineering.HmiUnified.UI.ScreenGroup;
 using Siemens.Engineering.HmiUnified.UI.Screens;
 using Siemens.Engineering.HmiUnified.UI.Widgets;
 using TiaGitAddIn.Logging;
@@ -383,14 +384,36 @@ namespace TiaGitAddIn.Services
             };
 
             int index = 0;
-            foreach (HmiScreen screen in device.Software.Screens)
+            ReadScreenLevel(device.Software.Screens, device.Software.ScreenGroups, string.Empty, device.Name, export, progress, ref index, ct);
+            return export;
+        }
+
+        private static void ReadScreenLevel(
+            HmiScreenComposition screens,
+            HmiScreenGroupComposition groups,
+            string folder,
+            string deviceName,
+            HmiDeviceExport export,
+            IProgress<string>? progress,
+            ref int index,
+            CancellationToken ct)
+        {
+            foreach (string name in CompositionNames(screens, screen => screen == null ? string.Empty : screen.Name, ct))
             {
                 ct.ThrowIfCancellationRequested();
+                HmiScreen screen = screens.Find(name);
+                if (screen == null)
+                {
+                    continue;
+                }
+
                 index++;
-                progress?.Report(device.Name + ": screen " + index.ToString(CultureInfo.InvariantCulture) + " — " + screen.Name);
+                string location = string.IsNullOrEmpty(folder) ? screen.Name : folder + "/" + screen.Name;
+                progress?.Report(deviceName + ": screen " + index.ToString(CultureInfo.InvariantCulture) + " — " + location);
                 var screenExport = new HmiScreenExport
                 {
                     Name = screen.Name,
+                    Folder = folder,
                     Width = Convert.ToInt32(screen.Width, CultureInfo.InvariantCulture),
                     Height = Convert.ToInt32(screen.Height, CultureInfo.InvariantCulture)
                 };
@@ -407,7 +430,39 @@ namespace TiaGitAddIn.Services
                 export.Screens.Add(screenExport);
             }
 
-            return export;
+            foreach (string name in CompositionNames(groups, group => group == null ? string.Empty : group.Name, ct))
+            {
+                ct.ThrowIfCancellationRequested();
+                HmiScreenGroup group = groups.Find(name);
+                if (group == null)
+                {
+                    continue;
+                }
+
+                string child = string.IsNullOrEmpty(folder) ? name : folder + "/" + name;
+                ReadScreenLevel(group.Screens, group.Groups, child, deviceName, export, progress, ref index, ct);
+            }
+        }
+
+        private static List<string> CompositionNames<T>(IEnumerable<T> items, Func<T, string> name, CancellationToken ct)
+        {
+            var names = new List<string>();
+            if (items == null)
+            {
+                return names;
+            }
+
+            foreach (T item in items)
+            {
+                ct.ThrowIfCancellationRequested();
+                string value = item == null ? string.Empty : name(item) ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    names.Add(value);
+                }
+            }
+
+            return names;
         }
 
         private static HmiItemExport? ReadItem(HmiScreenItemBase item)
@@ -463,6 +518,30 @@ namespace TiaGitAddIn.Services
             return texts;
         }
 
+        private static HmiScreenComposition ScreensIn(HmiSoftware software, string folder)
+        {
+            HmiScreenComposition screens = software.Screens;
+            HmiScreenGroupComposition groups = software.ScreenGroups;
+            if (string.IsNullOrWhiteSpace(folder))
+            {
+                return screens;
+            }
+
+            foreach (string segment in folder.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (groups == null)
+                {
+                    throw new InvalidOperationException("TIA Portal has no screen group for " + segment + ".");
+                }
+
+                HmiScreenGroup group = groups.Find(segment) ?? groups.Create(segment);
+                screens = group.Screens;
+                groups = group.Groups;
+            }
+
+            return screens;
+        }
+
         private static void Apply(HmiSoftware software, HmiDeviceExport deviceExport, CancellationToken ct)
         {
             foreach (HmiScreenExport screenExport in deviceExport.Screens)
@@ -473,7 +552,8 @@ namespace TiaGitAddIn.Services
                     continue;
                 }
 
-                HmiScreen screen = software.Screens.Find(screenExport.Name) ?? software.Screens.Create(screenExport.Name);
+                HmiScreenComposition screens = ScreensIn(software, screenExport.Folder);
+                HmiScreen screen = screens.Find(screenExport.Name) ?? screens.Create(screenExport.Name);
                 screen.Width = ToSize(screenExport.Width);
                 screen.Height = ToSize(screenExport.Height);
 

@@ -72,11 +72,20 @@ namespace TiaGitAddIn.Services.Hmi
 
             var written = new List<string> { Path.Combine(folder, "device.xml") };
 
-            var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var usedNames = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
             foreach (HmiScreenExport screen in device.Screens)
             {
-                string fileName = UniqueFileName(FolderName(screen.Name), usedNames) + ".xml";
-                string screenFile = Path.Combine(screensFolder, fileName);
+                string group = SanitizeFolder(screen.Folder);
+                if (!usedNames.TryGetValue(group, out HashSet<string> used))
+                {
+                    used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    usedNames.Add(group, used);
+                }
+
+                string screenDirectory = ScreenDirectory(screensFolder, group);
+                Directory.CreateDirectory(screenDirectory);
+                string fileName = UniqueFileName(FolderName(screen.Name), used) + ".xml";
+                string screenFile = Path.Combine(screenDirectory, fileName);
                 Save(ScreenDocument(screen), screenFile);
                 written.Add(screenFile);
             }
@@ -169,16 +178,78 @@ namespace TiaGitAddIn.Services.Hmi
                 return device;
             }
 
-            foreach (string screenFile in Directory.GetFiles(screensFolder, "*.xml").OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+            ReadScreenFiles(screensFolder, screensFolder, device);
+            return device;
+        }
+
+        private static void ReadScreenFiles(string directory, string screensFolder, HmiDeviceExport device)
+        {
+            foreach (string screenFile in Directory.GetFiles(directory, "*.xml").OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
             {
                 HmiScreenExport? screen = ReadScreen(screenFile);
-                if (screen != null)
+                if (screen == null)
                 {
-                    device.Screens.Add(screen);
+                    continue;
                 }
+
+                screen.Folder = RelativeFolder(screensFolder, directory);
+                device.Screens.Add(screen);
             }
 
-            return device;
+            foreach (string child in Directory.GetDirectories(directory).OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+            {
+                ReadScreenFiles(child, screensFolder, device);
+            }
+        }
+
+        private static string ScreenDirectory(string screensFolder, string folder)
+        {
+            if (string.IsNullOrEmpty(folder))
+            {
+                return screensFolder;
+            }
+
+            string directory = screensFolder;
+            foreach (string part in folder.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                directory = Path.Combine(directory, part);
+            }
+
+            return directory;
+        }
+
+        private static string SanitizeFolder(string folder)
+        {
+            if (string.IsNullOrWhiteSpace(folder))
+            {
+                return string.Empty;
+            }
+
+            var parts = new List<string>();
+            foreach (string part in folder.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                parts.Add(FolderName(part));
+            }
+
+            return string.Join("/", parts);
+        }
+
+        private static string RelativeFolder(string root, string directory)
+        {
+            string fullRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string fullDirectory = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (fullDirectory.Length < fullRoot.Length ||
+                !fullDirectory.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Empty;
+            }
+
+            if (fullDirectory.Length == fullRoot.Length)
+            {
+                return string.Empty;
+            }
+
+            return fullDirectory.Substring(fullRoot.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Replace('\\', '/');
         }
 
         private static HmiScreenExport? ReadScreen(string path)

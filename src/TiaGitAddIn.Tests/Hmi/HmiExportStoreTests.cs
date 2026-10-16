@@ -75,6 +75,44 @@ namespace TiaGitAddIn.Tests.Hmi
                 Assert.Equal(800, screen.Width);
                 Assert.Equal("Start", Assert.Single(screen.Items.Single(item => item.Kind == "Button").Texts).Text);
                 Assert.Equal("DB_Data.Speed", screen.Items.Single(item => item.Kind == "IOField").ProcessValue);
+                Assert.Equal(string.Empty, screen.Folder);
+            }
+            finally
+            {
+                if (Directory.Exists(root))
+                {
+                    Directory.Delete(root, true);
+                }
+            }
+        }
+
+        [Fact]
+        public void RoundTripKeepsScreensInsideTheirGroupFolder()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "tia-git-hmi-groups-" + Path.GetRandomFileName());
+            Directory.CreateDirectory(root);
+            try
+            {
+                var device = new HmiDeviceExport
+                {
+                    Name = "Unified PC",
+                    Screens = new System.Collections.Generic.List<HmiScreenExport>
+                    {
+                        new HmiScreenExport { Name = "Overview", Folder = "Content", Width = 1920, Height = 1080 },
+                        new HmiScreenExport { Name = "Detail", Folder = "Content/Area", Width = 1920, Height = 1080 }
+                    }
+                };
+
+                HmiExportStore.Write(root, device);
+
+                string folder = HmiExportStore.DeviceFolder(root, "Unified PC");
+                Assert.True(File.Exists(Path.Combine(folder, "Screens", "Content", "Overview.xml")));
+                Assert.True(File.Exists(Path.Combine(folder, "Screens", "Content", "Area", "Detail.xml")));
+
+                HmiDeviceExport read = Assert.Single(HmiExportStore.ReadAll(root));
+                Assert.Equal(2, read.Screens.Count);
+                Assert.Equal("Content", read.Screens.Single(screen => screen.Name == "Overview").Folder);
+                Assert.Equal("Content/Area", read.Screens.Single(screen => screen.Name == "Detail").Folder);
             }
             finally
             {

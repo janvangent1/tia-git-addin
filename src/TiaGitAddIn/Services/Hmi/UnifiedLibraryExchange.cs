@@ -7,6 +7,7 @@ using System.Xml.Linq;
 using Siemens.Engineering;
 using Siemens.Engineering.HmiUnified;
 using Siemens.Engineering.HmiUnified.HmiAlarm;
+using Siemens.Engineering.HmiUnified.HmiAlarm.HmiAlarmCommon;
 using Siemens.Engineering.HmiUnified.HmiTags;
 using TiaGitAddIn.Services.Hmi;
 
@@ -292,6 +293,16 @@ namespace TiaGitAddIn.Services
                     }
                 }
 
+                try
+                {
+                    AppendAlarmTexts(element, alarm);
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                    HmiExportTrace.Error(ex);
+                    element.Add(new XAttribute("textError", ex.Message));
+                }
+
                 root.Add(element);
             }
 
@@ -341,6 +352,12 @@ namespace TiaGitAddIn.Services
                     continue;
                 }
 
+                if (attribute.Value is MultilingualText multilingual)
+                {
+                    AppendMultilingual(parent, attribute.Key, ReadLanguageTexts(multilingual));
+                    continue;
+                }
+
                 if (depth > 0 && attribute.Value is IEngineeringObject child)
                 {
                     var nested = new XElement("Attribute", new XAttribute("name", attribute.Key));
@@ -354,6 +371,98 @@ namespace TiaGitAddIn.Services
                     new XAttribute("name", attribute.Key),
                     new XAttribute("value", AttributeText(attribute.Value))));
             }
+        }
+
+        private static void AppendAlarmTexts(XElement element, object alarm)
+        {
+            if (!(alarm is AlarmBase alarmBase))
+            {
+                return;
+            }
+
+            AppendKnownText(element, "EventText", alarmBase.EventText);
+            AppendKnownText(element, "EventText1", alarmBase.EventText1);
+            AppendKnownText(element, "EventText2", alarmBase.EventText2);
+            AppendKnownText(element, "EventText3", alarmBase.EventText3);
+            AppendKnownText(element, "EventText4", alarmBase.EventText4);
+            AppendKnownText(element, "EventText5", alarmBase.EventText5);
+            AppendKnownText(element, "EventText6", alarmBase.EventText6);
+            AppendKnownText(element, "EventText7", alarmBase.EventText7);
+            AppendKnownText(element, "EventText8", alarmBase.EventText8);
+            AppendKnownText(element, "EventText9", alarmBase.EventText9);
+            AppendKnownText(element, "InfoText", alarmBase.InfoText);
+        }
+
+        private static void AppendKnownText(XElement element, string name, MultilingualText text)
+        {
+            List<KeyValuePair<string, string>> texts = ReadLanguageTexts(text);
+            if (!texts.Exists(item => !string.IsNullOrEmpty(item.Value)))
+            {
+                return;
+            }
+
+            AppendMultilingual(element, name, texts);
+        }
+
+        private static List<KeyValuePair<string, string>> ReadLanguageTexts(MultilingualText text)
+        {
+            var texts = new List<KeyValuePair<string, string>>();
+            if (text?.Items == null)
+            {
+                return texts;
+            }
+
+            foreach (MultilingualTextItem item in text.Items)
+            {
+                if (item == null)
+                {
+                    continue;
+                }
+
+                texts.Add(new KeyValuePair<string, string>(
+                    item.Language?.Culture?.Name ?? string.Empty,
+                    item.Text ?? string.Empty));
+            }
+
+            return texts;
+        }
+
+        internal static void AppendMultilingual(XElement parent, string name, IEnumerable<KeyValuePair<string, string>> texts)
+        {
+            if (parent == null || string.IsNullOrWhiteSpace(name))
+            {
+                return;
+            }
+
+            foreach (XElement existing in parent.Elements("Attribute").ToList())
+            {
+                XAttribute attributeName = existing.Attribute("name");
+                if (attributeName == null || !string.Equals(attributeName.Value, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (existing.Elements("Text").Any())
+                {
+                    return;
+                }
+
+                existing.Remove();
+            }
+
+            var element = new XElement("Attribute", new XAttribute("name", name));
+            if (texts != null)
+            {
+                foreach (KeyValuePair<string, string> text in texts)
+                {
+                    element.Add(new XElement(
+                        "Text",
+                        new XAttribute("language", text.Key ?? string.Empty),
+                        text.Value ?? string.Empty));
+                }
+            }
+
+            parent.Add(element);
         }
 
         private static string AttributeText(object value)
