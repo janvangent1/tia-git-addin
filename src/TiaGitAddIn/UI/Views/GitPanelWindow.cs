@@ -80,7 +80,44 @@ namespace TiaGitAddIn.UI.Views
             header.Children.Add(repository);
             header.Children.Add(branch);
             header.Children.Add(tracking);
+
+            StackPanel hmiActions = new()
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            hmiActions.Children.Add(HmiButton(
+                "Export HMI",
+                "Hmi.ExportCommand",
+                "Write screens, tags, alarms, and scripts from the open Unified or WinCC Comfort device (panel or runtime) to HmiExport/<device>/."));
+            hmiActions.Children.Add(HmiButton(
+                "Import HMI",
+                "Hmi.ImportCommand",
+                "Apply HmiExport/<device>/ back onto the open Unified or WinCC Comfort device (panel or runtime) after a checkout."));
+            TextBlock hmiMessage = new()
+            {
+                Margin = new Thickness(8, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = Brushes.DimGray,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            hmiMessage.SetBinding(TextBlock.TextProperty, new Binding("Hmi.LastOperationMessage"));
+            hmiActions.Children.Add(hmiMessage);
+            header.Children.Add(hmiActions);
             return header;
+        }
+
+        private static Button HmiButton(string content, string commandPath, string toolTip)
+        {
+            Button button = new()
+            {
+                Content = content,
+                Padding = new Thickness(10, 2, 10, 2),
+                Margin = new Thickness(0, 0, 6, 0),
+                ToolTip = toolTip
+            };
+            button.SetBinding(Button.CommandProperty, new Binding(commandPath));
+            return button;
         }
 
         private static FrameworkElement BuildTabs(MainViewModel vm)
@@ -197,7 +234,9 @@ namespace TiaGitAddIn.UI.Views
                 FontSize = 13,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 0, 0, 20),
-                TextAlignment = TextAlignment.Center
+                TextAlignment = TextAlignment.Center,
+                TextWrapping = TextWrapping.Wrap,
+                MaxWidth = 460
             };
             message.SetBinding(TextBlock.TextProperty, new Binding("BusyMessage"));
 
@@ -229,7 +268,7 @@ namespace TiaGitAddIn.UI.Views
         {
             try
             {
-                await viewModel.RefreshAsync().ConfigureAwait(true);
+                await viewModel.RefreshOnOpenAsync().ConfigureAwait(true);
             }
             catch (Exception ex)
             {

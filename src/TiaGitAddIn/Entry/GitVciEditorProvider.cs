@@ -2,6 +2,7 @@ using System;
 using Siemens.Engineering;
 using Siemens.Engineering.AddIn.VersionControl;
 using TiaGitAddIn.Logging;
+using TiaGitAddIn.Services;
 using TiaGitAddIn.UI;
 
 namespace TiaGitAddIn.Entry
@@ -12,11 +13,12 @@ namespace TiaGitAddIn.Entry
 
         public override VciWorkspaceViewAddInProvider GetVciWorkspaceViewAddInProvider()
         {
-            _ = tiaPortal;
             FileLogger logger = new();
-            return new GitVciWorkspaceViewProvider(
-                new GitPanelLaunchService(),
-                logger);
+            var launchService = new GitPanelLaunchService
+            {
+                HmiExchange = new PortalHmiDeviceExchange(tiaPortal)
+            };
+            return new GitVciWorkspaceViewProvider(launchService, logger);
         }
     }
 }

@@ -23,6 +23,7 @@ namespace TiaGitAddIn.UI.ViewModels
         private readonly IGitService gitService;
         private readonly ComparisonSelectionCoordinator selectionCoordinator;
         private ObservableCollection<DiffEntryViewModel> entries = new();
+        private ObservableCollection<ChangeNode> fileTree = new();
         private DiffEntryViewModel? selectedEntry;
         private string lastOperationMessage = string.Empty;
         private string reportTitle = "Diff";
@@ -66,6 +67,12 @@ namespace TiaGitAddIn.UI.ViewModels
         {
             get => entries;
             private set => SetProperty(entries, value, updated => entries = updated);
+        }
+
+        public ObservableCollection<ChangeNode> FileTree
+        {
+            get => fileTree;
+            private set => SetProperty(fileTree, value, updated => fileTree = updated);
         }
 
         public DiffEntryViewModel? SelectedEntry
@@ -140,6 +147,17 @@ namespace TiaGitAddIn.UI.ViewModels
             {
                 Entries = new ObservableCollection<DiffEntryViewModel>(
                     result.Entries.Select(e => new DiffEntryViewModel(e)));
+                FileTree = ChangeTree.Group(Entries, entry => entry.FilePath);
+                ChangeNode? onlyFile = ChangeTree.OnlyFile(FileTree);
+                if (onlyFile != null)
+                {
+                    onlyFile.IsSelected = true;
+                }
+                else
+                {
+                    CurrentPresentation = null;
+                }
+
                 SelectedEntry = Entries.FirstOrDefault();
                 LastOperationMessage = $"{title} · {result.Entries.Count} file(s) changed.";
                 ExportPdfCommand.RaiseCanExecuteChanged();

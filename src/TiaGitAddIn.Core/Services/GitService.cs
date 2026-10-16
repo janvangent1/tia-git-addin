@@ -16,6 +16,8 @@ namespace TiaGitAddIn.Services
         string repositoryRoot) : IGitService
     {
         private const string PrettyCommitFormat = "%H%x1f%an%x1f%aI%x1f%s%x1f%P";
+        // SHA-1 of an empty tree. Used when the repository has no commit yet, so HEAD does not exist.
+        private const string EmptyTreeHash = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
         // git branch --format uses for-each-ref placeholders. %09 is a tab; %x1f is git-log
         // pretty syntax and is printed literally, which makes the branch list look empty.
         private const string BranchListFormat = "%(HEAD)%09%(refname:short)%09%(upstream:short)%09%(upstream:track)";
@@ -576,18 +578,38 @@ namespace TiaGitAddIn.Services
                 new[] { "log", "--date=iso-strict", "--pretty=format:" + PrettyCommitFormat, "-n", maxCount.ToString() },
                 ct).ConfigureAwait(false);
 
+            if (!result.IsSuccess && IsUnbornHead(result))
+            {
+                return Array.Empty<CommitInfo>();
+            }
+
             EnsureSuccess(result, "Unable to read commit log.");
             return GitOutputParser.ParseCommitLog(result.StandardOutput).ToList();
         }
 
         public async Task<DiffResult> GetWorkingTreeDiffAsync(CancellationToken ct = default)
         {
+            string baseline = await HasHeadAsync(ct).ConfigureAwait(false) ? "HEAD" : EmptyTreeHash;
             GitProcessResult result = await RunAsync(
-                new[] { "diff", "HEAD" },
+                new[] { "diff", baseline },
                 ct).ConfigureAwait(false);
 
             EnsureSuccess(result, "Unable to read working tree diff.");
             return GitOutputParser.ParseDiff(result.StandardOutput);
+        }
+
+        private async Task<bool> HasHeadAsync(CancellationToken ct)
+        {
+            GitProcessResult result = await RunAsync(
+                new[] { "rev-parse", "--verify", "--quiet", "HEAD" },
+                ct).ConfigureAwait(false);
+            return result.IsSuccess;
+        }
+
+        private static bool IsUnbornHead(GitProcessResult result)
+        {
+            string text = (result.StandardError ?? string.Empty) + " " + (result.StandardOutput ?? string.Empty);
+            return text.IndexOf("does not have any commits yet", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         public async Task<DiffResult> GetCommitDiffAsync(string commitHash, CancellationToken ct = default)

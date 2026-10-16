@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:vm="clr-namespace:TiaGitAddIn.UI.ViewModels"
              mc:Ignorable="d"
              d:DesignHeight="600"
         d:DesignWidth="900">
@@ -152,17 +153,26 @@
                                    FontWeight="Bold"
                                    Padding="8,5,8,5"/>
                     </Border>
-                    <ListBox ItemsSource="{Binding ChangedFiles}"
-                            BorderThickness="0">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}"
-                                        FontFamily="Consolas"
-                                        FontSize="11"
-                                           ToolTip="{Binding}"/>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                    <TreeView ItemsSource="{Binding ChangedFileGroups}"
+                              BorderThickness="0"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <TreeView.Resources>
+                            <HierarchicalDataTemplate DataType="{x:Type vm:ChangeNode}"
+                                                      ItemsSource="{Binding Children}">
+                                <TextBlock Text="{Binding Title}"
+                                           FontFamily="Consolas"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"
+                                           ToolTip="{Binding Item}"/>
+                            </HierarchicalDataTemplate>
+                        </TreeView.Resources>
+                        <TreeView.ItemContainerStyle>
+                            <Style TargetType="TreeViewItem">
+                                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=OneWay}"/>
+                                <Setter Property="Padding" Value="0,1"/>
+                            </Style>
+                        </TreeView.ItemContainerStyle>
+                    </TreeView>
                 </DockPanel>
             </Border>
         </Grid>

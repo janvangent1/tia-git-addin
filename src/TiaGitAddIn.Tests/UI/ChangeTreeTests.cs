@@ -1,0 +1,97 @@
+using System.Linq;
+using TiaGitAddIn.UI.ViewModels;
+using Xunit;
+
+namespace TiaGitAddIn.Tests.UI
+{
+    public sealed class ChangeTreeTests
+    {
+        [Fact]
+        public void GroupPlacesHmiExportFilesUnderDeviceCategories()
+        {
+            string[] paths =
+            {
+                @"HmiExport\Line 1\device.xml",
+                "HmiExport/Line 1/Overview.xml",
+                "HmiExport/Line 1/Screens/Start.xml",
+                "HmiExport/Line 1/Screens/Area/Motor.xml",
+                "HmiExport/Line 1/Scripts/StartClick.xml",
+                "HmiExport/Line 1/TagTables/Default.xml",
+                "HmiExport/Line 1/Tags/Extra.xml",
+                "HmiExport/Line 1/GraphicLists/Valve_0.xml",
+                "HmiExport/Line 1/TextLists/States.xml",
+                "HmiExport/Line 1/Slideins/Banner.xml",
+                "HmiExport/Line 1/Popups/Alarm.xml",
+                "HmiExport/Line 1/Templates/Base.xml",
+                "HmiExport/Line 1/Connections/Plc.xml",
+                "HmiExport/Line 1/Cycles/Fast.xml",
+                "Blocks/Main.xml",
+                "readme.txt",
+            };
+
+            var roots = ChangeTree.Group(paths, path => path);
+
+            ChangeNode device = roots[0];
+            Assert.Equal("HMI · Line 1 (14)", device.Title);
+            Assert.True(device.IsExpanded);
+            Assert.Equal(
+                new[]
+                {
+                    "Screens (2)",
+                    "Popups (1)",
+                    "Templates (1)",
+                    "Slide-ins (1)",
+                    "Tags (2)",
+                    "Scripts (1)",
+                    "Text lists (1)",
+                    "Graphic lists (1)",
+                    "Connections (1)",
+                    "Cycles (1)",
+                    "Configuration (2)",
+                },
+                device.Children!.Select(child => child.Title).ToArray());
+
+            ChangeNode screens = device.Children!.First();
+            Assert.Equal(new[] { "Motor.xml", "Start.xml" }, screens.Children!.Select(child => child.Title).ToArray());
+            Assert.Equal("HmiExport/Line 1/Screens/Area/Motor.xml", screens.Children![0].Item);
+            Assert.True(screens.IsExpanded);
+
+            Assert.Equal("Blocks (1)", roots[1].Title);
+            Assert.Equal("Main.xml", Assert.Single(roots[1].Children!).Title);
+            Assert.Equal("Other files (1)", roots[2].Title);
+            Assert.Equal("readme.txt", Assert.Single(roots[2].Children!).Title);
+        }
+
+        [Fact]
+        public void GroupCollapsesALargeCategoryAndKeepsTheDeviceOpen()
+        {
+            string[] paths = Enumerable.Range(1, ChangeTree.CollapseAbove + 1)
+                .Select(index => "HmiExport/Panel/Screens/Screen" + index.ToString("00") + ".xml")
+                .Append("HmiExport/Panel/device.xml")
+                .ToArray();
+
+            ChangeNode device = Assert.Single(ChangeTree.Group(paths, path => path));
+
+            Assert.True(device.IsExpanded);
+            ChangeNode screens = device.Children!.Single(child => child.Title.StartsWith("Screens"));
+            ChangeNode configuration = device.Children!.Single(child => child.Title.StartsWith("Configuration"));
+            Assert.False(screens.IsExpanded);
+            Assert.True(configuration.IsExpanded);
+            Assert.Equal(ChangeTree.CollapseAbove + 1, screens.Children!.Count);
+        }
+
+        [Fact]
+        public void GroupKeepsSeparateDevicesInNameOrder()
+        {
+            var roots = ChangeTree.Group(
+                new[]
+                {
+                    "HmiExport/Zebra/Screens/A.xml",
+                    "HmiExport/Alpha/Scripts/B.xml",
+                },
+                path => path);
+
+            Assert.Equal(new[] { "HMI · Alpha (1)", "HMI · Zebra (1)" }, roots.Select(node => node.Title).ToArray());
+        }
+    }
+}

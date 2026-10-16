@@ -19,6 +19,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="System.Windows.Forms">
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\TiaGitAddIn\TiaGitAddIn.csproj" />
     <ProjectReference Include="..\TiaGitAddIn.Core\TiaGitAddIn.Core.csproj" />
   </ItemGroup>

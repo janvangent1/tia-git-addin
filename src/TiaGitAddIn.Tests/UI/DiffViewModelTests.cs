@@ -138,7 +138,7 @@ namespace TiaGitAddIn.Tests.UI
             scannedFiles.Add(diffViewCodeBehind);
 
             var asyncVoidPattern = new Regex(@"async\s+void\s+(\w+)\s*\(([^)]*)\)", RegexOptions.Compiled);
-            var eventHandlerShape = new Regex(@"object\s+\w+\s*,\s*\w*EventArgs\s+\w+", RegexOptions.Compiled);
+            var eventHandlerShape = new Regex(@"object\s+\w+\s*,\s*\w*EventArgs(?:<[^>]+>)?\s+\w+", RegexOptions.Compiled);
 
             int recognizedBoundaryCount = 0;
 

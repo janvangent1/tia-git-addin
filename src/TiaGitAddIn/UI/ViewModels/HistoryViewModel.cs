@@ -22,6 +22,7 @@ namespace TiaGitAddIn.UI.ViewModels
         private ObservableCollection<CommitInfo> commits = new();
         private CommitInfo? selectedCommit;
         private ObservableCollection<string> changedFiles = new();
+        private ObservableCollection<ChangeNode> changedFileGroups = new();
         private string lastOperationMessage = string.Empty;
         private CancellationTokenSource? changedFilesCts;
 
@@ -66,6 +67,12 @@ namespace TiaGitAddIn.UI.ViewModels
             private set => SetProperty(changedFiles, value, updated => changedFiles = updated);
         }
 
+        public ObservableCollection<ChangeNode> ChangedFileGroups
+        {
+            get => changedFileGroups;
+            private set => SetProperty(changedFileGroups, value, updated => changedFileGroups = updated);
+        }
+
         public string LastOperationMessage
         {
             get => lastOperationMessage;
@@ -86,6 +93,7 @@ namespace TiaGitAddIn.UI.ViewModels
                     Commits = new ObservableCollection<CommitInfo>(log);
                     SelectedCommit = null;
                     ChangedFiles = new ObservableCollection<string>();
+                    ChangedFileGroups = new ObservableCollection<ChangeNode>();
                     LastOperationMessage = $"Loaded {log.Count} commits.";
                     ExportPdfCommand.RaiseCanExecuteChanged();
                 });
@@ -154,7 +162,11 @@ namespace TiaGitAddIn.UI.ViewModels
 
             if (commit == null)
             {
-                InvokeOnUI(() => ChangedFiles = new ObservableCollection<string>());
+                InvokeOnUI(() =>
+                {
+                    ChangedFiles = new ObservableCollection<string>();
+                    ChangedFileGroups = new ObservableCollection<ChangeNode>();
+                });
                 return;
             }
 
@@ -169,7 +181,10 @@ namespace TiaGitAddIn.UI.ViewModels
                 InvokeOnUI(() =>
                 {
                     if (SelectedCommit?.Hash == commit.Hash)
+                    {
                         ChangedFiles = new ObservableCollection<string>(files);
+                        ChangedFileGroups = ChangeTree.Group(files, path => path);
+                    }
                 });
             }
             catch (OperationCanceledException) { }

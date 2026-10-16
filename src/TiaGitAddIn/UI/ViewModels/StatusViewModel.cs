@@ -18,6 +18,9 @@ namespace TiaGitAddIn.UI.ViewModels
         private ObservableCollection<FileStatusItemViewModel> unstagedEntries = new();
         private ObservableCollection<FileStatusItemViewModel> untrackedEntries = new();
         private ObservableCollection<FileStatusItemViewModel> allEntries = new();
+        private ObservableCollection<ChangeNode> stagedGroups = new();
+        private ObservableCollection<ChangeNode> unstagedGroups = new();
+        private ObservableCollection<ChangeNode> untrackedGroups = new();
         private string currentBranch = string.Empty;
         private string trackingSummary = string.Empty;
         private string statusSummary = "Status not loaded";
@@ -56,6 +59,24 @@ namespace TiaGitAddIn.UI.ViewModels
         {
             get => untrackedEntries;
             private set => SetProperty(untrackedEntries, value, updated => untrackedEntries = updated);
+        }
+
+        public ObservableCollection<ChangeNode> StagedGroups
+        {
+            get => stagedGroups;
+            private set => SetProperty(stagedGroups, value, updated => stagedGroups = updated);
+        }
+
+        public ObservableCollection<ChangeNode> UnstagedGroups
+        {
+            get => unstagedGroups;
+            private set => SetProperty(unstagedGroups, value, updated => unstagedGroups = updated);
+        }
+
+        public ObservableCollection<ChangeNode> UntrackedGroups
+        {
+            get => untrackedGroups;
+            private set => SetProperty(untrackedGroups, value, updated => untrackedGroups = updated);
         }
 
         public ObservableCollection<FileStatusItemViewModel> Entries
@@ -116,6 +137,9 @@ namespace TiaGitAddIn.UI.ViewModels
                         .Where(e => e.WorkTreeStatus != FileStatus.Untracked && e.IndexStatus != FileStatus.Untracked)
                         .Select(e => new FileStatusItemViewModel(e)));
                 UntrackedEntries = new ObservableCollection<FileStatusItemViewModel>(status.UntrackedEntries.Select(e => new FileStatusItemViewModel(e)));
+                StagedGroups = ChangeTree.Group(StagedEntries, entry => entry.FilePath);
+                UnstagedGroups = ChangeTree.Group(UnstagedEntries, entry => entry.FilePath);
+                UntrackedGroups = ChangeTree.Group(UntrackedEntries, entry => entry.FilePath);
                 Entries = new ObservableCollection<FileStatusItemViewModel>(status.Entries.Select(e => new FileStatusItemViewModel(e)));
                 StatusSummary = status.IsClean ? "Working tree clean" : $"{status.Entries.Count} changed files";
                 ShowChangesCommand.RaiseCanExecuteChanged();

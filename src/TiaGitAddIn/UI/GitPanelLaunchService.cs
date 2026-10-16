@@ -5,6 +5,7 @@ using TiaGitAddIn.Models;
 using TiaGitAddIn.Models.Comparison;
 using TiaGitAddIn.Services;
 using TiaGitAddIn.Services.Comparison;
+using TiaGitAddIn.Services.Hmi;
 using TiaGitAddIn.Services.Revision;
 using TiaGitAddIn.UI.Mapping;
 using TiaGitAddIn.UI.ViewModels;
@@ -29,6 +30,8 @@ namespace TiaGitAddIn.UI
         private readonly IGitRepositoryInitializer repositoryInitializer = repositoryInitializer ?? throw new ArgumentNullException(nameof(repositoryInitializer));
         private readonly IRepositoryInitPrompt repositoryInitPrompt = repositoryInitPrompt ?? throw new ArgumentNullException(nameof(repositoryInitPrompt));
         private readonly Func<string> resolveGitExecutable = resolveGitExecutable ?? throw new ArgumentNullException(nameof(resolveGitExecutable));
+
+        public IHmiDeviceExchange HmiExchange { get; set; } = new UnavailableHmiDeviceExchange();
 
         public GitPanelLaunchService()
             : this(
@@ -137,7 +140,8 @@ namespace TiaGitAddIn.UI
                         mapper,
                         configurationService,
                         logger,
-                        dispatcher);
+                        dispatcher,
+                        HmiExchange);
                 });
             }
             catch (Exception ex)

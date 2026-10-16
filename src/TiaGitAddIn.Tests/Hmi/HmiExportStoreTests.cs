@@ -1,0 +1,173 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using TiaGitAddIn.Models;
+using TiaGitAddIn.Models.Hmi;
+using TiaGitAddIn.Services.Hmi;
+using TiaGitAddIn.UI;
+using TiaGitAddIn.UI.ViewModels;
+using Xunit;
+
+namespace TiaGitAddIn.Tests.Hmi
+{
+    public sealed class HmiExportStoreTests
+    {
+        [Fact]
+        public void RoundTripWritesOneXmlFilePerScreen()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "tia-git-hmi-" + Path.GetRandomFileName());
+            Directory.CreateDirectory(root);
+            try
+            {
+                var device = new HmiDeviceExport
+                {
+                    Name = "Line 1/Panel",
+                    Kind = HmiDeviceExport.UnifiedKind,
+                    Screens = new System.Collections.Generic.List<HmiScreenExport>
+                    {
+                        new HmiScreenExport
+                        {
+                            Name = "Start",
+                            Width = 800,
+                            Height = 480,
+                            Items = new System.Collections.Generic.List<HmiItemExport>
+                            {
+                                new HmiItemExport
+                                {
+                                    Kind = "Button",
+                                    Name = "StartButton",
+                                    Left = 40,
+                                    Top = 24,
+                                    Width = 160,
+                                    Height = 48,
+                                    Texts = new System.Collections.Generic.List<HmiTextExport>
+                                    {
+                                        new HmiTextExport { Language = "en-US", Text = "Start" }
+                                    }
+                                },
+                                new HmiItemExport
+                                {
+                                    Kind = "IOField",
+                                    Name = "Speed",
+                                    Left = 40,
+                                    Top = 90,
+                                    Width = 120,
+                                    Height = 32,
+                                    ProcessValue = "DB_Data.Speed"
+                                }
+                            }
+                        }
+                    }
+                };
+
+                HmiExportStore.Write(root, device);
+
+                string folder = HmiExportStore.DeviceFolder(root, "Line 1/Panel");
+                Assert.Equal("Line 1_Panel", Path.GetFileName(folder));
+                Assert.True(File.Exists(Path.Combine(folder, "device.xml")));
+                Assert.True(File.Exists(Path.Combine(folder, "Screens", "Start.xml")));
+
+                HmiDeviceExport read = Assert.Single(HmiExportStore.ReadAll(root));
+                Assert.Equal("Line 1/Panel", read.Name);
+                HmiScreenExport screen = Assert.Single(read.Screens);
+                Assert.Equal(800, screen.Width);
+                Assert.Equal("Start", Assert.Single(screen.Items.Single(item => item.Kind == "Button").Texts).Text);
+                Assert.Equal("DB_Data.Speed", screen.Items.Single(item => item.Kind == "IOField").ProcessValue);
+            }
+            finally
+            {
+                if (Directory.Exists(root))
+                {
+                    Directory.Delete(root, true);
+                }
+            }
+        }
+
+        [Fact]
+        public void PrepareDeviceFolderReplacesAnOlderExportAndRecordsComfort()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "tia-git-hmi-comfort-" + Path.GetRandomFileName());
+            Directory.CreateDirectory(root);
+            try
+            {
+                string folder = HmiExportStore.PrepareDeviceFolder(root, "Comfort Panel", HmiDeviceExport.ComfortKind);
+                string stale = Path.Combine(folder, "Screens", "Old.xml");
+                Directory.CreateDirectory(Path.GetDirectoryName(stale));
+                File.WriteAllText(stale, "<Screen />");
+
+                string replaced = HmiExportStore.PrepareDeviceFolder(root, "Comfort Panel", HmiDeviceExport.ComfortKind);
+
+                Assert.Equal(folder, replaced);
+                Assert.False(File.Exists(stale));
+                HmiDeviceExport device = Assert.Single(HmiExportStore.ReadAll(root));
+                Assert.Equal(HmiDeviceExport.ComfortKind, device.Kind);
+                Assert.Equal("Comfort Panel", device.Name);
+                Assert.Empty(device.Screens);
+            }
+            finally
+            {
+                if (Directory.Exists(root))
+                {
+                    Directory.Delete(root, true);
+                }
+            }
+        }
+
+        [Fact]
+        public void ReadAllReturnsNothingWhenTheFolderIsMissing()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "tia-git-hmi-empty-" + Path.GetRandomFileName());
+            Directory.CreateDirectory(root);
+            try
+            {
+                Assert.Empty(HmiExportStore.ReadAll(root));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public async Task ImportRefreshesStatusAfterTheExchangeSucceeds()
+        {
+            var exchange = new RecordingExchange();
+            int refreshes = 0;
+            var viewModel = new HmiExchangeViewModel(
+                @"C:\repo",
+                exchange,
+                () =>
+                {
+                    refreshes++;
+                    return Task.CompletedTask;
+                },
+                ImmediateUiDispatcher.Instance);
+
+            await viewModel.ImportAsync();
+
+            Assert.Equal(new[] { @"C:\repo" }, exchange.ImportedPaths);
+            Assert.Equal(1, refreshes);
+            Assert.Contains("Imported", viewModel.LastOperationMessage);
+        }
+
+        private sealed class RecordingExchange : IHmiDeviceExchange
+        {
+            public System.Collections.Generic.List<string> ImportedPaths { get; } = new System.Collections.Generic.List<string>();
+
+            public void RememberCallerContext()
+            {
+            }
+
+            public Task<OperationResult> ExportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default) =>
+                Task.FromResult(OperationResult.Ok("Exported."));
+
+            public Task<OperationResult> ImportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
+            {
+                ImportedPaths.Add(repositoryPath);
+                return Task.FromResult(OperationResult.Ok("Imported the HMI screens."));
+            }
+        }
+    }
+}

@@ -2,6 +2,8 @@ using System;
 using System.Threading;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Threading;
+using TiaGitAddIn.Services;
 using Siemens.Engineering.AddIn.Menu;
 using Siemens.Engineering.AddIn.VersionControl;
 using TiaGitAddIn.Logging;
@@ -57,6 +59,7 @@ namespace TiaGitAddIn.Entry
                     return;
                 }
 
+                launchService.HmiExchange.RememberCallerContext();
                 GitPanelLaunchResult result = launchService.CreateViewModel(context);
                 if (!result.Success || result.CreateViewModel == null)
                 {
@@ -94,6 +97,16 @@ namespace TiaGitAddIn.Entry
 
         private static void ShowPanel(Func<MainViewModel> createViewModel, IAddInLogger logger)
         {
+            // The menu callback thread owns the TIA project. Keep a dispatcher frame on it until the
+            // panel closes so Export HMI can run Openness there. Returning immediately leaves that
+            // work queued forever ("Waiting for TIA Portal").
+            Dispatcher? callerDispatcher = null;
+            if (Thread.CurrentThread.GetApartmentState() == ApartmentState.STA)
+            {
+                callerDispatcher = Dispatcher.FromThread(Thread.CurrentThread) ?? Dispatcher.CurrentDispatcher;
+            }
+
+            using var panelClosed = new ManualResetEventSlim(false);
             Thread thread = new(() =>
             {
                 try
@@ -126,11 +139,21 @@ namespace TiaGitAddIn.Entry
                     logger.Error("Git panel UI thread failed.", ex);
                     ShowMessage(ex.Message, MessageBoxImage.Error);
                 }
+                finally
+                {
+                    panelClosed.Set();
+                    callerDispatcher?.BeginInvoke(new Action(() => { }));
+                }
             });
 
             thread.SetApartmentState(ApartmentState.STA);
             thread.IsBackground = true;
             thread.Start();
+
+            if (callerDispatcher != null)
+            {
+                DispatcherPump.RunUntil(callerDispatcher, panelClosed.WaitHandle);
+            }
         }
 
         private static void EnsureWpfApplication()

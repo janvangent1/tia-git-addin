@@ -6,6 +6,7 @@ using TiaGitAddIn.Logging;
 using TiaGitAddIn.Models;
 using TiaGitAddIn.Services;
 using TiaGitAddIn.Services.Comparison;
+using TiaGitAddIn.Services.Hmi;
 using TiaGitAddIn.Services.Revision;
 using TiaGitAddIn.UI;
 using TiaGitAddIn.UI.Mapping;
@@ -22,7 +23,8 @@ namespace TiaGitAddIn.UI.ViewModels
             IComparisonPresentationMapper mapper,
             IConfigurationService configurationService,
             IAddInLogger? logger = null,
-            IUiDispatcher? uiDispatcher = null)
+            IUiDispatcher? uiDispatcher = null,
+            IHmiDeviceExchange? hmiExchange = null)
             : base(uiDispatcher)
         {
             if (string.IsNullOrWhiteSpace(repositoryPath))
@@ -40,7 +42,7 @@ namespace TiaGitAddIn.UI.ViewModels
 
             RepositoryPath = repositoryPath;
             Status = new StatusViewModel(gitService, UiDispatcher, ShowWorkingTreeDiffAsync);
-            Commit = new CommitViewModel(gitService, Status.RefreshAsync, UiDispatcher);
+            Commit = new CommitViewModel(gitService, RefreshAfterCommitAsync, UiDispatcher);
             Branch = new BranchViewModel(
                 gitService,
                 UiDispatcher,
@@ -48,6 +50,11 @@ namespace TiaGitAddIn.UI.ViewModels
             History = new HistoryViewModel(gitService, UiDispatcher, RefreshStatusAndBranchesAsync, repositoryPath);
             Diff = new DiffViewModel(gitService, revisionProvider, comparisonCoordinator, mapper, logger, UiDispatcher);
             Settings = new SettingsViewModel(configurationService, repositoryPath, gitService, UiDispatcher);
+            Hmi = new HmiExchangeViewModel(
+                repositoryPath,
+                hmiExchange ?? new UnavailableHmiDeviceExchange(),
+                Status.RefreshAsync,
+                UiDispatcher);
 
             CancelCommand = new RelayCommand(_ => CancelAll(), _ => IsBusy);
 
@@ -56,6 +63,7 @@ namespace TiaGitAddIn.UI.ViewModels
             Branch.PropertyChanged += OnChildPropertyChanged;
             History.PropertyChanged += OnChildPropertyChanged;
             Diff.PropertyChanged += OnChildPropertyChanged;
+            Hmi.PropertyChanged += OnChildPropertyChanged;
         }
 
         public const int DiffTabIndex = 4;
@@ -76,10 +84,20 @@ namespace TiaGitAddIn.UI.ViewModels
         public HistoryViewModel History { get; }
         public DiffViewModel Diff { get; }
         public SettingsViewModel Settings { get; }
+        public HmiExchangeViewModel Hmi { get; }
 
         public RelayCommand CancelCommand { get; }
 
         public Task RefreshAsync() => Status.RefreshAsync();
+
+        public Task RefreshOnOpenAsync() =>
+            Task.WhenAll(Status.RefreshAsync(), History.RefreshAsync());
+
+        private async Task RefreshAfterCommitAsync()
+        {
+            await Status.RefreshAsync().ConfigureAwait(false);
+            await History.RefreshAsync().ConfigureAwait(false);
+        }
 
         private Task ShowWorkingTreeDiffAsync()
         {
@@ -114,13 +132,15 @@ namespace TiaGitAddIn.UI.ViewModels
 
         private void RecomputeAggregate()
         {
-            bool busy = Status.IsBusy || Commit.IsBusy || Branch.IsBusy || History.IsBusy || Diff.IsBusy;
+            bool busy = Status.IsBusy || Commit.IsBusy || Branch.IsBusy || History.IsBusy || Diff.IsBusy || Hmi.IsBusy;
 
-            string msg = Status.BusyMessage;
+            string msg = Hmi.IsBusy ? Hmi.BusyMessage : string.Empty;
+            if (string.IsNullOrEmpty(msg)) msg = Status.BusyMessage;
             if (string.IsNullOrEmpty(msg)) msg = Commit.BusyMessage;
             if (string.IsNullOrEmpty(msg)) msg = Branch.BusyMessage;
             if (string.IsNullOrEmpty(msg)) msg = History.BusyMessage;
             if (string.IsNullOrEmpty(msg)) msg = Diff.BusyMessage;
+            if (string.IsNullOrEmpty(msg)) msg = Hmi.BusyMessage;
 
             InvokeOnUI(() =>
             {
@@ -141,6 +161,7 @@ namespace TiaGitAddIn.UI.ViewModels
             if (Branch.IsBusy) Branch.CancelCommand.Execute(null);
             if (History.IsBusy) History.CancelCommand.Execute(null);
             if (Diff.IsBusy) Diff.CancelCommand.Execute(null);
+            if (Hmi.IsBusy) Hmi.CancelCommand.Execute(null);
         }
     }
 }

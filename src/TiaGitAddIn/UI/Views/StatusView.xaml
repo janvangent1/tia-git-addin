@@ -12,13 +12,58 @@
     <UserControl.Resources>
         <conv:FileStatusToColorConverter x:Key="StatusToColor"/>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
+        <conv:BoolToVisibilityConverter x:Key="GroupVis" Invert="True"/>
 
-        <Style x:Key="FileListStyle"
-                TargetType="ListView">
-            <Setter Property="BorderThickness"
-                    Value="0"/>
-            <Setter Property="Margin"
-                    Value="0,5"/>
+        <HierarchicalDataTemplate x:Key="StatusNodeTemplate"
+                                  DataType="{x:Type vm:ChangeNode}"
+                                  ItemsSource="{Binding Children}">
+            <Grid Margin="0,2">
+                <TextBlock Text="{Binding Title}"
+                           FontWeight="Bold"
+                           TextWrapping="Wrap"
+                           Visibility="{Binding IsFile, Converter={StaticResource GroupVis}}"/>
+                <Grid Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding Item.StatusText}"
+                               Foreground="{Binding Item.Status, Converter={StaticResource StatusToColor}}"
+                               FontWeight="Bold"
+                               Width="70"
+                               Grid.Column="0"/>
+                    <TextBlock Text="{Binding Title}"
+                               ToolTip="{Binding Item.FilePath}"
+                               Grid.Column="1"
+                               Margin="5,0"
+                               TextTrimming="CharacterEllipsis"/>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <Button Content="Stage"
+                                Visibility="{Binding Item.CanStage, Converter={StaticResource BoolToVis}}"
+                                Command="{Binding DataContext.StageSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding Item}"
+                                Padding="5,0"/>
+                        <Button Content="Unstage"
+                                Visibility="{Binding Item.CanUnstage, Converter={StaticResource BoolToVis}}"
+                                Command="{Binding DataContext.UnstageSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding Item}"
+                                Padding="5,0"/>
+                        <Button Content="Discard"
+                                Visibility="{Binding Item.CanDiscard, Converter={StaticResource BoolToVis}}"
+                                Command="{Binding DataContext.DiscardSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding Item}"
+                                Margin="4,0,0,0"
+                                Padding="5,0"
+                                ToolTip="Put this file back to the last commit."/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </HierarchicalDataTemplate>
+
+        <Style x:Key="ChangeTreeItemStyle" TargetType="TreeViewItem">
+            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=OneWay}"/>
+            <Setter Property="Padding" Value="0,1"/>
         </Style>
     </UserControl.Resources>
 
@@ -43,108 +88,37 @@
             <StackPanel>
                 <Expander Header="Staged Changes"
                         IsExpanded="True">
-                    <ListView ItemsSource="{Binding StagedEntries}"
-                            Style="{StaticResource FileListStyle}"
-                            x:Name="StagedList">
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="2">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding StatusText}"
-                                            Foreground="{Binding Status, Converter={StaticResource StatusToColor}}"
-                                            FontWeight="Bold"
-                                            Width="60"
-                                            Grid.Column="0"/>
-                                    <TextBlock Text="{Binding FilePath}"
-                                            Grid.Column="1"
-                                            Margin="5,0"/>
-                                    <Button Content="Unstage"
-                                            Command="{Binding DataContext.UnstageSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}"
-                                            Grid.Column="2"
-                                            Padding="5,0"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                    <TreeView ItemsSource="{Binding StagedGroups}"
+                              ItemTemplate="{StaticResource StatusNodeTemplate}"
+                              ItemContainerStyle="{StaticResource ChangeTreeItemStyle}"
+                              BorderThickness="0"
+                              VirtualizingPanel.IsVirtualizing="False"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                              ScrollViewer.VerticalScrollBarVisibility="Disabled"/>
                 </Expander>
 
                 <Expander Header="Unstaged Changes"
                         IsExpanded="True"
                         Margin="0,10,0,0">
-                    <ListView ItemsSource="{Binding UnstagedEntries}"
-                            Style="{StaticResource FileListStyle}"
-                            x:Name="UnstagedList">
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="2">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding StatusText}"
-                                            Foreground="{Binding Status, Converter={StaticResource StatusToColor}}"
-                                            FontWeight="Bold"
-                                            Width="60"
-                                            Grid.Column="0"/>
-                                    <TextBlock Text="{Binding FilePath}"
-                                            Grid.Column="1"
-                                            Margin="5,0"/>
-                                    <StackPanel Grid.Column="2"
-                                                Orientation="Horizontal">
-                                        <Button Content="Stage"
-                                                Command="{Binding DataContext.StageSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                CommandParameter="{Binding}"
-                                                Padding="5,0"/>
-                                        <Button Content="Discard"
-                                                Command="{Binding DataContext.DiscardSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                CommandParameter="{Binding}"
-                                                Margin="4,0,0,0"
-                                                Padding="5,0"
-                                                ToolTip="Put this file back to the last commit."/>
-                                    </StackPanel>
-                                </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                    <TreeView ItemsSource="{Binding UnstagedGroups}"
+                              ItemTemplate="{StaticResource StatusNodeTemplate}"
+                              ItemContainerStyle="{StaticResource ChangeTreeItemStyle}"
+                              BorderThickness="0"
+                              VirtualizingPanel.IsVirtualizing="False"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                              ScrollViewer.VerticalScrollBarVisibility="Disabled"/>
                 </Expander>
 
                 <Expander Header="Untracked Files"
                         IsExpanded="True"
                         Margin="0,10,0,0">
-                    <ListView ItemsSource="{Binding UntrackedEntries}"
-                            Style="{StaticResource FileListStyle}"
-                            x:Name="UntrackedList">
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="2">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Untracked"
-                                            Foreground="Gray"
-                                            FontWeight="Bold"
-                                            Width="60"
-                                            Grid.Column="0"/>
-                                    <TextBlock Text="{Binding FilePath}"
-                                            Grid.Column="1"
-                                            Margin="5,0"/>
-                                    <Button Content="Stage"
-                                            Command="{Binding DataContext.StageSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}"
-                                            Grid.Column="2"
-                                            Padding="5,0"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                    <TreeView ItemsSource="{Binding UntrackedGroups}"
+                              ItemTemplate="{StaticResource StatusNodeTemplate}"
+                              ItemContainerStyle="{StaticResource ChangeTreeItemStyle}"
+                              BorderThickness="0"
+                              VirtualizingPanel.IsVirtualizing="False"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                              ScrollViewer.VerticalScrollBarVisibility="Disabled"/>
                 </Expander>
             </StackPanel>
         </ScrollViewer>

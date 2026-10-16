@@ -27,6 +27,10 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
 
+    <Reference Include="System.Windows.Forms">
+      <Private>false</Private>
+    </Reference>
+
     <Reference Include="Siemens.Engineering.Base">
       <HintPath>$(TiaPortalPublicApiNet48)\Siemens.Engineering.Base.dll</HintPath>
       <Private>false</Private>
@@ -44,6 +48,16 @@
 
     <Reference Include="Siemens.Engineering.AddIn.Utilities">
       <HintPath>$(TiaPortalPublicApiNet48)\Siemens.Engineering.AddIn.Utilities.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <Reference Include="Siemens.Engineering.WinCCUnified">
+      <HintPath>$(TiaPortalPublicApiNet48)\Siemens.Engineering.WinCCUnified.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <Reference Include="Siemens.Engineering.WinCC">
+      <HintPath>$(TiaPortalPublicApiNet48)\Siemens.Engineering.WinCC.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>

@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:comparison="clr-namespace:TiaGitAddIn.UI.Views.Comparison"
              xmlns:conv="clr-namespace:TiaGitAddIn.UI.Converters"
+             xmlns:vm="clr-namespace:TiaGitAddIn.UI.ViewModels"
              mc:Ignorable="d"
              d:DesignHeight="600"
              d:DesignWidth="1000">
@@ -22,50 +23,61 @@
         <!-- Main content -->
         <Grid Grid.Row="0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="250"
-                                  MinWidth="150"/>
+                <ColumnDefinition Width="300"
+                                  MinWidth="180"/>
                 <ColumnDefinition Width="5"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
             <!-- File list panel -->
-            <DockPanel Grid.Column="0">
-                <ListBox ItemsSource="{Binding Entries}"
-                         SelectedItem="{Binding SelectedEntry}"
-                         SelectionMode="Single"
-                         SelectionChanged="OnSelectionChanged"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="2,3">
+            <TreeView Grid.Column="0"
+                      ItemsSource="{Binding FileTree}"
+                      BorderThickness="0"
+                      SelectedItemChanged="OnSelectionChanged"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <TreeView.Resources>
+                    <conv:BoolToVisibilityConverter x:Key="FileVis"/>
+                    <conv:BoolToVisibilityConverter x:Key="GroupVis" Invert="True"/>
+                    <HierarchicalDataTemplate DataType="{x:Type vm:ChangeNode}"
+                                              ItemsSource="{Binding Children}">
+                        <Grid Margin="0,2">
+                            <TextBlock Text="{Binding Title}"
+                                       FontWeight="Bold"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding IsFile, Converter={StaticResource GroupVis}}"/>
+                            <Grid Visibility="{Binding IsFile, Converter={StaticResource FileVis}}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="20"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-
-                                <!-- Change type badge -->
                                 <Border Grid.Column="0"
                                         CornerRadius="2"
                                         Padding="2,0"
-                                        Background="{Binding ChangeType, Converter={StaticResource LineTypeToBackground}}">
-                                    <TextBlock Text="{Binding ChangeType}"
+                                        Background="{Binding Item.ChangeType, Converter={StaticResource LineTypeToBackground}}">
+                                    <TextBlock Text="{Binding Item.ChangeType}"
                                                FontSize="10"
                                                FontWeight="Bold"
                                                HorizontalAlignment="Center"/>
                                 </Border>
-
-                                <!-- File name -->
                                 <TextBlock Grid.Column="1"
-                                           Text="{Binding FileName}"
-                                           ToolTip="{Binding FilePath}"
-                                           Margin="5,0"
+                                           Text="{Binding Title}"
+                                           ToolTip="{Binding Item.FilePath}"
+                                           Margin="5,0,0,0"
                                            VerticalAlignment="Center"
                                            TextTrimming="CharacterEllipsis"/>
                             </Grid>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-            </DockPanel>
+                        </Grid>
+                    </HierarchicalDataTemplate>
+                </TreeView.Resources>
+                <TreeView.ItemContainerStyle>
+                    <Style TargetType="TreeViewItem">
+                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=OneWay}"/>
+                        <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
+                        <Setter Property="Padding" Value="0,1"/>
+                    </Style>
+                </TreeView.ItemContainerStyle>
+            </TreeView>
 
             <GridSplitter Grid.Column="1"
                           Width="5"

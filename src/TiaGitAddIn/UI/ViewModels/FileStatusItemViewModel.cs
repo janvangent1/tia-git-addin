@@ -17,6 +17,10 @@ namespace TiaGitAddIn.UI.ViewModels
 
         public bool CanUnstage { get; } = entry.IsStaged;
 
+        public bool CanDiscard { get; } = entry.IsUnstaged
+            && entry.WorkTreeStatus != FileStatus.Untracked
+            && entry.IndexStatus != FileStatus.Untracked;
+
         private static string GetArea(FileStatusEntry entry)
         {
             if (entry.IsConflicted)
