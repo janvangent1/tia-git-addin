@@ -106,7 +106,7 @@ namespace TiaGitAddIn.UI.ViewModels
                     : "Exporting HMI…";
             return RunBusyAsync(busyMessage, async ct =>
             {
-                var progress = new Progress<string>(message => InvokeOnUI(() => ApplyExportProgress(message)));
+                IProgress<string> progress = new ChecklistProgress(ReportChecklist);
                 var messages = new System.Collections.Generic.List<string>();
                 bool succeeded = false;
                 if (includeHmi)
@@ -141,7 +141,7 @@ namespace TiaGitAddIn.UI.ViewModels
         {
             return RunBusyAsync(busyMessage, async ct =>
             {
-                var progress = new Progress<string>(message => InvokeOnUI(() => ApplyExportProgress(message)));
+                IProgress<string> progress = new ChecklistProgress(ReportChecklist);
                 OperationResult result = await operation(repositoryPath, progress, ct).ConfigureAwait(false);
                 InvokeOnUI(() => LastOperationMessage = GitUserMessages.Describe(result));
                 if (result.Success)
@@ -149,6 +149,33 @@ namespace TiaGitAddIn.UI.ViewModels
                     await refreshStatusAsync().ConfigureAwait(false);
                 }
             });
+        }
+
+        /// <summary>
+        /// Applies a checklist line before returning. <see cref="Progress{T}"/> would only post it,
+        /// so a hardware row would stay unfinished until the whole export returned.
+        /// </summary>
+        private void ReportChecklist(string message)
+        {
+            if (UiDispatcher.CheckAccess())
+            {
+                ApplyExportProgress(message);
+                return;
+            }
+
+            UiDispatcher.Invoke(() => ApplyExportProgress(message));
+        }
+
+        private sealed class ChecklistProgress : IProgress<string>
+        {
+            private readonly Action<string> apply;
+
+            public ChecklistProgress(Action<string> apply)
+            {
+                this.apply = apply;
+            }
+
+            public void Report(string value) => apply(value);
         }
 
         internal void ApplyExportProgress(string message)

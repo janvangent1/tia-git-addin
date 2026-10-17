@@ -17,6 +17,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -110,8 +111,24 @@
                 Width="100"
                 HorizontalAlignment="Left"/>
 
-        <TextBlock Text="{Binding ValidationMessage}"
+        <Label Content="XML changes:"
                 Grid.Row="7"
+                Grid.Column="0"
+                VerticalAlignment="Center"
+                ToolTip="Choose how exported XML is shown in a diff."/>
+        <ComboBox ItemsSource="{Binding XmlDiffChoices}"
+                SelectedItem="{Binding SelectedXmlDiff}"
+                DisplayMemberPath="Caption"
+                Grid.Row="7"
+                Grid.Column="1"
+                Margin="5"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Left"
+                MinWidth="220"
+                ToolTip="By element and attribute ignores formatting and attribute order. Plain text shows the file line by line."/>
+
+        <TextBlock Text="{Binding ValidationMessage}"
+                Grid.Row="8"
                 Grid.Column="0"
                 Grid.ColumnSpan="3"
                 Foreground="Red"
@@ -120,7 +137,7 @@
 
         <Button Content="Save Settings"
                 Command="{Binding SaveCommand}"
-                Grid.Row="8"
+                Grid.Row="9"
                 Grid.Column="1"
                 Grid.ColumnSpan="2"
                 HorizontalAlignment="Right"

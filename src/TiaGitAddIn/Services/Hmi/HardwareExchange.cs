@@ -52,28 +52,62 @@ namespace TiaGitAddIn.Services
             int drives = 0;
             int parameters = 0;
             int telegrams = 0;
-            var seenDrives = new List<DriveObject>();
             var usedFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var deviceFolders = new List<string>();
 
+            // Each category checks off before the next one starts, matching the HMI checklist.
+            Step(report, "Devices", 0, string.Empty);
+            Step(report, "Modules", 0, string.Empty);
+            DispatcherPump.Yield();
             foreach (Project project in portal.Projects)
             {
                 ct.ThrowIfCancellationRequested();
-                networks += WriteSubnets(project, root, ct, report);
-
                 foreach (Device device in project.Devices)
                 {
-                    ExportDevice(device, root, usedFolders, seenDrives, ct, report, ref devices, ref modules, ref drives, ref parameters, ref telegrams);
+                    CollectDevice(device, root, usedFolders, deviceFolders, ct, report, ref devices, ref modules);
                 }
 
                 foreach (DeviceUserGroup group in project.DeviceGroups)
                 {
-                    ExportGroup(group, root, usedFolders, seenDrives, ct, report, ref devices, ref modules, ref drives, ref parameters, ref telegrams);
+                    CollectGroup(group, root, usedFolders, deviceFolders, ct, report, ref devices, ref modules);
                 }
             }
 
             Finish(report, "Devices", devices);
             Finish(report, "Modules", modules);
+
+            Step(report, "Networks", 0, string.Empty);
+            DispatcherPump.Yield();
+            foreach (Project project in portal.Projects)
+            {
+                ct.ThrowIfCancellationRequested();
+                networks += WriteSubnets(project, root, ct, report);
+                DispatcherPump.Yield();
+            }
+
             Finish(report, "Networks", networks);
+
+            Step(report, "Drives", 0, string.Empty);
+            Step(report, "Parameters", 0, string.Empty);
+            Step(report, "Telegrams", 0, string.Empty);
+            DispatcherPump.Yield();
+            var seenDrives = new List<DriveObject>();
+            int folderIndex = 0;
+            foreach (Project project in portal.Projects)
+            {
+                ct.ThrowIfCancellationRequested();
+                foreach (Device device in project.Devices)
+                {
+                    ExportDrives(device, deviceFolders[folderIndex], seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
+                    folderIndex++;
+                }
+
+                foreach (DeviceUserGroup group in project.DeviceGroups)
+                {
+                    ExportDriveGroup(group, deviceFolders, ref folderIndex, seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
+                }
+            }
+
             Finish(report, "Drives", drives);
             Finish(report, "Parameters", parameters);
             Finish(report, "Telegrams", telegrams);
@@ -91,42 +125,36 @@ namespace TiaGitAddIn.Services
                 "PLC blocks stay on the existing Git path. Stage that folder to keep it in Git.");
         }
 
-        private static void ExportGroup(
+        private static void CollectGroup(
             DeviceUserGroup group,
             string root,
             ISet<string> usedFolders,
-            List<DriveObject> seenDrives,
+            List<string> deviceFolders,
             CancellationToken ct,
             Action<string> report,
             ref int devices,
-            ref int modules,
-            ref int drives,
-            ref int parameters,
-            ref int telegrams)
+            ref int modules)
         {
             foreach (Device device in group.Devices)
             {
-                ExportDevice(device, root, usedFolders, seenDrives, ct, report, ref devices, ref modules, ref drives, ref parameters, ref telegrams);
+                CollectDevice(device, root, usedFolders, deviceFolders, ct, report, ref devices, ref modules);
             }
 
             foreach (DeviceUserGroup child in group.Groups)
             {
-                ExportGroup(child, root, usedFolders, seenDrives, ct, report, ref devices, ref modules, ref drives, ref parameters, ref telegrams);
+                CollectGroup(child, root, usedFolders, deviceFolders, ct, report, ref devices, ref modules);
             }
         }
 
-        private static void ExportDevice(
+        private static void CollectDevice(
             Device device,
             string root,
             ISet<string> usedFolders,
-            List<DriveObject> seenDrives,
+            List<string> deviceFolders,
             CancellationToken ct,
             Action<string> report,
             ref int devices,
-            ref int modules,
-            ref int drives,
-            ref int parameters,
-            ref int telegrams)
+            ref int modules)
         {
             ct.ThrowIfCancellationRequested();
             devices++;
@@ -141,40 +169,86 @@ namespace TiaGitAddIn.Services
                 new XAttribute("type", device.TypeIdentifier ?? string.Empty));
             AppendAttributes(module, device);
             var usedSettings = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var usedDrives = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (DeviceItem item in device.DeviceItems)
             {
-                module.Add(WriteItem(
-                    item,
-                    device.Name ?? string.Empty,
-                    folder,
-                    usedSettings,
-                    usedDrives,
-                    seenDrives,
-                    ct,
-                    report,
-                    ref modules,
-                    ref drives,
-                    ref parameters,
-                    ref telegrams));
+                module.Add(WriteItem(item, folder, usedSettings, ct, report, ref modules));
             }
 
             new XDocument(module).Save(Path.Combine(folder, "Hardware.xml"));
+            deviceFolders.Add(folder);
+            DispatcherPump.Yield();
         }
 
-        private static XElement WriteItem(
+        private static void ExportDriveGroup(
+            DeviceUserGroup group,
+            IReadOnlyList<string> deviceFolders,
+            ref int folderIndex,
+            List<DriveObject> seenDrives,
+            CancellationToken ct,
+            Action<string> report,
+            ref int drives,
+            ref int parameters,
+            ref int telegrams)
+        {
+            foreach (Device device in group.Devices)
+            {
+                ExportDrives(device, deviceFolders[folderIndex], seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
+                folderIndex++;
+            }
+
+            foreach (DeviceUserGroup child in group.Groups)
+            {
+                ExportDriveGroup(child, deviceFolders, ref folderIndex, seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
+            }
+        }
+
+        private static void ExportDrives(
+            Device device,
+            string folder,
+            List<DriveObject> seenDrives,
+            CancellationToken ct,
+            Action<string> report,
+            ref int drives,
+            ref int parameters,
+            ref int telegrams)
+        {
+            var usedDrives = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            string deviceName = device.Name ?? string.Empty;
+            foreach (DeviceItem item in device.DeviceItems)
+            {
+                VisitDrives(item, deviceName, folder, usedDrives, seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
+            }
+
+            DispatcherPump.Yield();
+        }
+
+        private static void VisitDrives(
             DeviceItem item,
             string deviceName,
             string folder,
-            ISet<string> usedSettings,
             ISet<string> usedDrives,
             List<DriveObject> seenDrives,
             CancellationToken ct,
             Action<string> report,
-            ref int modules,
             ref int drives,
             ref int parameters,
             ref int telegrams)
+        {
+            ct.ThrowIfCancellationRequested();
+            WriteItemDrives(item, deviceName, folder, usedDrives, seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
+            foreach (DeviceItem child in item.DeviceItems)
+            {
+                VisitDrives(child, deviceName, folder, usedDrives, seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
+            }
+        }
+
+        private static XElement WriteItem(
+            DeviceItem item,
+            string folder,
+            ISet<string> usedSettings,
+            CancellationToken ct,
+            Action<string> report,
+            ref int modules)
         {
             ct.ThrowIfCancellationRequested();
             modules++;
@@ -192,24 +266,11 @@ namespace TiaGitAddIn.Services
             AppendAttributes(element, item);
             WriteAddresses(element, item);
             NoteSoftware(element, item);
-            WriteItemDrives(item, deviceName, folder, usedDrives, seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
             CollectSettings(item, folder, usedSettings);
 
             foreach (DeviceItem child in item.DeviceItems)
             {
-                element.Add(WriteItem(
-                    child,
-                    deviceName,
-                    folder,
-                    usedSettings,
-                    usedDrives,
-                    seenDrives,
-                    ct,
-                    report,
-                    ref modules,
-                    ref drives,
-                    ref parameters,
-                    ref telegrams));
+                element.Add(WriteItem(child, folder, usedSettings, ct, report, ref modules));
             }
 
             return element;
@@ -987,6 +1048,8 @@ namespace TiaGitAddIn.Services
             {
                 report?.Invoke(HmiExportProgress.Format(ChecklistDevice, category, "pending", 0, string.Empty));
             }
+
+            DispatcherPump.Yield();
         }
 
         private static void Step(Action<string> report, string category, int count, string detail)
@@ -997,6 +1060,7 @@ namespace TiaGitAddIn.Services
         private static void Finish(Action<string> report, string category, int count)
         {
             report?.Invoke(HmiExportProgress.Format(ChecklistDevice, category, "done", count, string.Empty));
+            DispatcherPump.Yield();
         }
 
         private static bool IsSessionDead(Exception ex)

@@ -22,6 +22,7 @@ namespace TiaGitAddIn.UI.ViewModels
         private string remoteUrl = string.Empty;
         private bool remoteUrlEdited;
         private int maxLogEntries = 200;
+        private bool compareXmlByElement = true;
         private string validationMessage = string.Empty;
         private bool canSaveSettings = true;
 
@@ -117,6 +118,38 @@ namespace TiaGitAddIn.UI.ViewModels
             set => SetProperty(maxLogEntries, value, updated => maxLogEntries = updated);
         }
 
+        public IReadOnlyList<XmlDiffChoice> XmlDiffChoices { get; } = new[]
+        {
+            new XmlDiffChoice("By element and attribute", true),
+            new XmlDiffChoice("Plain text", false)
+        };
+
+        public XmlDiffChoice SelectedXmlDiff
+        {
+            get
+            {
+                foreach (XmlDiffChoice choice in XmlDiffChoices)
+                {
+                    if (choice.ByElement == compareXmlByElement)
+                    {
+                        return choice;
+                    }
+                }
+
+                return XmlDiffChoices[0];
+            }
+            set
+            {
+                if (value == null || value.ByElement == compareXmlByElement)
+                {
+                    return;
+                }
+
+                compareXmlByElement = value.ByElement;
+                OnPropertyChanged();
+            }
+        }
+
         public string ValidationMessage
         {
             get => validationMessage;
@@ -136,6 +169,7 @@ namespace TiaGitAddIn.UI.ViewModels
             defaultRemote = config.DefaultRemote ?? "origin";
             remoteUrl = config.RemoteUrl ?? string.Empty;
             maxLogEntries = config.MaxLogEntries;
+            compareXmlByElement = config.CompareXmlByElement;
 
             OnPropertyChanged(string.Empty);
             Validate();
@@ -152,6 +186,7 @@ namespace TiaGitAddIn.UI.ViewModels
                 MaxLogEntries = MaxLogEntries,
                 CommitAuthorName = CommitAuthorName.Trim(),
                 CommitAuthorEmail = CommitAuthorEmail.Trim(),
+                CompareXmlByElement = compareXmlByElement,
                 Version = 1
             };
 
@@ -348,5 +383,17 @@ namespace TiaGitAddIn.UI.ViewModels
             InvokeOnUI(() => SaveCommand.RaiseCanExecuteChanged());
         }
 
+        public sealed class XmlDiffChoice
+        {
+            public XmlDiffChoice(string caption, bool byElement)
+            {
+                Caption = caption;
+                ByElement = byElement;
+            }
+
+            public string Caption { get; }
+
+            public bool ByElement { get; }
+        }
     }
 }

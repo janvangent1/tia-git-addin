@@ -50,5 +50,35 @@ namespace TiaGitAddIn.Services
                 timer.Stop();
             }
         }
+
+        /// <summary>
+        /// Lets the checklist paint one finished row before the next hardware category starts.
+        /// Screen export already pumps; hardware reads do not.
+        /// </summary>
+        public static void Yield()
+        {
+            try
+            {
+                Dispatcher dispatcher = Dispatcher.CurrentDispatcher;
+                if (dispatcher.HasShutdownStarted || !dispatcher.CheckAccess())
+                {
+                    return;
+                }
+
+                var frame = new DispatcherFrame();
+                dispatcher.BeginInvoke(
+                    DispatcherPriority.Render,
+                    new DispatcherOperationCallback(argument =>
+                    {
+                        ((DispatcherFrame)argument).Continue = false;
+                        return null;
+                    }),
+                    frame);
+                Dispatcher.PushFrame(frame);
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
     }
 }

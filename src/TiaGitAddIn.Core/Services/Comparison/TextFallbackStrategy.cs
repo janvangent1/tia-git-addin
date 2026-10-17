@@ -26,10 +26,12 @@ namespace TiaGitAddIn.Services.Comparison
         };
 
         private readonly PlcComparisonResultFactory _resultFactory;
+        private readonly Func<bool> compareXmlByElement;
 
-        public TextFallbackStrategy(PlcComparisonResultFactory resultFactory)
+        public TextFallbackStrategy(PlcComparisonResultFactory resultFactory, Func<bool>? compareXmlByElement = null)
         {
             _resultFactory = resultFactory ?? throw new ArgumentNullException(nameof(resultFactory));
+            this.compareXmlByElement = compareXmlByElement ?? (() => true);
         }
 
         public IReadOnlyCollection<PlcArtifactKind> SupportedKinds => SupportedArtifactKinds;
@@ -43,7 +45,22 @@ namespace TiaGitAddIn.Services.Comparison
                 ? $"{context.Request.Pair.ArtifactKind} semantic comparison is unavailable."
                 : context.Request.Pair.Limitation;
 
-            PlcComparisonResult result = _resultFactory.CreateTextFallback(context, limitation, context.Request.Pair.Diagnostics);
+            TextPresentation? structured = null;
+            if (compareXmlByElement()
+                && context.Request.Pair.ArtifactKind == PlcArtifactKind.GenericXml
+                && context.RawText != null
+                && XmlStructureComparer.TryCompare(context.RawText, out TextPresentation xml))
+            {
+                structured = xml;
+                if (string.IsNullOrEmpty(context.Request.Pair.Limitation)
+                    || context.Request.Pair.Limitation.EndsWith("semantic comparison is unavailable.", StringComparison.Ordinal))
+                {
+                    limitation = XmlStructureComparer.Limitation;
+                }
+            }
+
+            PlcComparisonResult result = _resultFactory.CreateTextFallback(
+                context, limitation, context.Request.Pair.Diagnostics, structured);
             return Task.FromResult(result);
         }
     }

@@ -69,24 +69,26 @@ namespace TiaGitAddIn.Services
 
         public Task<OperationResult> ExportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
         {
-            return RunOnCallerAsync(progress, ct, () => ExportCore(repositoryPath, progress, ct));
+            return RunOnCallerAsync(progress, ct, () => ExportCore(repositoryPath, progress, ct), blockDispatcher: true);
         }
 
         public Task<OperationResult> ExportHardwareAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
         {
+            // Hardware reads do not pump the dispatcher. Leave it running so each finished
+            // checklist row can paint before the next category starts.
             return RunOnCallerAsync(progress, ct, () => HardwareExchange.Export(
                 portal,
                 repositoryPath,
                 ct,
-                message => ReportProgress(progress, string.Empty, message)));
+                message => ReportProgress(progress, string.Empty, message)), blockDispatcher: false);
         }
 
         public Task<OperationResult> ImportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
         {
-            return RunOnCallerAsync(progress, ct, () => ImportCore(repositoryPath, progress, ct));
+            return RunOnCallerAsync(progress, ct, () => ImportCore(repositoryPath, progress, ct), blockDispatcher: true);
         }
 
-        private Task<OperationResult> RunOnCallerAsync(IProgress<string> progress, CancellationToken ct, Func<OperationResult> action)
+        private Task<OperationResult> RunOnCallerAsync(IProgress<string> progress, CancellationToken ct, Func<OperationResult> action, bool blockDispatcher)
         {
             Dispatcher? dispatcher;
             SynchronizationContext? context;
@@ -100,13 +102,13 @@ namespace TiaGitAddIn.Services
             {
                 if (dispatcher.CheckAccess())
                 {
-                    return Task.FromResult(Guard(action));
+                    return Task.FromResult(Guard(action, blockDispatcher));
                 }
 
                 progress?.Report("Waiting for TIA Portal…");
                 return Task.Run(() =>
                 {
-                    DispatcherOperation<OperationResult> operation = dispatcher.InvokeAsync(() => Guard(action));
+                    DispatcherOperation<OperationResult> operation = dispatcher.InvokeAsync(() => Guard(action, blockDispatcher));
                     try
                     {
                         operation.Task.Wait(ct);
@@ -125,7 +127,7 @@ namespace TiaGitAddIn.Services
                 return Task.Run(() =>
                 {
                     OperationResult? result = null;
-                    context.Send(_ => result = Guard(action), null);
+                    context.Send(_ => result = Guard(action, blockDispatcher), null);
                     return result ?? OperationResult.Fail("Could not reach TIA Portal to update the HMI device.");
                 });
             }
@@ -135,11 +137,18 @@ namespace TiaGitAddIn.Services
                 "Open the Git panel from TIA Portal again. The panel could not return to the thread that owns the project."));
         }
 
-        private static OperationResult Guard(Func<OperationResult> action)
+        private static OperationResult Guard(Func<OperationResult> action, bool blockDispatcher)
         {
+            HmiExportTrace.Info(blockDispatcher
+                ? "HMI exchange entered the TIA thread."
+                : "Hardware exchange entered the TIA thread.");
+            if (!blockDispatcher)
+            {
+                return action();
+            }
+
             // Screen export pumps Windows messages inside TIA. Disable the dispatcher until the
             // export returns so those messages cannot re-enter the add-in and take TIA down.
-            HmiExportTrace.Info("HMI exchange entered the TIA thread.");
             using (Dispatcher.CurrentDispatcher.DisableProcessing())
             {
                 return action();

@@ -111,7 +111,7 @@ namespace TiaGitAddIn.UI
                 var strategies = new IPlcComparisonStrategy[]
                 {
                     new LadComparisonStrategy(resultFactory, sanitizer),
-                    new TextFallbackStrategy(resultFactory),
+                    new TextFallbackStrategy(resultFactory, () => configurationService.Load(repositoryRoot).CompareXmlByElement),
                 };
                 IPlcComparisonCoordinator comparisonCoordinator = new PlcComparisonCoordinator(
                     classifier, strategies, resultFactory, sanitizer);

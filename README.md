@@ -61,7 +61,7 @@ Git revision review therefore continues to use the project-owned native SimaticM
 - **Remote repository**: In Settings, set **Default Remote** (usually `origin`) and **Remote URL**, then save. The URL can be a GitHub address (`https://github.com/org/repo.git` or `git@github.com:org/repo.git`) or an Azure DevOps address (`https://dev.azure.com/org/project/_git/repo`, a `visualstudio.com` URL, an Azure DevOps Server URL containing `/_git/`, or `git@ssh.dev.azure.com:v3/org/project/repo`). Fetch, Pull, and Push use that remote name. Leave the password out of the URL. Sign in once with `git fetch` from a command prompt in the workspace folder so Git Credential Manager can store the credentials.
 - **PDF export**: History exports the loaded commits and, when a commit is selected, its changed files. Diff exports the changed-file list and the open text or interface comparison. Ladder diagrams are left out of the PDF.
 
-Text diffs for SCL, generic XML, and plain text files show added lines in green and removed lines in red. The note that semantic comparison is unavailable means the add-in is comparing those files as text. LAD blocks that can be parsed use the graphical comparison instead.
+Exported XML, including HMI and hardware files, is compared by element and attribute. A changed value is shown on its own line, such as `Item[@name="Start"]/@text`. Line breaks and the order of attributes are ignored. In Settings, **XML changes** can switch that view back to plain text, which shows the file line by line. SCL and other plain text files still show added lines in green and removed lines in red. The note that semantic comparison is unavailable means that file is being compared as text. LAD blocks that can be parsed use the graphical comparison instead.
 
 ## Prerequisites
 
@@ -133,6 +133,9 @@ Export and import of Unified and WinCC Comfort devices, and export of the hardwa
 
 The add-in version is `AddInVersion` in `src/TiaGitAddIn/AddInPublisherConfiguration.xml`. Newest first.
 
+- **1.2.29** — Settings can show XML changes by element and attribute, or as plain text.
+- **1.2.28** — The hardware checklist checks off each row as that part finishes, counting up the same way the HMI checklist does.
+- **1.2.27** — Exported XML is compared by element and attribute. Formatting and attribute order no longer show up as changes.
 - **1.2.26** — One **Export** button writes the checked items. **HMI** and **Hardware** are separate checkboxes, and both start checked.
 - **1.2.25** — The HMI checklist no longer shows a Recipes row. WinCC Unified V21 Openness has no recipe or parameter-set object to export.
 - **1.2.24** — Drive export writes only parameters that differ from the factory default, and it reads the accessible parameter list instead of the full catalog.

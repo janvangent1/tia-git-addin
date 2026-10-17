@@ -91,7 +91,8 @@ namespace TiaGitAddIn.Configuration
                 RemoteUrl = configuration.RemoteUrl ?? string.Empty,
 
                 CommitAuthorName = configuration.CommitAuthorName ?? string.Empty,
-                CommitAuthorEmail = configuration.CommitAuthorEmail ?? string.Empty
+                CommitAuthorEmail = configuration.CommitAuthorEmail ?? string.Empty,
+                CompareXmlByElement = configuration.CompareXmlByElement
             };
         }
 

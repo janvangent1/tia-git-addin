@@ -30,6 +30,29 @@ namespace TiaGitAddIn.Tests.Configuration
                 Assert.Equal(config.RepositoryPath, loaded.RepositoryPath);
                 Assert.Equal(config.DefaultRemote, loaded.DefaultRemote);
                 Assert.Equal(config.CommitAuthorName, loaded.CommitAuthorName);
+                Assert.True(loaded.CompareXmlByElement);
+            }
+            finally
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+
+        [Fact]
+        public void PlainTextXmlDiffChoiceRoundTrips()
+        {
+            string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            Directory.CreateDirectory(root);
+            try
+            {
+                ConfigurationService service = new ConfigurationService();
+                service.Save(root, new GitConfiguration
+                {
+                    RepositoryPath = root,
+                    CompareXmlByElement = false
+                });
+
+                Assert.False(service.Load(root).CompareXmlByElement);
             }
             finally
             {
@@ -74,6 +97,7 @@ namespace TiaGitAddIn.Tests.Configuration
 
                 Assert.Equal(root, loaded.RepositoryPath);
                 Assert.Equal("git.exe", loaded.GitExecutablePath);
+                Assert.True(loaded.CompareXmlByElement);
             }
             finally
             {

@@ -40,10 +40,20 @@ namespace TiaGitAddIn.Services.Comparison
         public PlcComparisonResult CreateTextFallback(PlcComparisonContext context, string limitation,
             IEnumerable<PlcComparisonDiagnostic> diagnostics)
         {
+            return CreateTextFallback(context, limitation, diagnostics, null);
+        }
+
+        /// <summary>Creates a text fallback. <paramref name="presentation"/> replaces the line diff when the caller already built one.</summary>
+        public PlcComparisonResult CreateTextFallback(PlcComparisonContext context, string limitation,
+            IEnumerable<PlcComparisonDiagnostic> diagnostics, TextPresentation? presentation)
+        {
             if (context == null) throw new ArgumentNullException(nameof(context));
             if (context.RawText == null) throw new ArgumentException("Raw text is required for a text fallback result.", nameof(context));
 
-            TextPresentation presentation = _textComparer.Compare(context.RawText);
+            if (presentation == null)
+            {
+                presentation = _textComparer.Compare(context.RawText);
+            }
 
             return new PlcComparisonResult(
                 context.Request.Pair.ArtifactKind,

@@ -18,6 +18,8 @@ namespace TiaGitAddIn.Models
 
         public string CommitAuthorEmail { get; set; } = string.Empty;
 
+        public bool CompareXmlByElement { get; set; } = true;
+
         public string? SiemensCompareToolPath { get; set; }
 
         public string? NodeExecutablePath { get; set; }
