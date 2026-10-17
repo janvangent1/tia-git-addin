@@ -301,6 +301,13 @@ namespace TiaGitAddIn.Services
             return ToOperationResult(result, "Discarded changes.", "Unable to discard changes.");
         }
 
+        public async Task<(string Name, string Email)> GetLocalIdentityAsync(CancellationToken ct = default)
+        {
+            string name = await ReadLocalConfigAsync("user.name", ct).ConfigureAwait(false);
+            string email = await ReadLocalConfigAsync("user.email", ct).ConfigureAwait(false);
+            return (name, email);
+        }
+
         public async Task<OperationResult> SetLocalIdentityAsync(string name, string email, CancellationToken ct = default)
         {
             if (!IsSafeIdentityValue(name))
@@ -331,6 +338,19 @@ namespace TiaGitAddIn.Services
                     "Name and email saved for this repository.",
                     "Unable to save the Git email for this repository.");
             }
+        }
+
+        private async Task<string> ReadLocalConfigAsync(string key, CancellationToken ct)
+        {
+            GitProcessResult result = await RunAsync(
+                new[] { "config", "--local", "--get", key },
+                ct).ConfigureAwait(false);
+            if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.StandardOutput))
+            {
+                return string.Empty;
+            }
+
+            return result.StandardOutput.Trim();
         }
 
         private static bool IsSafeIdentityValue(string? value)

@@ -60,6 +60,11 @@
       <HintPath>$(TiaPortalPublicApiNet48)\Siemens.Engineering.WinCC.dll</HintPath>
       <Private>false</Private>
     </Reference>
+
+    <Reference Include="Siemens.Engineering.Startdrive">
+      <HintPath>$(TiaPortalPublicApiNet48)\Siemens.Engineering.Startdrive.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>

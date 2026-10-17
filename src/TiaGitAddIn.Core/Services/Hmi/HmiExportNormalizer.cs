@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -6,8 +7,8 @@ using System.Text.RegularExpressions;
 namespace TiaGitAddIn.Services.Hmi
 {
     /// <summary>
-    /// Siemens export XML stores a new creation time on every write. Removing that
-    /// element keeps an unchanged HMI object out of the Git diff.
+    /// Siemens export XML stores a new creation time on every write. A file that
+    /// already has one keeps that same time. A file that has none loses the new one.
     /// </summary>
     public static class HmiExportNormalizer
     {
@@ -16,8 +17,61 @@ namespace TiaGitAddIn.Services.Hmi
             RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
         private static readonly Regex CreatedElementPattern = new Regex(
-            @"[ \t]*<(?:[\w.]+:)?Created>\s*\d{4}-\d{2}-\d{2}T[^<]*</(?:[\w.]+:)?Created>[ \t]*(?:\r?\n)?",
+            @"[ \t]*<(?:[\w.]+:)?Created\b[^>]*>.*?</(?:[\w.]+:)?Created>[ \t]*(?:\r?\n)?",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+        private static readonly Regex CreatedValuePattern = new Regex(
+            @"<(?:[\w.]+:)?Created\b[^>]*>\s*(.*?)\s*</(?:[\w.]+:)?Created>",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+        public static IReadOnlyDictionary<string, string> CaptureCreationTimestamps(string directory)
+        {
+            var captured = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+            {
+                return captured;
+            }
+
+            string root = Path.GetFullPath(directory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            foreach (string file in Directory.EnumerateFiles(root, "*.xml", SearchOption.AllDirectories))
+            {
+                string? stamp = ReadCreationTimestamp(ReadXml(file));
+                if (string.IsNullOrEmpty(stamp))
+                {
+                    continue;
+                }
+
+                string relative = Path.GetFullPath(file)
+                    .Substring(root.Length)
+                    .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .Replace('\\', '/');
+                captured[relative] = stamp!;
+            }
+
+            return captured;
+        }
+
+        public static void StabilizeCreationTimestamps(string directory, IReadOnlyDictionary<string, string> previous)
+        {
+            if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+            {
+                return;
+            }
+
+            string root = Path.GetFullPath(directory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            foreach (string file in Directory.EnumerateFiles(root, "*.xml", SearchOption.AllDirectories))
+            {
+                string relative = Path.GetFullPath(file)
+                    .Substring(root.Length)
+                    .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .Replace('\\', '/');
+                string? previousStamp = null;
+                previous?.TryGetValue(relative, out previousStamp);
+                RewriteCreationTimestamp(file, previousStamp);
+            }
+        }
 
         public static void StripCreationTimestamps(string directory)
         {
@@ -46,6 +100,77 @@ namespace TiaGitAddIn.Services.Hmi
             });
         }
 
+        public static string KeepCreationTimestamp(string xml, string previousTimestamp)
+        {
+            if (string.IsNullOrEmpty(previousTimestamp))
+            {
+                return RemoveCreationTimestamps(xml);
+            }
+
+            if (string.IsNullOrEmpty(xml) || xml.IndexOf("DocumentInfo", StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                return xml ?? string.Empty;
+            }
+
+            return DocumentInfoPattern.Replace(xml, match =>
+            {
+                string body = match.Groups[2].Value;
+                Match created = CreatedValuePattern.Match(body);
+                if (created.Success)
+                {
+                    body = body.Remove(created.Groups[1].Index, created.Groups[1].Length)
+                        .Insert(created.Groups[1].Index, previousTimestamp);
+                }
+                else
+                {
+                    string newline = body.IndexOf("\r\n", StringComparison.Ordinal) >= 0 ? "\r\n" : "\n";
+                    body = newline + "    <Created>" + previousTimestamp + "</Created>" + body;
+                }
+
+                return match.Groups[1].Value + body + match.Groups[3].Value;
+            });
+        }
+
+        private static string? ReadCreationTimestamp(string xml)
+        {
+            if (string.IsNullOrEmpty(xml) || xml.IndexOf("DocumentInfo", StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                return null;
+            }
+
+            Match document = DocumentInfoPattern.Match(xml);
+            if (!document.Success)
+            {
+                return null;
+            }
+
+            Match created = CreatedValuePattern.Match(document.Groups[2].Value);
+            return created.Success ? created.Groups[1].Value : null;
+        }
+
+        private static void RewriteCreationTimestamp(string path, string? previousTimestamp)
+        {
+            byte[] bytes = File.ReadAllBytes(path);
+            Encoding encoding = DetectEncoding(bytes, out int preambleLength);
+            string xml = encoding.GetString(bytes, preambleLength, bytes.Length - preambleLength);
+            string updated = string.IsNullOrEmpty(previousTimestamp)
+                ? RemoveCreationTimestamps(xml)
+                : KeepCreationTimestamp(xml, previousTimestamp!);
+            if (string.Equals(updated, xml, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            WriteXml(path, bytes, preambleLength, encoding, updated);
+        }
+
+        private static string ReadXml(string path)
+        {
+            byte[] bytes = File.ReadAllBytes(path);
+            Encoding encoding = DetectEncoding(bytes, out int preambleLength);
+            return encoding.GetString(bytes, preambleLength, bytes.Length - preambleLength);
+        }
+
         private static void StripFile(string path)
         {
             byte[] bytes = File.ReadAllBytes(path);
@@ -57,7 +182,12 @@ namespace TiaGitAddIn.Services.Hmi
                 return;
             }
 
-            byte[] body = encoding.GetBytes(updated);
+            WriteXml(path, bytes, preambleLength, encoding, updated);
+        }
+
+        private static void WriteXml(string path, byte[] original, int preambleLength, Encoding encoding, string xml)
+        {
+            byte[] body = encoding.GetBytes(xml);
             if (preambleLength == 0)
             {
                 File.WriteAllBytes(path, body);
@@ -65,7 +195,7 @@ namespace TiaGitAddIn.Services.Hmi
             }
 
             byte[] combined = new byte[preambleLength + body.Length];
-            Buffer.BlockCopy(bytes, 0, combined, 0, preambleLength);
+            Buffer.BlockCopy(original, 0, combined, 0, preambleLength);
             Buffer.BlockCopy(body, 0, combined, preambleLength, body.Length);
             File.WriteAllBytes(path, combined);
         }

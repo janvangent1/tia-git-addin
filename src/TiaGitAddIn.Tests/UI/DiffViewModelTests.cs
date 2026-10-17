@@ -284,6 +284,9 @@ namespace TiaGitAddIn.Tests.UI
             public Task<OperationResult> RestoreCommitAsync(string commitHash, CancellationToken ct = default) => Task.FromResult(OperationResult.Ok());
             public Task<OperationResult> DiscardAsync(IReadOnlyList<string> filePaths, CancellationToken ct = default) => Task.FromResult(OperationResult.Ok());
             public Task<OperationResult> SetLocalIdentityAsync(string name, string email, CancellationToken ct = default) => Task.FromResult(OperationResult.Ok());
+
+            public Task<(string Name, string Email)> GetLocalIdentityAsync(CancellationToken ct = default) =>
+                Task.FromResult((string.Empty, string.Empty));
             public Task<OperationResult> SetRemoteUrlAsync(string remoteName, string url, CancellationToken ct = default) => Task.FromResult(OperationResult.Ok());
             public Task<IReadOnlyList<CommitInfo>> GetCommitLogAsync(int maxCount, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<CommitInfo>>(new List<CommitInfo>());
             public Task<DiffResult> GetWorkingTreeDiffAsync(CancellationToken ct = default) => Task.FromResult(new DiffResult());

@@ -190,6 +190,32 @@ namespace TiaGitAddIn.Tests.Hmi
             Assert.Contains("Imported", viewModel.LastOperationMessage);
         }
 
+        [Fact]
+        public async Task ExportRunsOnlyTheCheckedItems()
+        {
+            var exchange = new RecordingExchange();
+            var viewModel = new HmiExchangeViewModel(
+                @"C:\repo",
+                exchange,
+                () => Task.CompletedTask,
+                ImmediateUiDispatcher.Instance);
+
+            viewModel.ExportHardware = false;
+            await viewModel.ExportAsync();
+            Assert.Equal(new[] { @"C:\repo" }, exchange.ExportedPaths);
+            Assert.Empty(exchange.HardwarePaths);
+
+            viewModel.ExportHmi = false;
+            viewModel.ExportHardware = true;
+            await viewModel.ExportAsync();
+            Assert.Single(exchange.ExportedPaths);
+            Assert.Equal(new[] { @"C:\repo" }, exchange.HardwarePaths);
+
+            viewModel.ExportHmi = false;
+            viewModel.ExportHardware = false;
+            Assert.False(viewModel.ExportCommand.CanExecute(null));
+        }
+
         private sealed class RecordingExchange : IHmiDeviceExchange
         {
             public System.Collections.Generic.List<string> ImportedPaths { get; } = new System.Collections.Generic.List<string>();
@@ -198,8 +224,21 @@ namespace TiaGitAddIn.Tests.Hmi
             {
             }
 
-            public Task<OperationResult> ExportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default) =>
-                Task.FromResult(OperationResult.Ok("Exported."));
+            public System.Collections.Generic.List<string> ExportedPaths { get; } = new System.Collections.Generic.List<string>();
+
+            public System.Collections.Generic.List<string> HardwarePaths { get; } = new System.Collections.Generic.List<string>();
+
+            public Task<OperationResult> ExportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
+            {
+                ExportedPaths.Add(repositoryPath);
+                return Task.FromResult(OperationResult.Ok("Exported."));
+            }
+
+            public Task<OperationResult> ExportHardwareAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
+            {
+                HardwarePaths.Add(repositoryPath);
+                return Task.FromResult(OperationResult.Ok("Exported hardware."));
+            }
 
             public Task<OperationResult> ImportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
             {

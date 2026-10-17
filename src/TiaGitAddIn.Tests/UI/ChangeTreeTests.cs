@@ -93,5 +93,24 @@ namespace TiaGitAddIn.Tests.UI
 
             Assert.Equal(new[] { "HMI · Alpha (1)", "HMI · Zebra (1)" }, roots.Select(node => node.Title).ToArray());
         }
+
+        [Fact]
+        public void GroupPlacesHardwareBesideTheHmiDevice()
+        {
+            var roots = ChangeTree.Group(
+                new[]
+                {
+                    "HardwareExport/G120/Hardware.xml",
+                    "HardwareExport/G120/Drives/Drive.xml",
+                    "HardwareExport/G120/Settings/CU.xml",
+                    "HardwareExport/Networks/Subnets.xml",
+                    "HmiExport/Panel/Screens/Start.xml",
+                },
+                path => path);
+
+            Assert.Equal(
+                new[] { "Hardware · G120 (3)", "Hardware · Networks (1)", "HMI · Panel (1)" },
+                roots.Select(node => node.Title).ToArray());
+        }
     }
 }

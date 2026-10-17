@@ -19,6 +19,8 @@ namespace TiaGitAddIn.Services.Hmi
 
         Task<OperationResult> ExportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default);
 
+        Task<OperationResult> ExportHardwareAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default);
+
         Task<OperationResult> ImportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default);
     }
 }

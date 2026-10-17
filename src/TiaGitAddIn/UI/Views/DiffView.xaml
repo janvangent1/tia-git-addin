@@ -23,8 +23,8 @@
         <!-- Main content -->
         <Grid Grid.Row="0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300"
-                                  MinWidth="180"/>
+                <ColumnDefinition Width="360"
+                                  MinWidth="220"/>
                 <ColumnDefinition Width="5"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>

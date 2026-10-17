@@ -17,13 +17,32 @@ namespace TiaGitAddIn.UI.Views
             this.viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
             DataContext = viewModel;
             Title = "TIA Git";
-            Width = 980;
-            Height = 660;
-            MinWidth = 760;
-            MinHeight = 500;
+            FontSize = 14;
+            MinWidth = 900;
+            MinHeight = 560;
+            FitToWorkArea();
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             Content = BuildContent(viewModel);
             Loaded += OnLoaded;
+        }
+
+        private void FitToWorkArea()
+        {
+            Rect work = SystemParameters.WorkArea;
+            double width = Math.Min(1500, Math.Max(1180, work.Width * 0.86));
+            double height = Math.Min(940, Math.Max(760, work.Height * 0.86));
+            if (width > work.Width - 32)
+            {
+                width = Math.Max(800, work.Width - 32);
+            }
+
+            if (height > work.Height - 32)
+            {
+                height = Math.Max(560, work.Height - 32);
+            }
+
+            Width = width;
+            Height = height;
         }
 
         private static FrameworkElement BuildContent(MainViewModel vm)
@@ -86,10 +105,18 @@ namespace TiaGitAddIn.UI.Views
                 Orientation = Orientation.Horizontal,
                 Margin = new Thickness(0, 8, 0, 0)
             };
+            hmiActions.Children.Add(ExportChoice(
+                "HMI",
+                "Hmi.ExportHmi",
+                "Include the open Unified or WinCC Comfort device. Writes HmiExport/<device>/."));
+            hmiActions.Children.Add(ExportChoice(
+                "Hardware",
+                "Hmi.ExportHardware",
+                "Include devices, modules, networks, and drive parameters that differ from the factory default. Writes HardwareExport/."));
             hmiActions.Children.Add(HmiButton(
-                "Export HMI",
+                "Export",
                 "Hmi.ExportCommand",
-                "Write screens, tags, alarms, and scripts from the open Unified or WinCC Comfort device (panel or runtime) to HmiExport/<device>/."));
+                "Export the checked items. HMI and hardware can run together."));
             hmiActions.Children.Add(HmiButton(
                 "Import HMI",
                 "Hmi.ImportCommand",
@@ -105,6 +132,22 @@ namespace TiaGitAddIn.UI.Views
             hmiActions.Children.Add(hmiMessage);
             header.Children.Add(hmiActions);
             return header;
+        }
+
+        private static CheckBox ExportChoice(string content, string path, string toolTip)
+        {
+            CheckBox box = new()
+            {
+                Content = content,
+                Margin = new Thickness(0, 0, 12, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = toolTip
+            };
+            box.SetBinding(CheckBox.IsCheckedProperty, new Binding(path)
+            {
+                Mode = BindingMode.TwoWay
+            });
+            return box;
         }
 
         private static Button HmiButton(string content, string commandPath, string toolTip)
@@ -196,7 +239,7 @@ namespace TiaGitAddIn.UI.Views
                 Background = new SolidColorBrush(Color.FromArgb(160, 20, 20, 20)),
                 IsHitTestVisible = true
             };
-            overlay.SetBinding(UIElement.VisibilityProperty, new Binding("IsBusy")
+            overlay.SetBinding(UIElement.VisibilityProperty, new Binding("ShowOverlay")
             {
                 Converter = new BooleanToVisibilityConverter()
             });
@@ -206,56 +249,130 @@ namespace TiaGitAddIn.UI.Views
             {
                 Background = new SolidColorBrush(Color.FromArgb(245, 30, 30, 30)),
                 CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(40, 28, 40, 28),
+                Padding = new Thickness(32, 24, 32, 24),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
-                MinWidth = 280
+                MaxWidth = 900
             };
+            card.SetBinding(FrameworkElement.MinWidthProperty, new Binding("OverlayCardMinWidth"));
 
             StackPanel panel = new()
 
             {
-                HorizontalAlignment = HorizontalAlignment.Center
+                HorizontalAlignment = HorizontalAlignment.Stretch
             };
 
             ProgressBar progress = new()
 
             {
                 IsIndeterminate = true,
-                Width = 220,
                 Height = 4,
-                Margin = new Thickness(0, 0, 0, 16)
+                Margin = new Thickness(0, 0, 0, 16),
+                HorizontalAlignment = HorizontalAlignment.Stretch
             };
+            progress.SetBinding(UIElement.VisibilityProperty, new Binding("ShowProgress")
+            {
+                Converter = new BooleanToVisibilityConverter()
+            });
 
             TextBlock message = new()
 
             {
                 Foreground = Brushes.White,
                 FontSize = 13,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 0, 0, 20),
-                TextAlignment = TextAlignment.Center,
-                TextWrapping = TextWrapping.Wrap,
-                MaxWidth = 460
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Margin = new Thickness(0, 0, 0, 16),
+                TextAlignment = TextAlignment.Left,
+                TextWrapping = TextWrapping.Wrap
             };
-            message.SetBinding(TextBlock.TextProperty, new Binding("BusyMessage"));
+            message.SetBinding(TextBlock.TextProperty, new Binding("OverlayStatus"));
+            message.SetBinding(UIElement.VisibilityProperty, new Binding("HasOverlayStatus")
+            {
+                Converter = new BooleanToVisibilityConverter()
+            });
+
+            ItemsControl checklist = new()
+            {
+                ItemTemplate = ChecklistTemplate(),
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            checklist.SetBinding(ItemsControl.ItemsSourceProperty, new Binding("Hmi.ChecklistGroups"));
+            ScrollViewer list = new()
+            {
+                Content = checklist,
+                MaxHeight = 640,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Margin = new Thickness(0, 0, 0, 16)
+            };
+            list.SetBinding(UIElement.VisibilityProperty, new Binding("Hmi.HasChecklist")
+            {
+                Converter = new BooleanToVisibilityConverter()
+            });
 
             Button cancel = new()
 
             {
-                Content = "Cancel",
                 MinWidth = 90,
                 Padding = new Thickness(20, 6, 20, 6),
                 HorizontalAlignment = HorizontalAlignment.Center
             };
-            cancel.SetBinding(Button.CommandProperty, new Binding("CancelCommand"));
+            cancel.SetBinding(ContentControl.ContentProperty, new Binding("OverlayActionText"));
+            cancel.SetBinding(Button.CommandProperty, new Binding("OverlayActionCommand"));
 
             panel.Children.Add(progress);
             panel.Children.Add(message);
+            panel.Children.Add(list);
             panel.Children.Add(cancel);
             card.Child = panel;
             overlay.Children.Add(card);
             return overlay;
+        }
+
+        private static DataTemplate ChecklistTemplate()
+        {
+            var expander = new FrameworkElementFactory(typeof(Expander));
+            expander.SetBinding(Expander.IsExpandedProperty, new Binding(nameof(HmiChecklistGroup.IsExpanded))
+            {
+                Mode = BindingMode.TwoWay
+            });
+            expander.SetBinding(HeaderedContentControl.HeaderProperty, new Binding(nameof(HmiChecklistGroup.Header)));
+            expander.SetValue(Control.ForegroundProperty, Brushes.White);
+            expander.SetValue(Control.BackgroundProperty, Brushes.Transparent);
+            expander.SetValue(Control.FontSizeProperty, 13.0);
+            expander.SetValue(Control.PaddingProperty, new Thickness(0, 3, 0, 3));
+            expander.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 1, 0, 1));
+
+            var children = new FrameworkElementFactory(typeof(ItemsControl));
+            children.SetBinding(ItemsControl.ItemsSourceProperty, new Binding(nameof(HmiChecklistGroup.Items)));
+            children.SetValue(ItemsControl.ItemTemplateProperty, CategoryTemplate());
+            children.SetValue(FrameworkElement.MarginProperty, new Thickness(22, 2, 0, 6));
+            expander.AppendChild(children);
+            return new DataTemplate { VisualTree = expander };
+        }
+
+        private static DataTemplate CategoryTemplate()
+        {
+            var row = new FrameworkElementFactory(typeof(StackPanel));
+            row.SetValue(StackPanel.OrientationProperty, Orientation.Horizontal);
+            row.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 1, 0, 1));
+
+            var mark = new FrameworkElementFactory(typeof(TextBlock));
+            mark.SetBinding(TextBlock.TextProperty, new Binding(nameof(HmiChecklistItem.Mark)));
+            mark.SetValue(TextBlock.WidthProperty, 24.0);
+            mark.SetValue(TextBlock.ForegroundProperty, Brushes.White);
+            mark.SetValue(TextBlock.FontSizeProperty, 13.0);
+
+            var line = new FrameworkElementFactory(typeof(TextBlock));
+            line.SetBinding(TextBlock.TextProperty, new Binding(nameof(HmiChecklistItem.Line)));
+            line.SetValue(TextBlock.ForegroundProperty, Brushes.White);
+            line.SetValue(TextBlock.FontSizeProperty, 13.0);
+            line.SetValue(TextBlock.TextWrappingProperty, TextWrapping.Wrap);
+            line.SetValue(TextBlock.MaxWidthProperty, 720.0);
+
+            row.AppendChild(mark);
+            row.AppendChild(line);
+            return new DataTemplate { VisualTree = row };
         }
 
         private async void OnLoaded(object sender, RoutedEventArgs e)

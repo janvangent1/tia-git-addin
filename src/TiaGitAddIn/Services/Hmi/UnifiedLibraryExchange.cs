@@ -19,39 +19,454 @@ namespace TiaGitAddIn.Services
     /// </summary>
     internal static class UnifiedLibraryExchange
     {
-        public static int Export(HmiSoftware software, string deviceFolder, CancellationToken ct, Action<string> report)
+        public static int Export(HmiSoftware software, string deviceName, string deviceFolder, CancellationToken ct, Action<string> report)
         {
             if (software == null)
             {
                 throw new ArgumentNullException(nameof(software));
             }
 
+            stepDevice = deviceName ?? string.Empty;
+            stepReport = report;
+            try
+            {
+                return ExportCore(software, deviceFolder, ct);
+            }
+            finally
+            {
+                stepCategory = string.Empty;
+                stepReport = null;
+            }
+        }
+
+        private static int ExportCore(HmiSoftware software, string deviceFolder, CancellationToken ct)
+        {
             int count = 0;
+            Begin("Tags");
             if (software.Tags != null && software.Tags.Count > 0)
             {
-                count += ExportTagLevel(software.TagTables, software.TagTableGroups, Path.Combine(deviceFolder, "Tags"), ct, report);
+                count += ExportTagLevel(software.TagTables, software.TagTableGroups, Path.Combine(deviceFolder, "Tags"), ct, Track);
             }
 
-            if (software.Scripts.Count > 0)
+            count += ExportObjects(software.PlantObjectTags, Path.Combine(deviceFolder, "Tags", "PlantObjects.xml"), "PlantObject", "plant object", ct, true);
+            Finish("Tags", stepCount);
+
+            Begin("System tags");
+            count += ExportObjects(software.SystemTags, Path.Combine(deviceFolder, "Tags", "SystemTags.xml"), "SystemTag", "system tag", ct, false);
+            Finish("System tags", stepCount);
+
+            Begin("Scripts");
+            if (software.Scripts != null && software.Scripts.Count > 0)
             {
-                count += ExportFolder(Path.Combine(deviceFolder, "Scripts"), directory => software.Scripts.Export(directory), ct, report, "scripts");
+                count += ExportFolder(Path.Combine(deviceFolder, "Scripts"), directory => software.Scripts.Export(directory), ct, Track, "scripts");
             }
 
-            if (software.HmiTextLists.Count > 0)
+            Finish("Scripts", stepCount);
+
+            Begin("Text lists");
+            if (software.HmiTextLists != null && software.HmiTextLists.Count > 0)
             {
-                count += ExportNamedFile(Path.Combine(deviceFolder, "TextLists"), "TextLists.xml", (directory, fileName) => software.HmiTextLists.Export(directory, fileName), ct, report, "text lists");
+                count += ExportNamedFile(Path.Combine(deviceFolder, "TextLists"), "TextLists.xml", (directory, fileName) => software.HmiTextLists.Export(directory, fileName), ct, Track, "text lists");
             }
 
-            if (software.HmiGraphicLists.Count > 0)
+            Finish("Text lists", stepCount);
+
+            Begin("Graphic lists");
+            if (software.HmiGraphicLists != null && software.HmiGraphicLists.Count > 0)
             {
-                count += ExportNamedFile(Path.Combine(deviceFolder, "GraphicLists"), "GraphicLists.xml", (directory, fileName) => software.HmiGraphicLists.Export(directory, fileName), ct, report, "graphic lists");
+                count += ExportNamedFile(Path.Combine(deviceFolder, "GraphicLists"), "GraphicLists.xml", (directory, fileName) => software.HmiGraphicLists.Export(directory, fileName), ct, Track, "graphic lists");
             }
 
-            count += ExportAlarmFile(software.DiscreteAlarms, alarm => alarm == null ? string.Empty : alarm.Name ?? string.Empty, Path.Combine(deviceFolder, "Alarms", "DiscreteAlarms.xml"), "Discrete", "discrete alarm", ct, report);
-            count += ExportAlarmFile(software.AnalogAlarms, alarm => alarm == null ? string.Empty : alarm.Name ?? string.Empty, Path.Combine(deviceFolder, "Alarms", "AnalogAlarms.xml"), "Analog", "analog alarm", ct, report);
-            count += ExportAlarmFile(software.AlarmClasses, alarmClass => alarmClass == null ? string.Empty : alarmClass.Name ?? string.Empty, Path.Combine(deviceFolder, "Alarms", "AlarmClasses.xml"), "AlarmClass", "alarm class", ct, report);
+            Finish("Graphic lists", stepCount);
 
+            Begin("System text lists");
+            if (software.HmiSystemTextLists != null && software.HmiSystemTextLists.Count > 0)
+            {
+                count += ExportNamedFile(Path.Combine(deviceFolder, "TextLists"), "SystemTextLists.xml", (directory, fileName) => software.HmiSystemTextLists.Export(directory, fileName), ct, Track, "system text lists");
+            }
+
+            Finish("System text lists", stepCount);
+
+            Begin("Alarms");
+            count += ExportAlarmFile(software.DiscreteAlarms, alarm => alarm == null ? string.Empty : alarm.Name ?? string.Empty, Path.Combine(deviceFolder, "Alarms", "DiscreteAlarms.xml"), "Discrete", "discrete alarm", ct, Track);
+            count += ExportAlarmFile(software.AnalogAlarms, alarm => alarm == null ? string.Empty : alarm.Name ?? string.Empty, Path.Combine(deviceFolder, "Alarms", "AnalogAlarms.xml"), "Analog", "analog alarm", ct, Track);
+            count += ExportAlarmFile(software.AlarmClasses, alarmClass => alarmClass == null ? string.Empty : alarmClass.Name ?? string.Empty, Path.Combine(deviceFolder, "Alarms", "AlarmClasses.xml"), "AlarmClass", "alarm class", ct, Track);
+            count += ExportObjects(software.OpcUaAlarmTypes, Path.Combine(deviceFolder, "Alarms", "OpcUaAlarmTypes.xml"), "OpcUaAlarm", "OPC UA alarm", ct, false);
+            count += ExportObjects(software.HmiAlarmAuditClass, Path.Combine(deviceFolder, "Alarms", "AlarmAuditClasses.xml"), "AuditClass", "alarm audit class", ct, false);
+            Finish("Alarms", stepCount);
+
+            Begin("Connections");
+            count += ExportObjects(software.Connections, Path.Combine(deviceFolder, "Connections", "Connections.xml"), "Connection", "connection", ct, true);
+            Finish("Connections", stepCount);
+
+            Begin("Logs");
+            count += ExportObjects(software.DataLogs, Path.Combine(deviceFolder, "Logs", "DataLogs.xml"), "DataLog", "data log", ct, true);
+            count += ExportObjects(software.AlarmLogs, Path.Combine(deviceFolder, "Logs", "AlarmLogs.xml"), "AlarmLog", "alarm log", ct, true);
+            count += ExportObjects(software.AuditTrails, Path.Combine(deviceFolder, "Logs", "AuditTrails.xml"), "AuditTrail", "audit trail", ct, true);
+            Finish("Logs", stepCount);
+
+            count += ExportRecipeCompositions(software, deviceFolder, ct);
+            count += ExportRuntimeSettings(software, deviceFolder);
             return count;
+        }
+
+        private static string stepDevice = string.Empty;
+
+        private static string stepCategory = string.Empty;
+
+        private static int stepCount;
+
+        private static Action<string>? stepReport;
+
+        private static void Begin(string category)
+        {
+            stepCategory = category;
+            stepCount = 0;
+            stepReport?.Invoke(HmiExportProgress.Format(stepDevice, category, "running", 0, string.Empty));
+        }
+
+        private static void Finish(string category, int count)
+        {
+            stepReport?.Invoke(HmiExportProgress.Format(stepDevice, category, "done", count, string.Empty));
+            stepCategory = string.Empty;
+            stepCount = 0;
+        }
+
+        private static void Skip(string category, string detail)
+        {
+            stepReport?.Invoke(HmiExportProgress.Format(stepDevice, category, "skipped", 0, detail));
+            stepCategory = string.Empty;
+            stepCount = 0;
+        }
+
+        private static void Track(string message)
+        {
+            if (string.IsNullOrEmpty(stepCategory))
+            {
+                stepReport?.Invoke(message);
+                return;
+            }
+
+            stepCount++;
+            stepReport?.Invoke(HmiExportProgress.Format(stepDevice, stepCategory, "running", stepCount, message));
+        }
+
+        private static int ExportObjects(
+            System.Collections.IEnumerable? items,
+            string filePath,
+            string kind,
+            string label,
+            CancellationToken ct,
+            bool includeChildren)
+        {
+            if (items == null)
+            {
+                return 0;
+            }
+
+            var objects = new List<IEngineeringObject>();
+            foreach (object entry in items)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (entry is IEngineeringObject engineering)
+                {
+                    objects.Add(engineering);
+                }
+            }
+
+            if (objects.Count == 0)
+            {
+                return 0;
+            }
+
+            var root = new XElement("HmiItems", new XAttribute("kind", kind));
+            int index = 0;
+            foreach (IEngineeringObject item in objects)
+            {
+                ct.ThrowIfCancellationRequested();
+                index++;
+                string itemName = ObjectName(item, index);
+                Track(label + " " + index.ToString(System.Globalization.CultureInfo.InvariantCulture) + ": " + itemName);
+                var element = new XElement("Item", new XAttribute("name", itemName));
+                try
+                {
+                    AppendAttributes(element, item, includeChildren ? 1 : 1);
+                    if (includeChildren)
+                    {
+                        AppendChildCompositions(element, item, ct);
+                    }
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                    HmiExportTrace.Error(ex);
+                    element.Add(new XAttribute("error", ex.Message));
+                }
+
+                root.Add(element);
+            }
+
+            string directory = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            new XDocument(root).Save(filePath);
+            return 1;
+        }
+
+        private static int ExportRecipeCompositions(HmiSoftware software, string deviceFolder, CancellationToken ct)
+        {
+            if (!(software is IEngineeringObject engineering))
+            {
+                Skip("Other", "This Unified device does not expose engineering compositions.");
+                return 0;
+            }
+
+            List<string> names;
+            try
+            {
+                names = CompositionNames(engineering.GetCompositionInfos(), ct);
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+                HmiExportTrace.Error(ex);
+                Skip("Other", ex.Message);
+                return 0;
+            }
+
+            var recipeNames = new List<string>();
+            var otherNames = new List<string>();
+            foreach (string name in names)
+            {
+                if (IsCoveredComposition(name))
+                {
+                    continue;
+                }
+
+                if (name.IndexOf("recipe", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    name.IndexOf("parameterset", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    name.IndexOf("parameter set", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    recipeNames.Add(name);
+                }
+                else
+                {
+                    otherNames.Add(name);
+                }
+            }
+
+            int files = 0;
+            if (recipeNames.Count > 0)
+            {
+                files += WriteCompositions(engineering, recipeNames, "Recipes", Path.Combine(deviceFolder, "Recipes"), ct);
+            }
+
+            if (otherNames.Count == 0)
+            {
+                Skip("Other", "No further HMI compositions.");
+            }
+            else
+            {
+                files += WriteCompositions(engineering, otherNames, "Other", Path.Combine(deviceFolder, "Other"), ct);
+            }
+            return files;
+        }
+
+        private static int WriteCompositions(
+            IEngineeringObject engineering,
+            List<string> names,
+            string category,
+            string directory,
+            CancellationToken ct)
+        {
+            if (names == null || names.Count == 0)
+            {
+                Skip(category, category == "Recipes"
+                    ? "Openness lists no recipe composition."
+                    : "No further HMI compositions.");
+                return 0;
+            }
+
+            Begin(category);
+            int files = 0;
+            foreach (string name in names)
+            {
+                ct.ThrowIfCancellationRequested();
+                stepCategory = category;
+                try
+                {
+                    IEngineeringCompositionOrObject composition = engineering.GetComposition(name);
+                    files += ExportObjects(
+                        composition as System.Collections.IEnumerable,
+                        Path.Combine(directory, HmiExportStore.FolderName(name) + ".xml"),
+                        name,
+                        name,
+                        ct,
+                        true);
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                    HmiExportTrace.Error(ex);
+                    Track(name + " failed: " + ex.Message);
+                }
+            }
+
+            Finish(category, stepCount);
+            return files;
+        }
+
+        private static int ExportRuntimeSettings(HmiSoftware software, string deviceFolder)
+        {
+            Begin("Runtime settings");
+            try
+            {
+                object settings = software.RuntimeSettings;
+                if (settings is IEngineeringObject engineering)
+                {
+                    var root = new XElement("RuntimeSettings");
+                    AppendAttributes(root, engineering, 1);
+                    string directory = Path.Combine(deviceFolder, "RuntimeSettings");
+                    Directory.CreateDirectory(directory);
+                    new XDocument(root).Save(Path.Combine(directory, "RuntimeSettings.xml"));
+                    Finish("Runtime settings", 1);
+                    return 1;
+                }
+
+                Finish("Runtime settings", 0);
+                return 0;
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+                HmiExportTrace.Error(ex);
+                Skip("Runtime settings", ex.Message);
+                return 0;
+            }
+        }
+
+        private static bool IsCoveredComposition(string name)
+        {
+            switch ((name ?? string.Empty).Replace(" ", string.Empty).ToUpperInvariant())
+            {
+                case "SCREENS":
+                case "SCREENGROUPS":
+                case "TAGS":
+                case "TAGTABLES":
+                case "TAGTABLEGROUPS":
+                case "SCRIPTS":
+                case "HMITEXTLISTS":
+                case "HMIGRAPHICLISTS":
+                case "HMISYSTEMTEXTLISTS":
+                case "DISCRETEALARMS":
+                case "ANALOGALARMS":
+                case "ALARMCLASSES":
+                case "CONNECTIONS":
+                case "DATALOGS":
+                case "ALARMLOGS":
+                case "AUDITTRAILS":
+                case "OPCUAALARMTYPES":
+                case "HMIALARMAUDITCLASS":
+                case "SYSTEMTAGS":
+                case "PLANTOBJECTTAGS":
+                case "RUNTIMESETTINGS":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static List<string> CompositionNames(IEnumerable<EngineeringCompositionInfo> infos, CancellationToken ct)
+        {
+            var names = new List<string>();
+            if (infos == null)
+            {
+                return names;
+            }
+
+            foreach (EngineeringCompositionInfo info in infos)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (info != null && !string.IsNullOrWhiteSpace(info.Name))
+                {
+                    names.Add(info.Name);
+                }
+            }
+
+            return names;
+        }
+
+        private static string ObjectName(IEngineeringObject item, int index)
+        {
+            try
+            {
+                object name = item.GetAttribute("Name");
+                string text = Convert.ToString(name, System.Globalization.CultureInfo.InvariantCulture);
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    return text;
+                }
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+            }
+
+            return "Item" + index.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        private static void AppendChildCompositions(XElement parent, IEngineeringObject engineering, CancellationToken ct)
+        {
+            IEnumerable<EngineeringCompositionInfo> infos;
+            try
+            {
+                infos = engineering.GetCompositionInfos();
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+                return;
+            }
+
+            if (infos == null)
+            {
+                return;
+            }
+
+            foreach (EngineeringCompositionInfo info in infos)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (info == null || string.IsNullOrWhiteSpace(info.Name))
+                {
+                    continue;
+                }
+
+                var items = new XElement("Items", new XAttribute("composition", info.Name));
+                try
+                {
+                    IEngineeringCompositionOrObject composition = engineering.GetComposition(info.Name);
+                    if (composition is System.Collections.IEnumerable enumerable)
+                    {
+                        int index = 0;
+                        foreach (object entry in enumerable)
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            index++;
+                            var child = new XElement("Item", new XAttribute("index", index.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+                            if (entry is IEngineeringObject engineeringChild)
+                            {
+                                child.SetAttributeValue("name", ObjectName(engineeringChild, index));
+                                AppendAttributes(child, engineeringChild, 0);
+                            }
+
+                            items.Add(child);
+                        }
+                    }
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                    items.Add(new XAttribute("error", ex.Message));
+                }
+
+                parent.Add(items);
+            }
         }
 
         public static void Import(HmiSoftware software, string deviceFolder, CancellationToken ct)
@@ -63,7 +478,16 @@ namespace TiaGitAddIn.Services
 
             ImportTagLevel(software.TagTables, software.TagTableGroups, Path.Combine(deviceFolder, "Tags"), ct);
             ImportFolder(Path.Combine(deviceFolder, "Scripts"), directory => software.Scripts.Import(directory), ct, "scripts");
-            ImportNamedFiles(Path.Combine(deviceFolder, "TextLists"), (directory, fileName) => software.HmiTextLists.Import(directory, fileName), ct, "text lists");
+            ImportNamedFiles(
+                Path.Combine(deviceFolder, "TextLists"),
+                (directory, fileName) => fileName.Equals("SystemTextLists.xml", StringComparison.OrdinalIgnoreCase) || software.HmiTextLists.Import(directory, fileName),
+                ct,
+                "text lists");
+            ImportNamedFiles(
+                Path.Combine(deviceFolder, "TextLists"),
+                (directory, fileName) => !fileName.Equals("SystemTextLists.xml", StringComparison.OrdinalIgnoreCase) || software.HmiSystemTextLists.Import(directory, fileName),
+                ct,
+                "system text lists");
             ImportNamedFiles(Path.Combine(deviceFolder, "GraphicLists"), (directory, fileName) => software.HmiGraphicLists.Import(directory, fileName), ct, "graphic lists");
         }
 

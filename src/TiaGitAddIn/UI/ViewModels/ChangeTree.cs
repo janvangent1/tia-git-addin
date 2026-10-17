@@ -51,6 +51,13 @@ namespace TiaGitAddIn.UI.ViewModels
             "Graphic lists",
             "Connections",
             "Cycles",
+            "Alarms",
+            "Recipes",
+            "Logs",
+            "Graphics",
+            "Drives",
+            "Settings",
+            "Networks",
         };
 
         public static ObservableCollection<ChangeNode> Group<T>(IEnumerable<T> items, Func<T, string> pathOf)
@@ -71,14 +78,15 @@ namespace TiaGitAddIn.UI.ViewModels
             foreach (T item in items)
             {
                 string path = pathOf(item) ?? string.Empty;
-                (string? device, string category) = Classify(path);
+                (string? device, string category, string label) = Classify(path);
                 FileRow row = new FileRow(item!, FileTitle(path));
                 if (device != null)
                 {
-                    if (!devices.TryGetValue(device, out DeviceBucket? bucket))
+                    string key = label + "\n" + device;
+                    if (!devices.TryGetValue(key, out DeviceBucket? bucket))
                     {
-                        bucket = new DeviceBucket(device);
-                        devices.Add(device, bucket);
+                        bucket = new DeviceBucket(label, device);
+                        devices.Add(key, bucket);
                     }
 
                     bucket.Add(category, row);
@@ -132,39 +140,42 @@ namespace TiaGitAddIn.UI.ViewModels
             return found;
         }
 
-        internal static (string? Device, string Category) Classify(string path)
+        internal static (string? Device, string Category, string Label) Classify(string path)
         {
             string[] parts = (path ?? string.Empty)
                 .Replace('\\', '/')
                 .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
 
-            int hmi = -1;
+            int export = -1;
+            string label = "HMI";
             for (int index = 0; index < parts.Length; index++)
             {
-                if (parts[index].Equals(HmiExportFolder, StringComparison.OrdinalIgnoreCase))
+                if (parts[index].Equals(HmiExportFolder, StringComparison.OrdinalIgnoreCase)
+                    || parts[index].Equals(HardwareExportFolder, StringComparison.OrdinalIgnoreCase))
                 {
-                    hmi = index;
+                    export = index;
+                    label = parts[index].Equals(HardwareExportFolder, StringComparison.OrdinalIgnoreCase) ? "Hardware" : "HMI";
                     break;
                 }
             }
 
-            if (hmi >= 0 && hmi + 2 < parts.Length)
+            if (export >= 0 && export + 2 < parts.Length)
             {
-                string device = parts[hmi + 1];
-                if (hmi + 3 >= parts.Length)
+                string device = parts[export + 1];
+                if (export + 3 >= parts.Length)
                 {
-                    return (device, "Configuration");
+                    return (device, "Configuration", label);
                 }
 
-                return (device, CategoryName(parts[hmi + 2]));
+                return (device, CategoryName(parts[export + 2]), label);
             }
 
             if (parts.Length <= 1)
             {
-                return (null, "Other files");
+                return (null, "Other files", string.Empty);
             }
 
-            return (null, parts[0]);
+            return (null, parts[0], string.Empty);
         }
 
         private static IEnumerable<ChangeNode> Walk(IEnumerable<ChangeNode> nodes)
@@ -223,6 +234,12 @@ namespace TiaGitAddIn.UI.ViewModels
                     return "Connections";
                 case "CYCLES":
                     return "Cycles";
+                case "DRIVES":
+                    return "Drives";
+                case "SETTINGS":
+                    return "Settings";
+                case "NETWORKS":
+                    return "Networks";
                 default:
                     return folder;
             }
@@ -256,6 +273,8 @@ namespace TiaGitAddIn.UI.ViewModels
 
         private const string HmiExportFolder = "HmiExport";
 
+        private const string HardwareExportFolder = "HardwareExport";
+
         private sealed class FileRow
         {
             public FileRow(object item, string title)
@@ -271,12 +290,14 @@ namespace TiaGitAddIn.UI.ViewModels
 
         private sealed class DeviceBucket
         {
+            private readonly string label;
             private readonly string deviceName;
             private readonly Dictionary<string, List<FileRow>> categories =
                 new Dictionary<string, List<FileRow>>(StringComparer.OrdinalIgnoreCase);
 
-            public DeviceBucket(string deviceName)
+            public DeviceBucket(string label, string deviceName)
             {
+                this.label = label;
                 this.deviceName = deviceName;
             }
 
@@ -304,7 +325,7 @@ namespace TiaGitAddIn.UI.ViewModels
                     children.Add(node);
                 }
 
-                string title = "HMI · " + deviceName + " (" + total.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")";
+                string title = label + " · " + deviceName + " (" + total.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")";
                 return new ChangeNode(title, null, children, true);
             }
         }

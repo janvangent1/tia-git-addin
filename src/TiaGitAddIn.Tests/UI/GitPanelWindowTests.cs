@@ -12,6 +12,7 @@ using TiaGitAddIn.Models.Comparison;
 using TiaGitAddIn.Services;
 using TiaGitAddIn.Services.Comparison;
 using TiaGitAddIn.Services.Revision;
+using TiaGitAddIn.UI;
 using TiaGitAddIn.UI.Mapping;
 using TiaGitAddIn.UI.ViewModels;
 using TiaGitAddIn.UI.ViewModels.Comparison;
@@ -22,6 +23,26 @@ namespace TiaGitAddIn.Tests.UI
 {
     public sealed class GitPanelWindowTests
     {
+        [Fact]
+        public async Task SettingsShowsTheNameGitAlreadyStoredForThisRepository()
+        {
+            var git = new FakeGitService
+            {
+                LocalName = "Jan Bouquet",
+                LocalEmail = "jan.bouquet@gmail.com"
+            };
+            var settings = new SettingsViewModel(
+                new FakeConfigurationService(),
+                @"C:\repo",
+                git,
+                ImmediateUiDispatcher.Instance);
+
+            await settings.FillIdentityFromGitAsync();
+
+            Assert.Equal("Jan Bouquet", settings.CommitAuthorName);
+            Assert.Equal("jan.bouquet@gmail.com", settings.CommitAuthorEmail);
+        }
+
         [Fact]
         public async Task SelectingTheHistoryTabLoadsTheCommitLog()
         {
@@ -268,6 +289,13 @@ namespace TiaGitAddIn.Tests.UI
 
             public Task<OperationResult> SetLocalIdentityAsync(string name, string email, CancellationToken ct = default) =>
                 Task.FromResult(OperationResult.Ok("Name and email saved for this repository."));
+
+            public string LocalName { get; set; } = string.Empty;
+
+            public string LocalEmail { get; set; } = string.Empty;
+
+            public Task<(string Name, string Email)> GetLocalIdentityAsync(CancellationToken ct = default) =>
+                Task.FromResult((LocalName, LocalEmail));
 
             public Task<OperationResult> SetRemoteUrlAsync(string remoteName, string url, CancellationToken ct = default) =>
                 Task.FromResult(OperationResult.Ok("Remote saved."));

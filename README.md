@@ -29,13 +29,19 @@ Parsed PLC blocks include a structured interface comparison beside the LAD view.
 
 ### HMI in Git
 
-TIA Portal VCI cannot contain an HMI device. The Git panel has **Export HMI** and **Import HMI** for the open Unified or WinCC Comfort device (panel or runtime). Export writes `HmiExport/<device>/` in the Git working tree. Import applies that folder back onto the matching open device after a checkout.
+TIA Portal VCI cannot contain an HMI device. The Git panel has **HMI** and **Hardware** checkboxes and one **Export** button. **Import HMI** applies `HmiExport/<device>/` back onto the matching open Unified or WinCC Comfort device (panel or runtime) after a checkout. HMI export writes that same folder.
 
-Unified export includes screens, including screens inside screen groups, tag tables and tag groups, JavaScript modules, text lists, graphic lists, and discrete alarms, analog alarms, and alarm classes. Alarm files include event text and info text, so those edits show up in Git. Unified import restores screens, tags, scripts, text lists, and graphic lists.
+While an export runs, a checklist stays open. It is grouped by device and shows each category, the item being written, and the count when that category finishes.
 
-WinCC Comfort export includes screens and screen folders, popups, templates, slide-in screens, tag tables, VB scripts, text lists, graphic lists, connections, cycles, the permanent area, the overview, and alarms. Comfort import restores screens, popups, templates, slide-in screens, tag tables, VB scripts, text lists, connections, cycles, the permanent area, and the overview.
+Unified export includes screens, including screens inside screen groups, tag tables and tag groups, system tags, plant-object tags, JavaScript modules, text lists, system text lists, graphic lists, discrete alarms, analog alarms, alarm classes, OPC UA alarm types, and alarm audit classes. Alarm files include event text and info text. It also writes connections, data logs, alarm logs, audit trails, and runtime settings. Any other composition that is not already covered is written under `Other/`. WinCC Unified V21 Openness does not expose recipes or parameter sets, so those are not exported. A Unified screen file stores the name, screen-group folder, width, and height, plus buttons and I/O fields. Unified import restores screens, tags, scripts, text lists, system text lists, and graphic lists.
 
-Export strips creation timestamps so an unchanged device does not rewrite every file. Alarm files stay in Git for review; import does not write them back into the device.
+WinCC Comfort export includes screens and screen folders, popups, templates, slide-in screens, tag tables, VB scripts, text lists, connections, user cycles, the permanent area, and the overview. System cycles are skipped. Graphic lists and alarms are attribute snapshots, and the alarm pass only keeps compositions whose name contains "alarm" or "message". Graphics and any further composition Openness lists are written the same way. A recipe composition is written only when Openness actually lists one. The V21 public API has no recipe type. Comfort import restores screens, popups, templates, slide-in screens, tag tables, VB scripts, text lists, connections, cycles, the permanent area, and the overview.
+
+Export keeps a creation time that is already stored in a file, and leaves a new one out when the file had none, so an unchanged device does not rewrite every file. Alarm files and the other snapshots stay in Git for review. Import does not write them back into the device.
+
+### Hardware in Git
+
+With **Hardware** checked, **Export** writes `HardwareExport/` for the devices in the project, including devices that are not in a group. Each device gets `Hardware.xml` with its module tree, type, rack position, and PLC I/O addresses. SINAMICS files under `Drives/` contain telegrams, security settings, and only the parameters whose value differs from the factory default. Drive function settings are written under `Settings/`. Subnets are written with their name, type, and the names of their nodes and IO systems. IP addresses, subnet masks, routers, PROFINET names, and port-to-port wiring are not in that file. PLC blocks stay on the VCI path. There is no hardware import.
 
 ### TIA Portal V21 Compare API Decision
 
@@ -50,7 +56,7 @@ Git revision review therefore continues to use the project-owned native SimaticM
 - **Core Operations**: View status, history, branches, and commit changes without leaving TIA Portal. The History and Branch pages load when you open them. **Show changes** on Status compares the current workspace files with the last commit. Files can be staged when the workspace path contains spaces.
 - **Text diff navigation**: In a text diff, **Previous change** and **Next change** scroll to the previous and next changed block.
 - **Restore**: Restoring a commit creates a branch named `restore-<short hash>` and checks it out. The original branch is left unchanged.
-- **Commit identity**: In Settings, **Your Name** and **Your Email** are saved into the repository so commits made from TIA Portal have an author.
+- **Commit identity**: In Settings, **Your Name** and **Your Email** are saved into the repository so commits made from TIA Portal have an author. When those boxes are empty, Settings fills them from the name and email already stored for this repository.
 - **Transparent Execution**: Uses your local `git.exe`. It is found on `PATH`, or at `C:\Program Files\Git\cmd\git.exe`.
 - **Remote repository**: In Settings, set **Default Remote** (usually `origin`) and **Remote URL**, then save. The URL can be a GitHub address (`https://github.com/org/repo.git` or `git@github.com:org/repo.git`) or an Azure DevOps address (`https://dev.azure.com/org/project/_git/repo`, a `visualstudio.com` URL, an Azure DevOps Server URL containing `/_git/`, or `git@ssh.dev.azure.com:v3/org/project/repo`). Fetch, Pull, and Push use that remote name. Leave the password out of the URL. Sign in once with `git fetch` from a command prompt in the workspace folder so Git Credential Manager can store the credentials.
 - **PDF export**: History exports the loaded commits and, when a commit is selected, its changed files. Diff exports the changed-file list and the open text or interface comparison. Ladder diagrams are left out of the PDF.
@@ -98,30 +104,63 @@ To install the package yourself:
 
 ## What to do next
 
-Export and import of Unified and WinCC Comfort devices is already in the Git panel. The items below are the remaining gaps.
+Export and import of Unified and WinCC Comfort devices, and export of the hardware tree and changed drive parameters, are already in the Git panel. The items below are the remaining gaps.
 
-1. **HMI attributes still missing**
-   - **WinCC Comfort:** recipes, data logs, alarm logs, users and groups, scheduled jobs, runtime settings, device settings, the image library, and fonts. System cycles are skipped. Graphic lists and alarms are attribute snapshots, and the alarm pass only keeps Openness compositions whose name contains "alarm" or "message".
-   - **Unified:** connections, cycles, logging, parameter sets, users, runtime settings, device settings, images, styles, and faceplates. A screen file stores the name, screen-group folder, width, and height, plus buttons and I/O fields. Other widgets, events, animations, appearance, and the remaining screen properties are missing. Alarm attributes are one level deep, plus event text and info text.
+1. **HMI screen content**
+   - A Unified screen file stores the name, screen-group folder, width, and height, plus buttons and I/O fields. Other widgets, events, animations, appearance, and the remaining screen properties are missing.
+   - There is no visual diff of screens or tag tables. Git shows those files as text.
+
+2. **HMI items the export still does not cover**
+   - **WinCC Comfort:** users and groups, scheduled jobs, runtime settings, device settings, fonts, picture files, and recipes. The V21 public API has no recipe type, so a recipe is exported only when Openness lists that composition. System cycles are skipped. Graphic lists, alarms, and graphics are attribute snapshots, so Import HMI does not load them back.
+   - **Unified:** recipes and parameter sets, users, cycles, device settings, images, styles, and faceplates. V21 Openness has no recipe or parameter-set object. Connections, logs, runtime settings, and the extra compositions are already exported as attribute XML, and Import HMI does not load those files back.
    - Import does not yet delete Comfort or Unified objects that are absent from an older `HmiExport`, except for the Comfort types that already use Siemens override. A checkout restores the files on disk; **Import HMI** is still a separate step.
 
-2. **Drives and parameters**
-   - Drives belong to the PLC or a drive device, not to the HMI export. Read Startdrive / SINAMICS objects and their parameters into Git through the Openness hardware API.
-
-3. **Hardware configuration**
-   - Export and compare devices, modules, and networks. The V21 compare API returns data only and does not provide a hardware diff editor, so this stays a project-owned export.
+3. **Network addresses**
+   - Hardware export stores the subnet name, type, and node names. IP address, subnet mask, router, PROFINET device name, and port-to-port wiring are still missing. There is no hardware import.
 
 4. **PLC comparison**
    - Visual diff for **FBD**.
    - Structured **SCL** diff with block-aware syntax highlighting.
    - Block metadata such as Optimized Access.
    - Compare more than one block from the same commit in one view.
-   - Visual diff for the HMI screens and tag tables once their export is complete.
 
 5. **Diagram viewer**
    - Cleaner orthogonal wire routing.
    - Zoom and pan in the LAD diff.
    - Follow the TIA Portal theme and system colors.
+
+## Changelog
+
+The add-in version is `AddInVersion` in `src/TiaGitAddIn/AddInPublisherConfiguration.xml`. Newest first.
+
+- **1.2.26** — One **Export** button writes the checked items. **HMI** and **Hardware** are separate checkboxes, and both start checked.
+- **1.2.25** — The HMI checklist no longer shows a Recipes row. WinCC Unified V21 Openness has no recipe or parameter-set object to export.
+- **1.2.24** — Drive export writes only parameters that differ from the factory default, and it reads the accessible parameter list instead of the full catalog.
+- **1.2.23** — The Git panel opens larger, sized to the screen, with larger text and a wider diff file list.
+- **1.2.22** — Settings fills a blank name and email from the Git identity stored for that repository.
+- **1.2.21** — An HMI file keeps the creation time it already has. A file that has none does not gain a new one.
+- **1.2.20** — The export checklist is larger, grouped by device, stays open when the export finishes, and no longer repeats the running line above the list.
+- **1.2.19** — **Export hardware** writes devices, modules, subnets, and SINAMICS parameters and settings to `HardwareExport/`.
+- **1.2.18** — HMI export shows a checklist with counts. Comfort and Unified also export the other compositions Openness exposes. Unified has no recipe composition, which 1.2.25 takes off the checklist.
+- **1.2.17** — Unified screens inside screen groups are exported, for example `Screens/Content/`. This install also included 1.2.16.
+- **1.2.16** — Unified alarm files include event text and info text for each language.
+- **1.2.15** — Comfort alarm and message collections are written as attribute XML.
+- **1.2.14** — The Siemens `<Created>` time is removed after export so an unchanged screen stays out of the diff. This install also included 1.2.13.
+- **1.2.13** — Unified discrete alarms, analog alarms, and alarm classes are written under `Alarms/`.
+- **1.2.12** — Unified tags are exported from each tag table. Siemens does not allow export of the device-level tag list.
+- **1.2.11** — Changed HMI files are grouped by device and folder on Status, Diff, and History. This install also included 1.2.10.
+- **1.2.10** — Comfort graphic lists are written as attribute XML. Siemens `GraphicList.Export` is not called.
+- **1.2.9** — Comfort graphic-list export is skipped. That Siemens call closes TIA Portal.
+- **1.2.8** — Graphic lists are exported last. If one fails, the export stops instead of calling the next object.
+- **1.2.7** — A graphic list with no name is skipped.
+- **1.2.6** — During a Comfort export, TIA's thread does not process other messages. Each step is written to the add-in log.
+- **1.2.5** — A Unified device exports tags, scripts, text lists, and graphic lists next to its screens.
+- **1.2.4** — The Git panel keeps TIA's thread running, so export is not stuck on "Waiting for TIA Portal".
+- **1.2.3** — The progress line names the device and the screen, tag table, or script being written.
+- **1.2.2** — The Branch page lists branches. Git's branch output is tab-separated.
+- **1.2.1** — The panel can create the Git repository, and History and Branch load when those pages open. A one-time window error no longer closes the panel. The installer copies the package into the TIA user add-ins folder.
+- **1.2.0** — The version number moved off 1.0.0 during the LAD work. Status, commit, history, text diff, and graphical LAD comparison were in place. PLC interface comparison, restore, PDF export, and the remote URL in Settings were added in source before the next numbered build.
+- **1.0.0** — First packaged add-in.
 
 ## Project Structure
 

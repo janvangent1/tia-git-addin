@@ -8,6 +8,7 @@ using System.Xml.Linq;
 using Siemens.Engineering;
 using Siemens.Engineering.Hmi;
 using Siemens.Engineering.Hmi.Communication;
+using Siemens.Engineering.Hmi.Globalization;
 using Siemens.Engineering.Hmi.Cycle;
 using Siemens.Engineering.Hmi.RuntimeScripting;
 using Siemens.Engineering.Hmi.Screen;
@@ -43,52 +44,70 @@ namespace TiaGitAddIn.Services
 
         private static int ExportCore(HmiTarget target, string deviceFolder, CancellationToken ct)
         {
+            if (target == null)
+            {
+                throw new ArgumentNullException(nameof(target));
+            }
+
+            progressDevice = target.Name ?? string.Empty;
+            foreach (string category in HmiExportProgress.ComfortCategories)
+            {
+                Emit(category, "pending", 0, string.Empty);
+            }
+
             int count = 0;
-            progressKind = "screen";
-            Report("screens");
-            count += ExportScreens(target.ScreenFolder, Path.Combine(deviceFolder, "Screens"), ct);
-            progressKind = "popup";
-            Report("popups");
-            count += ExportPopups(target.ScreenPopupFolder, Path.Combine(deviceFolder, "Popups"), ct);
-            progressKind = "template";
-            Report("templates");
-            count += ExportTemplates(target.ScreenTemplateFolder, Path.Combine(deviceFolder, "Templates"), ct);
-            progressKind = "slide-in";
-            Report("slide-in screens");
-            count += ExportSlideins(target.ScreenSlideinFolder, Path.Combine(deviceFolder, "Slideins"), ct);
-            progressKind = "tag table";
-            Report("tag tables");
-            count += ExportTagTables(target.TagFolder, Path.Combine(deviceFolder, "TagTables"), ct);
-            progressKind = "script";
-            Report("VB scripts");
-            count += ExportScripts(target.VBScriptFolder, Path.Combine(deviceFolder, "Scripts"), ct);
-            progressKind = "text list";
-            Report("text lists");
-            count += ExportNamed(target.TextLists, Path.Combine(deviceFolder, "TextLists"), list => list.Name, (list, file) => list.Export(file, ExportOptions.WithDefaults), ct);
-            progressKind = "connection";
-            Report("connections");
-            count += ExportNamed(target.Connections, Path.Combine(deviceFolder, "Connections"), connection => connection.Name, (connection, file) => connection.Export(file, ExportOptions.WithDefaults), ct);
-            progressKind = "cycle";
-            Report("cycles");
-            count += ExportNamed(UserCycles(target.Cycles), Path.Combine(deviceFolder, "Cycles"), cycle => cycle.Name, (cycle, file) => cycle.Export(file, ExportOptions.WithDefaults), ct);
-            Report("permanent area");
-            count += ExportSingle(target.ScreenGlobalElements, Path.Combine(deviceFolder, "GlobalElements.xml"), (item, file) => item.Export(file, ExportOptions.WithDefaults), ct);
-            Report("overview");
-            count += ExportSingle(target.ScreenOverview, Path.Combine(deviceFolder, "Overview.xml"), (item, file) => item.Export(file, ExportOptions.WithDefaults), ct);
-            progressKind = "graphic list";
-            Report("graphic lists");
-            count += ExportGraphicListSnapshots(target, Path.Combine(deviceFolder, "GraphicLists"), ct);
-            progressKind = "alarm";
-            Report("alarms");
-            count += ExportAlarmCompositions(target, Path.Combine(deviceFolder, "Alarms"), ct);
+            count += Run("Screens", "screen", () => ExportScreens(target.ScreenFolder, Path.Combine(deviceFolder, "Screens"), ct));
+            count += Run("Popups", "popup", () => ExportPopups(target.ScreenPopupFolder, Path.Combine(deviceFolder, "Popups"), ct));
+            count += Run("Templates", "template", () => ExportTemplates(target.ScreenTemplateFolder, Path.Combine(deviceFolder, "Templates"), ct));
+            count += Run("Slide-ins", "slide-in", () => ExportSlideins(target.ScreenSlideinFolder, Path.Combine(deviceFolder, "Slideins"), ct));
+            count += Run("Tags", "tag table", () => ExportTagTables(target.TagFolder, Path.Combine(deviceFolder, "TagTables"), ct));
+            count += Run("Scripts", "script", () => ExportScripts(target.VBScriptFolder, Path.Combine(deviceFolder, "Scripts"), ct));
+            count += Run("Text lists", "text list", () => ExportNamed(target.TextLists, Path.Combine(deviceFolder, "TextLists"), list => list.Name, (list, file) => list.Export(file, ExportOptions.WithDefaults), ct));
+            count += Run("Connections", "connection", () => ExportNamed(target.Connections, Path.Combine(deviceFolder, "Connections"), connection => connection.Name, (connection, file) => connection.Export(file, ExportOptions.WithDefaults), ct));
+            count += Run("Cycles", "cycle", () => ExportNamed(UserCycles(target.Cycles), Path.Combine(deviceFolder, "Cycles"), cycle => cycle.Name, (cycle, file) => cycle.Export(file, ExportOptions.WithDefaults), ct));
+            count += Run("Permanent area", "permanent area", () => ExportSingle(target.ScreenGlobalElements, Path.Combine(deviceFolder, "GlobalElements.xml"), (item, file) => item.Export(file, ExportOptions.WithDefaults), ct));
+            count += Run("Overview", "overview", () => ExportSingle(target.ScreenOverview, Path.Combine(deviceFolder, "Overview.xml"), (item, file) => item.Export(file, ExportOptions.WithDefaults), ct));
+            count += Run("Graphic lists", "graphic list", () => ExportGraphicListSnapshots(target, Path.Combine(deviceFolder, "GraphicLists"), ct));
+            count += Run("Alarms", "alarm", () => ExportAlarmCompositions(target, Path.Combine(deviceFolder, "Alarms"), ct));
+            count += ExportOpenCompositions(target, deviceFolder, ct);
             return count;
         }
 
         private static string progressKind = "item";
 
+        private static string progressDevice = string.Empty;
+
+        private static string progressCategory = string.Empty;
+
+        private static int progressCount;
+
+        private static int Run(string category, string kind, Func<int> export)
+        {
+            progressKind = kind;
+            progressCategory = category;
+            progressCount = 0;
+            Emit(category, "running", 0, string.Empty);
+            int count = export();
+            Emit(category, "done", count, string.Empty);
+            progressCategory = string.Empty;
+            return count;
+        }
+
+        private static void Emit(string category, string state, int count, string detail)
+        {
+            progressReport?.Invoke(HmiExportProgress.Format(progressDevice, category, state, count, detail));
+        }
+
         private static void Report(string message)
         {
-            progressReport?.Invoke(message);
+            if (string.IsNullOrEmpty(progressCategory))
+            {
+                progressReport?.Invoke(message);
+                return;
+            }
+
+            progressCount++;
+            Emit(progressCategory, "running", progressCount, message);
         }
 
         public static void Import(HmiTarget target, string deviceFolder, CancellationToken ct)
@@ -660,6 +679,222 @@ namespace TiaGitAddIn.Services
             return 1;
         }
 
+        private static readonly HashSet<string> CoveredCompositions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Connections", "Cycles", "GraphicLists", "TextLists",
+            "ScreenFolder", "ScreenPopupFolder", "ScreenSlideinFolder", "ScreenTemplateFolder",
+            "TagFolder", "VBScriptFolder", "ScreenGlobalElements", "ScreenOverview",
+            "Screens", "Popups", "Templates", "Slideins", "Alarms"
+        };
+
+        private static int ExportOpenCompositions(HmiTarget target, string deviceFolder, CancellationToken ct)
+        {
+            if (!(target is IEngineeringObject engineering))
+            {
+                Emit("Graphics", "skipped", 0, "This Comfort device does not expose engineering compositions.");
+                Emit("Other", "skipped", 0, "This Comfort device does not expose engineering compositions.");
+                return 0;
+            }
+
+            List<string> names;
+            try
+            {
+                names = CompositionNames(engineering.GetCompositionInfos(), ct);
+            }
+            catch (Exception ex)
+            {
+                HmiExportTrace.Error(ex);
+                if (IsSessionDead(ex))
+                {
+                    throw new InvalidOperationException("Comfort compositions could not be read. TIA Portal ended the Openness session on that call.", ex);
+                }
+
+                Emit("Graphics", "skipped", 0, ex.Message);
+                Emit("Other", "skipped", 0, ex.Message);
+                return 0;
+            }
+
+            int recipes = 0;
+            int graphics = 0;
+            int other = 0;
+            var otherNames = new List<string>();
+            bool sawRecipe = false;
+            bool sawGraphic = false;
+            foreach (string name in names)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (CoveredCompositions.Contains(name))
+                {
+                    continue;
+                }
+
+                bool isRecipe = name.IndexOf("recipe", StringComparison.OrdinalIgnoreCase) >= 0;
+                bool isGraphic = !isRecipe && name.IndexOf("graphic", StringComparison.OrdinalIgnoreCase) >= 0;
+                string folder = isRecipe ? "Recipes" : isGraphic ? "Graphics" : "Other";
+                progressCategory = isRecipe ? "Recipes" : isGraphic ? "Graphics" : "Other";
+                int written;
+                try
+                {
+                    written = SnapshotComposition(engineering, name, Path.Combine(deviceFolder, folder), ct);
+                }
+                catch (Exception ex)
+                {
+                    HmiExportTrace.Error(ex);
+                    if (IsSessionDead(ex))
+                    {
+                        throw new InvalidOperationException("Comfort composition \"" + name + "\" could not be read. TIA Portal ended the Openness session on that call.", ex);
+                    }
+
+                    Emit(progressCategory, "failed", 0, name + ": " + ex.Message);
+                    progressCategory = string.Empty;
+                    continue;
+                }
+
+                if (isRecipe)
+                {
+                    sawRecipe = true;
+                    recipes += written;
+                }
+                else if (isGraphic)
+                {
+                    sawGraphic = true;
+                    graphics += written;
+                }
+                else if (written > 0)
+                {
+                    other += written;
+                    otherNames.Add(name);
+                }
+            }
+
+            progressCategory = string.Empty;
+            if (sawRecipe)
+            {
+                Emit("Recipes", "done", recipes, string.Empty);
+            }
+
+            if (sawGraphic)
+            {
+                Emit("Graphics", "done", graphics, string.Empty);
+            }
+            else
+            {
+                Emit("Graphics", "skipped", 0, "Openness lists no graphics composition.");
+            }
+
+            if (otherNames.Count > 0)
+            {
+                Emit("Other", "done", other, string.Join(", ", otherNames));
+            }
+            else
+            {
+                Emit("Other", "skipped", 0, "No further HMI compositions.");
+            }
+
+            return recipes + graphics + other;
+        }
+
+        private static int SnapshotComposition(IEngineeringObject owner, string name, string directory, CancellationToken ct)
+        {
+            IEngineeringCompositionOrObject composition = owner.GetComposition(name);
+            var items = new List<IEngineeringObject>();
+            var pictures = new List<MultiLingualGraphic>();
+            if (composition is System.Collections.IEnumerable enumerable)
+            {
+                foreach (object entry in enumerable)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (entry is MultiLingualGraphic graphic)
+                    {
+                        pictures.Add(graphic);
+                    }
+                    else if (entry is IEngineeringObject child)
+                    {
+                        items.Add(child);
+                    }
+                }
+            }
+
+            int count = 0;
+            if (pictures.Count > 0)
+            {
+                Directory.CreateDirectory(directory);
+                var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (MultiLingualGraphic graphic in pictures)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    string itemName = graphic.Name ?? string.Empty;
+                    Report(string.IsNullOrWhiteSpace(itemName) ? name : itemName);
+                    string fileName = HmiExportStore.UniqueName(string.IsNullOrWhiteSpace(itemName) ? name : itemName, used) + ".xml";
+                    graphic.Export(new FileInfo(Path.Combine(directory, fileName)), ExportOptions.WithDefaults);
+                    count++;
+                }
+            }
+
+            if (items.Count == 0)
+            {
+                return count;
+            }
+
+            var root = new XElement("HmiItems", new XAttribute("composition", name));
+            int index = 0;
+            foreach (IEngineeringObject item in items)
+            {
+                ct.ThrowIfCancellationRequested();
+                index++;
+                string itemName = CompositionItemName(item, index);
+                Report(itemName);
+                var element = new XElement("Item", new XAttribute("name", itemName));
+                AppendAttributes(element, item);
+                AppendChildCompositions(element, item, ct);
+                root.Add(element);
+                count++;
+            }
+
+            Directory.CreateDirectory(directory);
+            new XDocument(root).Save(Path.Combine(directory, HmiExportStore.FolderName(name) + ".xml"));
+            return count;
+        }
+
+        private static void AppendChildCompositions(XElement parent, IEngineeringObject engineering, CancellationToken ct)
+        {
+            IEnumerable<EngineeringCompositionInfo> infos;
+            try
+            {
+                infos = engineering.GetCompositionInfos();
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+                return;
+            }
+
+            if (infos == null)
+            {
+                return;
+            }
+
+            foreach (EngineeringCompositionInfo info in infos)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (info == null || string.IsNullOrWhiteSpace(info.Name))
+                {
+                    continue;
+                }
+
+                var items = new XElement("Items", new XAttribute("composition", info.Name));
+                try
+                {
+                    AppendComposition(items, engineering.GetComposition(info.Name));
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                    items.Add(new XAttribute("error", ex.Message));
+                }
+
+                parent.Add(items);
+            }
+        }
+
         private static List<string> CompositionNames(IEnumerable<EngineeringCompositionInfo> infos, CancellationToken ct)
         {
             var names = new List<string>();
@@ -786,6 +1021,29 @@ namespace TiaGitAddIn.Services
 
                 if (!seen.Add(attribute.Key))
                 {
+                    continue;
+                }
+
+                if (attribute.Value is MultilingualText text)
+                {
+                    var nested = new XElement("Attribute", new XAttribute("name", attribute.Key));
+                    if (text.Items != null)
+                    {
+                        foreach (MultilingualTextItem item in text.Items)
+                        {
+                            if (item == null)
+                            {
+                                continue;
+                            }
+
+                            nested.Add(new XElement(
+                                "Text",
+                                new XAttribute("language", item.Language?.Culture?.Name ?? string.Empty),
+                                item.Text ?? string.Empty));
+                        }
+                    }
+
+                    parent.Add(nested);
                     continue;
                 }
 

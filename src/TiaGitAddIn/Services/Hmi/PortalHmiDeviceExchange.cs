@@ -72,6 +72,15 @@ namespace TiaGitAddIn.Services
             return RunOnCallerAsync(progress, ct, () => ExportCore(repositoryPath, progress, ct));
         }
 
+        public Task<OperationResult> ExportHardwareAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
+        {
+            return RunOnCallerAsync(progress, ct, () => HardwareExchange.Export(
+                portal,
+                repositoryPath,
+                ct,
+                message => ReportProgress(progress, string.Empty, message)));
+        }
+
         public Task<OperationResult> ImportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
         {
             return RunOnCallerAsync(progress, ct, () => ImportCore(repositoryPath, progress, ct));
@@ -158,17 +167,20 @@ namespace TiaGitAddIn.Services
                     ct.ThrowIfCancellationRequested();
                     UnifiedDevice device = unified[index];
                     progress?.Report("Unified panel " + (index + 1).ToString(CultureInfo.InvariantCulture) + " of " + unified.Count.ToString(CultureInfo.InvariantCulture) + ": " + device.Name);
+                    Announce(progress, device.Name, HmiExportProgress.UnifiedCategories);
                     HmiDeviceExport export = ReadDevice(device, progress, ct);
                     screenCount += export.Screens.Count;
                     progress?.Report("Writing " + device.Name + "…");
                     string folder = HmiExportStore.DeviceFolder(repositoryPath, device.Name);
+                    IReadOnlyDictionary<string, string> previousTimestamps = HmiExportNormalizer.CaptureCreationTimestamps(folder);
                     fileCount += HmiExportStore.Write(repositoryPath, export).Count;
                     fileCount += UnifiedLibraryExchange.Export(
                         device.Software,
+                        device.Name,
                         folder,
                         ct,
-                        message => progress?.Report(device.Name + ": " + message));
-                    HmiExportNormalizer.StripCreationTimestamps(folder);
+                        message => ReportProgress(progress, device.Name + ": ", message));
+                    HmiExportNormalizer.StabilizeCreationTimestamps(folder, previousTimestamps);
                 }
 
                 int comfortFiles = 0;
@@ -178,9 +190,11 @@ namespace TiaGitAddIn.Services
                     ComfortDevice device = comfort[index];
                     string prefix = "WinCC Comfort " + (index + 1).ToString(CultureInfo.InvariantCulture) + " of " + comfort.Count.ToString(CultureInfo.InvariantCulture) + ": " + device.Name;
                     progress?.Report(prefix);
-                    string folder = HmiExportStore.PrepareDeviceFolder(repositoryPath, device.Name, HmiDeviceExport.ComfortKind);
-                    int written = ComfortHmiExchange.Export(device.Target, folder, ct, message => progress?.Report(prefix + " — " + message)) + 1;
-                    HmiExportNormalizer.StripCreationTimestamps(folder);
+                    string folder = HmiExportStore.DeviceFolder(repositoryPath, device.Name);
+                    IReadOnlyDictionary<string, string> previousTimestamps = HmiExportNormalizer.CaptureCreationTimestamps(folder);
+                    folder = HmiExportStore.PrepareDeviceFolder(repositoryPath, device.Name, HmiDeviceExport.ComfortKind);
+                    int written = ComfortHmiExchange.Export(device.Target, folder, ct, message => ReportProgress(progress, prefix + " — ", message)) + 1;
+                    HmiExportNormalizer.StabilizeCreationTimestamps(folder, previousTimestamps);
                     comfortFiles += written;
                     fileCount += written;
                 }
@@ -384,8 +398,39 @@ namespace TiaGitAddIn.Services
             };
 
             int index = 0;
+            progress?.Report(HmiExportProgress.Format(device.Name, "Screens", "running", 0, string.Empty));
             ReadScreenLevel(device.Software.Screens, device.Software.ScreenGroups, string.Empty, device.Name, export, progress, ref index, ct);
+            progress?.Report(HmiExportProgress.Format(device.Name, "Screens", "done", index, string.Empty));
             return export;
+        }
+
+        private static void Announce(IProgress<string>? progress, string deviceName, IEnumerable<string> categories)
+        {
+            if (progress == null || categories == null)
+            {
+                return;
+            }
+
+            foreach (string category in categories)
+            {
+                progress.Report(HmiExportProgress.Format(deviceName, category, "pending", 0, string.Empty));
+            }
+        }
+
+        private static void ReportProgress(IProgress<string>? progress, string prefix, string message)
+        {
+            if (progress == null)
+            {
+                return;
+            }
+
+            if (HmiExportProgress.IsChecklist(message))
+            {
+                progress.Report(message);
+                return;
+            }
+
+            progress.Report((prefix ?? string.Empty) + (message ?? string.Empty));
         }
 
         private static void ReadScreenLevel(
@@ -409,7 +454,7 @@ namespace TiaGitAddIn.Services
 
                 index++;
                 string location = string.IsNullOrEmpty(folder) ? screen.Name : folder + "/" + screen.Name;
-                progress?.Report(deviceName + ": screen " + index.ToString(CultureInfo.InvariantCulture) + " — " + location);
+                progress?.Report(HmiExportProgress.Format(deviceName, "Screens", "running", index, location));
                 var screenExport = new HmiScreenExport
                 {
                     Name = screen.Name,

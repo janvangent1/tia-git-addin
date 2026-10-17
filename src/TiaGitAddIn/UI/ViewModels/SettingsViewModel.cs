@@ -41,6 +41,7 @@ namespace TiaGitAddIn.UI.ViewModels
 
             LoadSettings();
             _ = RefreshRemoteUrlAsync();
+            _ = FillIdentityFromGitAsync();
         }
 
         public string GitExecutablePath
@@ -196,6 +197,40 @@ namespace TiaGitAddIn.UI.ViewModels
 
                 InvokeOnUI(() => ValidationMessage = "Settings saved. " + string.Join(" ", notes));
             });
+        }
+
+        internal Task FillIdentityFromGitAsync()
+        {
+            if (!string.IsNullOrWhiteSpace(commitAuthorName) && !string.IsNullOrWhiteSpace(commitAuthorEmail))
+            {
+                return Task.CompletedTask;
+            }
+
+            return ReadIdentityFromGitAsync();
+        }
+
+        private async Task ReadIdentityFromGitAsync()
+        {
+            try
+            {
+                (string name, string email) = await gitService.GetLocalIdentityAsync().ConfigureAwait(false);
+                InvokeOnUI(() =>
+                {
+                    if (string.IsNullOrWhiteSpace(CommitAuthorName) && !string.IsNullOrWhiteSpace(name))
+                    {
+                        CommitAuthorName = name;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(CommitAuthorEmail) && !string.IsNullOrWhiteSpace(email))
+                    {
+                        CommitAuthorEmail = email;
+                    }
+                });
+            }
+            catch (Exception)
+            {
+                // The settings file remains the source when this repository has no local identity yet.
+            }
         }
 
         private async Task RefreshRemoteUrlAsync()

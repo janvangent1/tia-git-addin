@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using TiaGitAddIn.Configuration;
 using TiaGitAddIn.Logging;
 using TiaGitAddIn.Models;
@@ -128,6 +129,14 @@ namespace TiaGitAddIn.UI.ViewModels
             {
                 RecomputeAggregate();
             }
+
+            if (e.PropertyName == nameof(IsBusy)
+                || e.PropertyName == nameof(BusyMessage)
+                || e.PropertyName == nameof(HmiExchangeViewModel.HasChecklist)
+                || e.PropertyName == nameof(HmiExchangeViewModel.LastOperationMessage))
+            {
+                NotifyOverlay();
+            }
         }
 
         private void RecomputeAggregate()
@@ -149,9 +158,57 @@ namespace TiaGitAddIn.UI.ViewModels
             });
         }
 
+        public bool ShowOverlay => IsBusy || Hmi.HasChecklist;
+
+        public bool ShowProgress => IsBusy;
+
+        public double OverlayCardMinWidth => Hmi.HasChecklist ? 840 : 420;
+
+        public string OverlayStatus
+        {
+            get
+            {
+                if (Hmi.HasChecklist && Hmi.IsBusy)
+                {
+                    return string.Empty;
+                }
+
+                if (Hmi.HasChecklist)
+                {
+                    return Hmi.LastOperationMessage;
+                }
+
+                return BusyMessage;
+            }
+        }
+
+        public bool HasOverlayStatus => !string.IsNullOrEmpty(OverlayStatus);
+
+        public string OverlayActionText => IsBusy ? "Cancel" : "Close";
+
+        public ICommand OverlayActionCommand => IsBusy ? CancelCommand : Hmi.DismissChecklistCommand;
+
         protected override void OnBusyChanged()
         {
-            InvokeOnUI(() => CancelCommand.RaiseCanExecuteChanged());
+            InvokeOnUI(() =>
+            {
+                CancelCommand.RaiseCanExecuteChanged();
+                NotifyOverlay();
+            });
+        }
+
+        private void NotifyOverlay()
+        {
+            InvokeOnUI(() =>
+            {
+                OnPropertyChanged(nameof(ShowOverlay));
+                OnPropertyChanged(nameof(ShowProgress));
+                OnPropertyChanged(nameof(OverlayCardMinWidth));
+                OnPropertyChanged(nameof(OverlayStatus));
+                OnPropertyChanged(nameof(HasOverlayStatus));
+                OnPropertyChanged(nameof(OverlayActionText));
+                OnPropertyChanged(nameof(OverlayActionCommand));
+            });
         }
 
         private void CancelAll()
