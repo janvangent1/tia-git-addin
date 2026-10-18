@@ -33,11 +33,11 @@ TIA Portal VCI cannot contain an HMI device. The Git panel has **HMI** and **Har
 
 While an export runs, a checklist stays open. It is grouped by device and shows each category, the item being written, and the count when that category finishes. Export keeps a creation time that is already stored in a file, and leaves a new one out when the file had none, so an unchanged device does not rewrite every file.
 
-**Yes** means that item is written and read back. **Partly** means the file or the write-back is limited; the limit is in the Notes column. **No** means that item is left out. A checkout only puts files on disk. **Import** is a separate step.
+**Yes** means that item is written and read back. **Partly** means the file or the write-back is limited; the limit is in Notes. **No** means that item is left out. Where Notes do not say otherwise, **Yes** is a Siemens export or import, and **Partly** is a snapshot of the attributes and child objects Openness exposes. The import checkboxes start unchecked.
 
 | Area | Item | Export | Import | Notes |
 | --- | --- | --- | --- | --- |
-| Unified | Screens and every widget Openness exposes | Partly | Partly | Screen properties, events, dynamizations, and appearance. A widget is created only when Openness has that type. Widgets missing from the file are removed |
+| Unified | Screens and every widget Openness exposes | Partly | Partly | Screen properties, events, dynamizations, and appearance. Buttons and I/O fields store text and process value. A widget is created only when Openness has that type. Widgets missing from the file are removed |
 | Unified | Tag tables and tag groups | Yes | Partly | Tag tables missing from the folder stay in the project |
 | Unified | System tags | Partly | Partly | Writable attributes on the matching tag. System tags are not created or deleted |
 | Unified | Plant-object tags | Partly | Partly | Writable attributes on the matching tag. Plant-object tags are not created or deleted |
@@ -62,7 +62,7 @@ While an export runs, a checklist stays open. It is grouped by device and shows 
 | Comfort | User cycles | Yes | Yes | User cycles missing from the folder are deleted |
 | Comfort | System cycles | Yes | Partly | Applied when Openness accepts the file. System cycles are not created or deleted |
 | Comfort | Permanent area and overview | Yes | Yes | |
-| Comfort | Graphic lists | Partly | Partly | Attribute snapshot. Siemens `GraphicList.Export` is not called |
+| Comfort | Graphic lists | Partly | Partly | Attribute snapshot, including list entries. Siemens `GraphicList.Export` is not called |
 | Comfort | Alarms and messages | Partly | Partly | Compositions whose name contains "alarm" or "message" |
 | Comfort | Other compositions Openness lists | Partly | Partly | Attribute snapshot, plus a Siemens graphic file when the composition exports one |
 | Comfort | Recipes | Partly | Partly | Only when Openness lists a recipe composition. The V21 public API has no recipe type |
@@ -80,77 +80,7 @@ While an export runs, a checklist stays open. It is grouped by device and shows 
 | Hardware | Drive function settings | Yes | Yes | Function settings and technology extensions on the matching module |
 | PLC | PLC blocks | Yes | No | TIA Portal VCI writes the files. There is no PLC import button. **Restore** checks the commit out on a `restore-<short hash>` branch |
 
-The sections below say how each exported file is written. **Full** means a Siemens export or import. **Snapshot** means the file stores the attributes and child objects Openness exposes.
-
-#### WinCC Unified
-
-| Item | Export | Import |
-| --- | --- | --- |
-| Screens, including screens in screen groups | Snapshot of the folder, size, screen properties, and every widget Openness exposes, with events, dynamizations, and appearance. Buttons and I/O fields also store text and process value | Screen name, size, properties, events, dynamizations, and appearance. Widgets are created when Openness has that type, and widgets missing from the file are removed |
-| Tag tables and tag groups | Full Siemens tag export | Full Siemens tag import. Tag tables that are missing from the folder stay in the project |
-| System tags | Snapshot | Writable attributes on the matching tag. System tags are not created or deleted |
-| Plant-object tags | Snapshot | Writable attributes on the matching tag. Plant-object tags are not created or deleted |
-| JavaScript modules | Full Siemens script export | Full Siemens script import |
-| Text lists | Full | Full |
-| System text lists | Full | Full |
-| Graphic lists | Full | Full |
-| Discrete alarms, analog alarms, alarm classes | Snapshot, including event text and info text | Attributes and texts on the matching alarm. A new alarm is created when the composition allows it. Alarms missing from the file are removed |
-| OPC UA alarm types, alarm audit classes | Snapshot | Attributes on the matching object. Objects missing from the file are removed when the composition can delete them |
-| Connections, data logs, alarm logs, audit trails | Snapshot | Attributes on the matching object. Objects missing from the file are removed when the composition can delete them |
-| Runtime settings | Snapshot | Attributes on the runtime settings |
-| Any other composition Openness lists | Snapshot under `Other/` | Attributes on the matching composition. Objects missing from the file are removed when the composition can delete them |
-| Recipes and parameter sets | None. V21 Openness has no recipe or parameter-set object | None |
-| Users, cycles, and device settings | None | None |
-| Images stored only on the device, outside the project graphic collection | None | None |
-
-A faceplate placed on a screen is part of that screen's widget snapshot. Faceplate types and styles in the project library are exported with the project pictures. Types in a global library are left out.
-
-#### WinCC Comfort
-
-| Item | Export | Import |
-| --- | --- | --- |
-| Screens and screen folders | Full Siemens screen export | Full. Screens missing from the folder are deleted |
-| Popups, templates, slide-in screens | Full | Full. Objects missing from the folder are deleted |
-| Tag tables | Full | Full for user tables. User tables missing from the folder are deleted. System tables stay |
-| VB scripts | Full | Full. Scripts missing from the folder are deleted |
-| Text lists | Full | Full. Lists missing from the folder are deleted |
-| Connections | Full | Full. Connections missing from the folder are deleted |
-| User cycles | Full | Full. User cycles missing from the folder are deleted |
-| System cycles | Full Siemens cycle export | The file is applied when Openness accepts it. System cycles are not created or deleted |
-| Permanent area and overview | Full | Full |
-| Graphic lists | Snapshot. Siemens `GraphicList.Export` is not called | Attributes and list entries on the matching graphic list |
-| Alarms and messages | Snapshot of compositions whose name contains "alarm" or "message" | Attributes on the matching object. Objects missing from the file are removed when the composition can delete them |
-| Graphics and any other composition Openness lists | Snapshot, plus a Siemens graphic file when the composition exports one | Siemens graphic files are imported. Attribute snapshots are written onto the matching composition |
-| Recipes | Snapshot only when Openness lists a recipe composition. The V21 public API has no recipe type | Attributes on that composition when the snapshot exists |
-| Users and groups, scheduled jobs, runtime settings, device settings, and fonts | None. Fonts set on a screen object travel with that screen | None |
-
-#### Project
-
-Pictures in the project graphic collection, and faceplate types, styles, and style sheets in the project library, are written to `HmiExport/_Project/<project>/`. Import applies them before the HMI devices, so a screen can find its faceplate type.
-
-| Item | Export | Import |
-| --- | --- | --- |
-| Project pictures | Full Siemens graphic export, including the image files | Full. Pictures missing from the folder are removed |
-| Faceplate types in the project library | Full library document. The in-work version is used when one exists | A missing type is created. An existing type updates its in-work version. Types missing from the folder stay. Global libraries are left out |
-| Styles and style sheets in the project library | Full library document. The in-work version is used when one exists | A missing type is created. An existing type updates its in-work version. Types missing from the folder stay. Global libraries are left out |
-
-#### Hardware
-
-With **Hardware** checked, export writes `HardwareExport/` for every device in the project, including devices that are not in a group. PLC blocks stay on the VCI path.
-
-| Item | Export | Import |
-| --- | --- | --- |
-| Device and module tree, type, rack position, PLC I/O addresses | Full, in `Hardware.xml` | Attributes on the matching device and modules. Devices and modules are not created, deleted, or moved |
-| Subnet name, type, and IO system | Full | Attributes on the matching subnet |
-| Node IP address, subnet mask, router, PROFINET device name | Full when Openness provides the value | Full, on the matching node |
-| Port-to-port links | Full | Full, on the matching ports |
-| SINAMICS parameters whose value differs from the factory default | Full | Full. The value is written onto the matching drive |
-| SINAMICS telegrams and security settings | Full | Security settings on the matching drive. The telegram type is written when Openness accepts the change |
-| Drive function settings under `Settings/` | Full | Function settings and technology extensions on the matching module |
-
-#### PLC blocks
-
-TIA Portal VCI writes PLC blocks into the Git workspace. The add-in compares those SimaticML files. There is no separate PLC import button. **Restore** checks the commit's files out on a `restore-<short hash>` branch.
+Pictures, faceplate types, styles, and style sheets are written to `HmiExport/_Project/<project>/` and imported before the HMI devices, so a screen can find its faceplate type. A faceplate placed on a screen is part of that screen's widget snapshot. `HardwareExport/` includes devices that are not in a group. PLC blocks stay on the VCI path.
 
 ### TIA Portal V21 Compare API Decision
 
@@ -164,7 +94,7 @@ Git revision review therefore continues to use the project-owned native SimaticM
 - **First use**: If that folder is not a Git repository yet, the add-in asks to create one there. You do not need to open a command prompt.
 - **Core Operations**: View status, history, branches, and commit changes without leaving TIA Portal. The History and Branch pages load when you open them. **Show changes** on Status compares the current workspace files with the last commit. Files can be staged when the workspace path contains spaces.
 - **Export page**: Select a commit on History. The Export page lists the HMI and hardware files stored in that commit, grouped by device and folder.
-- **About page**: Shows the add-in version and the same export and import coverage as the tables above. Shaded rows are left out of export, import, or both.
+- **About page**: Shows the add-in version and the same coverage as the table above, with the export and import wording spelled out. Shaded rows are left out of export, import, or both.
 - **Text diff navigation**: In a text diff, **Previous change** and **Next change** scroll to the previous and next changed block.
 - **Restore**: Restoring a commit creates a branch named `restore-<short hash>` and checks it out. The original branch is left unchanged.
 - **Commit identity**: In Settings, **Your Name** and **Your Email** are saved into the repository so commits made from TIA Portal have an author. When those boxes are empty, Settings fills them from the name and email already stored for this repository.
@@ -215,31 +145,11 @@ To install the package yourself:
 
 ## What to do next
 
-The summary table under **HMI and hardware in Git** is the list of what export and import cover. **No** is left out. **Partly** is limited in the way the Notes column says. The items below are still open.
+The table under **HMI and hardware in Git** is the list of what export and import cover. The items below are still open and are not already stated there.
 
-1. **Screen review**
-   - There is no visual diff of screens or tag tables. Git shows those files as text.
-   - A Unified widget is created only when Openness has that type. A type it cannot create stays out of the project.
-
-2. **Items with no export**
-   - **WinCC Comfort:** users and groups, scheduled jobs, runtime settings, device settings, and fonts. Fonts set on a screen object travel with that screen. System cycles are exported, and import applies them only when Openness accepts the file.
-   - **Unified:** recipes, parameter sets, users, cycles, device settings, and images that are not in the project graphic collection.
-   - **Project library:** faceplate types and styles in the project library are exported. Global-library types stay out, and types missing from the folder are not deleted.
-   - Unified tag tables, scripts, and lists that are missing from an older `HmiExport` stay in the project. Comfort screens, popups, templates, slide-ins, user tag tables, VB scripts, text lists, connections, and user cycles are removed when their file is missing.
-
-3. **Hardware tree import**
-   - Import writes attributes onto devices and modules that are already in the project, and writes node addresses, port links, changed drive parameters, security settings, and drive function settings. It does not create, delete, or move devices or modules.
-
-4. **PLC comparison**
-   - Visual diff for **FBD**.
-   - Structured **SCL** diff with block-aware syntax highlighting.
-   - Block metadata such as Optimized Access.
-   - Compare more than one block from the same commit in one view.
-
-5. **Diagram viewer**
-   - Cleaner orthogonal wire routing.
-   - The LAD view can zoom, jump to a network, and fit the width. Panning is the scroll bars.
-   - The panel follows the Windows app theme. It does not read TIA Portal's own theme.
+1. **Screen review.** There is no visual diff of screens or tag tables. Git shows those files as text.
+2. **PLC comparison.** Visual diff for **FBD**. Structured **SCL** diff with block-aware syntax highlighting. Block metadata such as Optimized Access. Compare more than one block from the same commit in one view.
+3. **Diagram viewer.** Cleaner orthogonal wire routing. The LAD view can zoom, jump to a network, and fit the width. Panning is the scroll bars. The panel follows the Windows app theme. It does not read TIA Portal's own theme.
 
 ## Changelog
 
