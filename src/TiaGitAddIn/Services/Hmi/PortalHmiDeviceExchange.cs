@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Threading;
@@ -86,6 +87,15 @@ namespace TiaGitAddIn.Services
         public Task<OperationResult> ImportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
         {
             return RunOnCallerAsync(progress, ct, () => ImportCore(repositoryPath, progress, ct), blockDispatcher: true);
+        }
+
+        public Task<OperationResult> ImportHardwareAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
+        {
+            return RunOnCallerAsync(progress, ct, () => HardwareExchange.Import(
+                portal,
+                repositoryPath,
+                ct,
+                message => ReportProgress(progress, string.Empty, message)), blockDispatcher: false);
         }
 
         private Task<OperationResult> RunOnCallerAsync(IProgress<string> progress, CancellationToken ct, Func<OperationResult> action, bool blockDispatcher)
@@ -474,6 +484,7 @@ namespace TiaGitAddIn.Services
 
                 foreach (HmiScreenItemBase item in screen.ScreenItems)
                 {
+                    ct.ThrowIfCancellationRequested();
                     HmiItemExport? exportedItem = ReadItem(item);
                     if (exportedItem != null)
                     {
@@ -481,6 +492,7 @@ namespace TiaGitAddIn.Services
                     }
                 }
 
+                screenExport.Content = UnifiedObjectSnapshot.Capture(screen, skipScreenItems: true);
                 export.Screens.Add(screenExport);
             }
 
@@ -519,37 +531,99 @@ namespace TiaGitAddIn.Services
             return names;
         }
 
-        private static HmiItemExport? ReadItem(HmiScreenItemBase item)
+        private static HmiItemExport ReadItem(HmiScreenItemBase item)
         {
+            var exported = new HmiItemExport
+            {
+                Kind = WidgetKind(item),
+                Name = item.Name ?? string.Empty,
+                Left = WidgetNumber(item, "Left"),
+                Top = WidgetNumber(item, "Top"),
+                Width = WidgetNumber(item, "Width"),
+                Height = WidgetNumber(item, "Height"),
+                Content = UnifiedObjectSnapshot.Capture(item, skipScreenItems: false)
+            };
+
             if (item is HmiButton button)
             {
-                return new HmiItemExport
-                {
-                    Kind = "Button",
-                    Name = button.Name,
-                    Left = Convert.ToInt32(button.Left, CultureInfo.InvariantCulture),
-                    Top = Convert.ToInt32(button.Top, CultureInfo.InvariantCulture),
-                    Width = Convert.ToInt32(button.Width, CultureInfo.InvariantCulture),
-                    Height = Convert.ToInt32(button.Height, CultureInfo.InvariantCulture),
-                    Texts = ReadTexts(button.Text)
-                };
+                exported.Texts = ReadTexts(button.Text);
             }
-
-            if (item is HmiIOField field)
+            else if (item is HmiIOField field)
             {
-                return new HmiItemExport
-                {
-                    Kind = "IOField",
-                    Name = field.Name,
-                    Left = Convert.ToInt32(field.Left, CultureInfo.InvariantCulture),
-                    Top = Convert.ToInt32(field.Top, CultureInfo.InvariantCulture),
-                    Width = Convert.ToInt32(field.Width, CultureInfo.InvariantCulture),
-                    Height = Convert.ToInt32(field.Height, CultureInfo.InvariantCulture),
-                    ProcessValue = field.ProcessValue ?? string.Empty
-                };
+                exported.ProcessValue = field.ProcessValue ?? string.Empty;
+            }
+            else
+            {
+                exported.Texts = ReadOptionalTexts(item);
+                exported.ProcessValue = ReadOptionalString(item, "ProcessValue");
             }
 
-            return null;
+            return exported;
+        }
+
+        private static string WidgetKind(HmiScreenItemBase item)
+        {
+            string name = item.GetType().Name ?? string.Empty;
+            if (name.StartsWith("Hmi", StringComparison.Ordinal) && name.Length > 3)
+            {
+                name = name.Substring(3);
+            }
+
+            return name.Length == 0 ? "Item" : name;
+        }
+
+        private static int WidgetNumber(object item, string propertyName)
+        {
+            try
+            {
+                PropertyInfo property = item.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
+                if (property == null)
+                {
+                    return 0;
+                }
+
+                object value = property.GetValue(item);
+                return value == null ? 0 : Convert.ToInt32(value, CultureInfo.InvariantCulture);
+            }
+            catch (Exception)
+            {
+                return 0;
+            }
+        }
+
+        private static List<HmiTextExport> ReadOptionalTexts(object item)
+        {
+            try
+            {
+                PropertyInfo property = item.GetType().GetProperty("Text", BindingFlags.Instance | BindingFlags.Public);
+                if (property != null && typeof(MultilingualText).IsAssignableFrom(property.PropertyType))
+                {
+                    var text = property.GetValue(item) as MultilingualText;
+                    return text == null ? new List<HmiTextExport>() : ReadTexts(text);
+                }
+            }
+            catch (Exception)
+            {
+            }
+
+            return new List<HmiTextExport>();
+        }
+
+        private static string ReadOptionalString(object item, string propertyName)
+        {
+            try
+            {
+                PropertyInfo property = item.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
+                if (property != null && property.PropertyType == typeof(string))
+                {
+                    return property.GetValue(item) as string ?? string.Empty;
+                }
+            }
+            catch (Exception)
+            {
+            }
+
+            return string.Empty;
         }
 
         private static List<HmiTextExport> ReadTexts(MultilingualText text)
@@ -610,6 +684,10 @@ namespace TiaGitAddIn.Services
                 HmiScreen screen = screens.Find(screenExport.Name) ?? screens.Create(screenExport.Name);
                 screen.Width = ToSize(screenExport.Width);
                 screen.Height = ToSize(screenExport.Height);
+                if (screen is IEngineeringObject screenObject)
+                {
+                    EngineeringSnapshotRestorer.ApplyElement(screenObject, screenExport.Content);
+                }
 
                 var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (HmiItemExport itemExport in screenExport.Items)
@@ -631,7 +709,7 @@ namespace TiaGitAddIn.Services
 
                 foreach (HmiScreenItemBase item in existing)
                 {
-                    if ((item is HmiButton || item is HmiIOField) && !keep.Contains(item.Name))
+                    if (!string.IsNullOrWhiteSpace(item.Name) && !keep.Contains(item.Name))
                     {
                         item.Delete();
                     }
@@ -645,24 +723,135 @@ namespace TiaGitAddIn.Services
             if (string.Equals(itemExport.Kind, "Button", StringComparison.OrdinalIgnoreCase))
             {
                 HmiButton button = item as HmiButton ?? screen.ScreenItems.Create<HmiButton>(itemExport.Name);
-                button.Left = itemExport.Left;
-                button.Top = itemExport.Top;
-                button.Width = ToSize(itemExport.Width);
-                button.Height = ToSize(itemExport.Height);
+                SetGeometry(button, itemExport);
                 WriteTexts(button.Text, itemExport.Texts);
+                ApplyItemSnapshot(button, itemExport);
                 return;
             }
 
             if (string.Equals(itemExport.Kind, "IOField", StringComparison.OrdinalIgnoreCase))
             {
                 HmiIOField field = item as HmiIOField ?? screen.ScreenItems.Create<HmiIOField>(itemExport.Name);
-                field.Left = itemExport.Left;
-                field.Top = itemExport.Top;
-                field.Width = ToSize(itemExport.Width);
-                field.Height = ToSize(itemExport.Height);
+                SetGeometry(field, itemExport);
                 field.ProcessValue = itemExport.ProcessValue ?? string.Empty;
+                ApplyItemSnapshot(field, itemExport);
+                return;
+            }
+
+            if (item == null || !string.Equals(WidgetKind(item), itemExport.Kind, StringComparison.OrdinalIgnoreCase))
+            {
+                item = CreateWidget(screen, itemExport) ?? item;
+            }
+
+            if (item == null)
+            {
+                return;
+            }
+
+            SetGeometry(item, itemExport);
+            ApplyItemSnapshot(item, itemExport);
+        }
+
+        private static void SetGeometry(HmiScreenItemBase item, HmiItemExport itemExport)
+        {
+            SetNumber(item, "Left", itemExport.Left);
+            SetNumber(item, "Top", itemExport.Top);
+            SetNumber(item, "Width", itemExport.Width);
+            SetNumber(item, "Height", itemExport.Height);
+        }
+
+        private static void SetNumber(object item, string propertyName, int value)
+        {
+            try
+            {
+                PropertyInfo property = item.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
+                if (property == null || !property.CanWrite)
+                {
+                    return;
+                }
+
+                property.SetValue(item, Convert.ChangeType(value, property.PropertyType, CultureInfo.InvariantCulture));
+            }
+            catch (Exception)
+            {
             }
         }
+
+        private static void ApplyItemSnapshot(HmiScreenItemBase item, HmiItemExport itemExport)
+        {
+            if (item is IEngineeringObject engineering)
+            {
+                EngineeringSnapshotRestorer.ApplyElement(engineering, itemExport.Content);
+            }
+        }
+
+        private static HmiScreenItemBase CreateWidget(HmiScreen screen, HmiItemExport itemExport)
+        {
+            if (screen == null || itemExport == null || string.IsNullOrWhiteSpace(itemExport.Name))
+            {
+                return null;
+            }
+
+            Type widgetType = WidgetType(itemExport.Kind);
+            MethodInfo create = typeof(HmiScreenItemBaseComposition).GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                .FirstOrDefault(method => method.Name == "Create" && method.IsGenericMethodDefinition && method.GetParameters().Length == 1);
+            if (widgetType == null || create == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                return create.MakeGenericMethod(widgetType).Invoke(screen.ScreenItems, new object[] { itemExport.Name }) as HmiScreenItemBase;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        private static Type WidgetType(string kind)
+        {
+            if (string.IsNullOrWhiteSpace(kind))
+            {
+                return null;
+            }
+
+            if (widgetTypes == null)
+            {
+                widgetTypes = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
+                foreach (Type type in WidgetTypes())
+                {
+                    if (type == null || type.IsAbstract || !typeof(HmiScreenItemBase).IsAssignableFrom(type))
+                    {
+                        continue;
+                    }
+
+                    widgetTypes[type.Name] = type;
+                    if (type.Name.StartsWith("Hmi", StringComparison.Ordinal) && type.Name.Length > 3)
+                    {
+                        widgetTypes[type.Name.Substring(3)] = type;
+                    }
+                }
+            }
+
+            Type match;
+            return widgetTypes.TryGetValue(kind, out match) ? match : null;
+        }
+
+        private static IEnumerable<Type> WidgetTypes()
+        {
+            try
+            {
+                return typeof(HmiButton).Assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                return ex.Types ?? Array.Empty<Type>();
+            }
+        }
+
+        private static Dictionary<string, Type> widgetTypes = null!;
 
         private static void WriteTexts(MultilingualText target, IReadOnlyList<HmiTextExport> texts)
         {

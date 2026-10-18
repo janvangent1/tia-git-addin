@@ -27,21 +27,72 @@ The add-in targets `.NET Framework 4.8` and packages as a native TIA Portal V21 
 
 Parsed PLC blocks include a structured interface comparison beside the LAD view. It reports changes in name, datatype, retain, start and default values, comments, accessibility, informative flag, version, and the member attributes `ExternalAccessible`, `ExternalVisible`, `ExternalWritable`, and `SetPoint`.
 
-### HMI in Git
+### HMI and hardware in Git
 
-TIA Portal VCI cannot contain an HMI device. The Git panel has **HMI** and **Hardware** checkboxes and one **Export** button. **Import HMI** applies `HmiExport/<device>/` back onto the matching open Unified or WinCC Comfort device (panel or runtime) after a checkout. HMI export writes that same folder.
+TIA Portal VCI cannot contain an HMI device. The Git panel has **HMI** and **Hardware** checkboxes for export and the same pair for import, with one **Export** button and one **Import** button. Export writes `HmiExport/<device>/` and `HardwareExport/`. Import applies the checked folders back onto the matching devices in the open project. A checkout only puts the files on disk; **Import** is a separate step.
 
-While an export runs, a checklist stays open. It is grouped by device and shows each category, the item being written, and the count when that category finishes.
+While an export runs, a checklist stays open. It is grouped by device and shows each category, the item being written, and the count when that category finishes. Export keeps a creation time that is already stored in a file, and leaves a new one out when the file had none, so an unchanged device does not rewrite every file.
 
-Unified export includes screens, including screens inside screen groups, tag tables and tag groups, system tags, plant-object tags, JavaScript modules, text lists, system text lists, graphic lists, discrete alarms, analog alarms, alarm classes, OPC UA alarm types, and alarm audit classes. Alarm files include event text and info text. It also writes connections, data logs, alarm logs, audit trails, and runtime settings. Any other composition that is not already covered is written under `Other/`. WinCC Unified V21 Openness does not expose recipes or parameter sets, so those are not exported. A Unified screen file stores the name, screen-group folder, width, and height, plus buttons and I/O fields. Unified import restores screens, tags, scripts, text lists, system text lists, and graphic lists.
+**Full** means a Siemens export or import of that object. **Snapshot** means the file stores the attributes and child objects Openness exposes. The Import column says how much of that file is written back. **None** means that item is left out.
 
-WinCC Comfort export includes screens and screen folders, popups, templates, slide-in screens, tag tables, VB scripts, text lists, connections, user cycles, the permanent area, and the overview. System cycles are skipped. Graphic lists and alarms are attribute snapshots, and the alarm pass only keeps compositions whose name contains "alarm" or "message". Graphics and any further composition Openness lists are written the same way. A recipe composition is written only when Openness actually lists one. The V21 public API has no recipe type. Comfort import restores screens, popups, templates, slide-in screens, tag tables, VB scripts, text lists, connections, cycles, the permanent area, and the overview.
+#### WinCC Unified
 
-Export keeps a creation time that is already stored in a file, and leaves a new one out when the file had none, so an unchanged device does not rewrite every file. Alarm files and the other snapshots stay in Git for review. Import does not write them back into the device.
+| Item | Export | Import |
+| --- | --- | --- |
+| Screens, including screens in screen groups | Snapshot of the folder, size, screen properties, and every widget Openness exposes, with events, dynamizations, and appearance. Buttons and I/O fields also store text and process value | Screen name, size, properties, events, dynamizations, and appearance. Widgets are created when Openness has that type, and widgets missing from the file are removed |
+| Tag tables and tag groups | Full Siemens tag export | Full Siemens tag import. Tag tables that are missing from the folder stay in the project |
+| System tags | Snapshot | Writable attributes on the matching tag. System tags are not created or deleted |
+| Plant-object tags | Snapshot | Writable attributes on the matching tag. Plant-object tags are not created or deleted |
+| JavaScript modules | Full Siemens script export | Full Siemens script import |
+| Text lists | Full | Full |
+| System text lists | Full | Full |
+| Graphic lists | Full | Full |
+| Discrete alarms, analog alarms, alarm classes | Snapshot, including event text and info text | Attributes and texts on the matching alarm. A new alarm is created when the composition allows it. Alarms missing from the file are removed |
+| OPC UA alarm types, alarm audit classes | Snapshot | Attributes on the matching object. Objects missing from the file are removed when the composition can delete them |
+| Connections, data logs, alarm logs, audit trails | Snapshot | Attributes on the matching object. Objects missing from the file are removed when the composition can delete them |
+| Runtime settings | Snapshot | Attributes on the runtime settings |
+| Any other composition Openness lists | Snapshot under `Other/` | Attributes on the matching composition. Objects missing from the file are removed when the composition can delete them |
+| Recipes and parameter sets | None. V21 Openness has no recipe or parameter-set object | None |
+| Users, cycles, device settings, images, styles, and faceplate types | None | None |
 
-### Hardware in Git
+A faceplate placed on a screen is part of that screen's widget snapshot. Faceplate types stored in the device library are left out.
 
-With **Hardware** checked, **Export** writes `HardwareExport/` for the devices in the project, including devices that are not in a group. Each device gets `Hardware.xml` with its module tree, type, rack position, and PLC I/O addresses. SINAMICS files under `Drives/` contain telegrams, security settings, and only the parameters whose value differs from the factory default. Drive function settings are written under `Settings/`. Subnets are written with their name, type, and the names of their nodes and IO systems. IP addresses, subnet masks, routers, PROFINET names, and port-to-port wiring are not in that file. PLC blocks stay on the VCI path. There is no hardware import.
+#### WinCC Comfort
+
+| Item | Export | Import |
+| --- | --- | --- |
+| Screens and screen folders | Full Siemens screen export | Full. Screens missing from the folder are deleted |
+| Popups, templates, slide-in screens | Full | Full. Objects missing from the folder are deleted |
+| Tag tables | Full | Full for user tables. User tables missing from the folder are deleted. System tables stay |
+| VB scripts | Full | Full. Scripts missing from the folder are deleted |
+| Text lists | Full | Full. Lists missing from the folder are deleted |
+| Connections | Full | Full. Connections missing from the folder are deleted |
+| User cycles | Full | Full. User cycles missing from the folder are deleted |
+| System cycles | None | None |
+| Permanent area and overview | Full | Full |
+| Graphic lists | Snapshot. Siemens `GraphicList.Export` is not called | Attributes and list entries on the matching graphic list |
+| Alarms and messages | Snapshot of compositions whose name contains "alarm" or "message" | Attributes on the matching object. Objects missing from the file are removed when the composition can delete them |
+| Graphics and any other composition Openness lists | Snapshot, plus a Siemens graphic file when the composition exports one | Siemens graphic files are imported. Attribute snapshots are written onto the matching composition |
+| Recipes | Snapshot only when Openness lists a recipe composition. The V21 public API has no recipe type | Attributes on that composition when the snapshot exists |
+| Users and groups, scheduled jobs, runtime settings, device settings, fonts, picture files | None | None |
+
+#### Hardware
+
+With **Hardware** checked, export writes `HardwareExport/` for every device in the project, including devices that are not in a group. PLC blocks stay on the VCI path.
+
+| Item | Export | Import |
+| --- | --- | --- |
+| Device and module tree, type, rack position, PLC I/O addresses | Full, in `Hardware.xml` | Attributes on the matching device and modules. Devices and modules are not created, deleted, or moved |
+| Subnet name, type, and IO system | Full | Attributes on the matching subnet |
+| Node IP address, subnet mask, router, PROFINET device name | Full when Openness provides the value | Full, on the matching node |
+| Port-to-port links | Full | Full, on the matching ports |
+| SINAMICS parameters whose value differs from the factory default | Full | Full. The value is written onto the matching drive |
+| SINAMICS telegrams and security settings | Full | Security settings on the matching drive. The telegram type is written when Openness accepts the change |
+| Drive function settings under `Settings/` | Full | Function settings and technology extensions on the matching module |
+
+#### PLC blocks
+
+TIA Portal VCI writes PLC blocks into the Git workspace. The add-in compares those SimaticML files. There is no separate PLC import button. **Restore** checks the commit's files out on a `restore-<short hash>` branch.
 
 ### TIA Portal V21 Compare API Decision
 
@@ -104,19 +155,19 @@ To install the package yourself:
 
 ## What to do next
 
-Export and import of Unified and WinCC Comfort devices, and export of the hardware tree and changed drive parameters, are already in the Git panel. The items below are the remaining gaps.
+The tables under **HMI and hardware in Git** are the list of what export and import cover. The items below are still open.
 
-1. **HMI screen content**
-   - A Unified screen file stores the name, screen-group folder, width, and height, plus buttons and I/O fields. Other widgets, events, animations, appearance, and the remaining screen properties are missing.
+1. **Screen review**
    - There is no visual diff of screens or tag tables. Git shows those files as text.
+   - A Unified widget is created only when Openness has that type. A type it cannot create stays out of the project.
 
-2. **HMI items the export still does not cover**
-   - **WinCC Comfort:** users and groups, scheduled jobs, runtime settings, device settings, fonts, picture files, and recipes. The V21 public API has no recipe type, so a recipe is exported only when Openness lists that composition. System cycles are skipped. Graphic lists, alarms, and graphics are attribute snapshots, so Import HMI does not load them back.
-   - **Unified:** recipes and parameter sets, users, cycles, device settings, images, styles, and faceplates. V21 Openness has no recipe or parameter-set object. Connections, logs, runtime settings, and the extra compositions are already exported as attribute XML, and Import HMI does not load those files back.
-   - Import does not yet delete Comfort or Unified objects that are absent from an older `HmiExport`, except for the Comfort types that already use Siemens override. A checkout restores the files on disk; **Import HMI** is still a separate step.
+2. **Items with no export**
+   - **WinCC Comfort:** users and groups, scheduled jobs, runtime settings, device settings, fonts, and picture files that are not in a graphics composition.
+   - **Unified:** recipes, parameter sets, users, cycles, device settings, images, styles, and faceplate types.
+   - Unified tag tables, scripts, and lists that are missing from an older `HmiExport` stay in the project. Comfort screens, popups, templates, slide-ins, user tag tables, VB scripts, text lists, connections, and user cycles are removed when their file is missing.
 
-3. **Network addresses**
-   - Hardware export stores the subnet name, type, and node names. IP address, subnet mask, router, PROFINET device name, and port-to-port wiring are still missing. There is no hardware import.
+3. **Hardware tree import**
+   - Import writes attributes onto devices and modules that are already in the project, and writes node addresses, port links, changed drive parameters, security settings, and drive function settings. It does not create, delete, or move devices or modules.
 
 4. **PLC comparison**
    - Visual diff for **FBD**.
@@ -133,6 +184,10 @@ Export and import of Unified and WinCC Comfort devices, and export of the hardwa
 
 The add-in version is `AddInVersion` in `src/TiaGitAddIn/AddInPublisherConfiguration.xml`. Newest first.
 
+- **1.2.33** — Import writes snapshot attributes back onto Unified screens, alarms, connections, logs, runtime settings, Comfort graphic lists and alarms, and the matching hardware devices, drives, and subnets. Widgets are created when Openness has that type.
+- **1.2.32** — Unified screen export writes every widget plus the screen and item properties, events, dynamizations, and appearance Openness exposes. Import still restores screen size, buttons, and I/O fields.
+- **1.2.31** — Import uses HMI and Hardware checkboxes and one Import button. Hardware import writes node addresses, port links, and changed drive parameters back onto the matching devices.
+- **1.2.30** — Hardware export writes each node's IP address, subnet mask, router, PROFINET name, and the port-to-port links.
 - **1.2.29** — Settings can show XML changes by element and attribute, or as plain text.
 - **1.2.28** — The hardware checklist checks off each row as that part finishes, counting up the same way the HMI checklist does.
 - **1.2.27** — Exported XML is compared by element and attribute. Formatting and attribute order no longer show up as changes.

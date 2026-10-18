@@ -3,9 +3,11 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Xml;
+using System.Linq;
 using System.Xml.Linq;
 using Siemens.Engineering;
 using Siemens.Engineering.HW;
@@ -123,6 +125,201 @@ namespace TiaGitAddIn.Services
                 drives.ToString(CultureInfo.InvariantCulture) + " drive object(s), and " +
                 parameters.ToString(CultureInfo.InvariantCulture) + " drive parameter(s) to HardwareExport. " +
                 "PLC blocks stay on the existing Git path. Stage that folder to keep it in Git.");
+        }
+
+        public static OperationResult Import(TiaPortal portal, string repositoryPath, CancellationToken ct, Action<string> report)
+        {
+            if (portal == null)
+            {
+                throw new ArgumentNullException(nameof(portal));
+            }
+
+            if (string.IsNullOrWhiteSpace(repositoryPath))
+            {
+                return OperationResult.Fail("Choose a Git repository before importing hardware.");
+            }
+
+            string root = Path.Combine(repositoryPath, "HardwareExport");
+            if (!Directory.Exists(root))
+            {
+                return OperationResult.Fail("This repository has no HardwareExport folder yet. Export the hardware first.");
+            }
+
+            foreach (string category in new[] { "Networks", "Ports", "Parameters" })
+            {
+                report?.Invoke(HmiExportProgress.Format(ChecklistDevice, category, "pending", 0, string.Empty));
+            }
+
+            DispatcherPump.Yield();
+
+            int nodes = 0;
+            int links = 0;
+            int parameters = 0;
+            int restored = 0;
+            int missed = 0;
+            string subnetFile = Path.Combine(root, "Networks", "Subnets.xml");
+            if (File.Exists(subnetFile))
+            {
+                XDocument document;
+                try
+                {
+                    document = XDocument.Load(subnetFile);
+                }
+                catch (Exception ex) when (ex is IOException || ex is XmlException)
+                {
+                    return OperationResult.Fail("Could not read the network export.", ex.Message);
+                }
+
+                var projectNodes = new List<Node>();
+                var portDevices = new List<string>();
+                var portModules = new List<string>();
+                var ports = new List<NetworkPort>();
+                foreach (Project project in portal.Projects)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    foreach (Device device in project.Devices)
+                    {
+                        CollectProjectNodes(device.DeviceItems, projectNodes, ct);
+                        CollectPorts(device.Name ?? string.Empty, device.DeviceItems, portDevices, portModules, ports, ct);
+                    }
+
+                    foreach (DeviceUserGroup group in project.DeviceGroups)
+                    {
+                        CollectGroupNodes(group, projectNodes, portDevices, portModules, ports, ct);
+                    }
+                }
+
+                if (document.Root != null)
+                {
+                    foreach (XElement node in document.Root.Descendants("Node"))
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        if (ApplyNode(projectNodes, node))
+                        {
+                            nodes++;
+                            if (nodes == 1 || nodes % 10 == 0)
+                            {
+                                Step(report, "Networks", nodes, Attribute(node, "name"));
+                            }
+                        }
+                        else if (HasAddress(node))
+                        {
+                            missed++;
+                        }
+                    }
+
+                    XElement linksElement = document.Root.Element("PortLinks");
+                    if (linksElement != null)
+                    {
+                        foreach (XElement link in linksElement.Elements("Link"))
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            if (ApplyLink(portDevices, portModules, ports, link))
+                            {
+                                links++;
+                                Step(report, "Ports", links, Attribute(link, "device") + " — " + Attribute(link, "module"));
+                            }
+                            else
+                            {
+                                missed++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            Finish(report, "Networks", nodes);
+            Finish(report, "Ports", links);
+
+            foreach (string deviceFolder in Directory.GetDirectories(root))
+            {
+                string drivesFolder = Path.Combine(deviceFolder, "Drives");
+                if (!Directory.Exists(drivesFolder))
+                {
+                    continue;
+                }
+
+                foreach (string file in Directory.GetFiles(drivesFolder, "*.xml"))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    XDocument driveDocument;
+                    try
+                    {
+                        driveDocument = XDocument.Load(file);
+                    }
+                    catch (Exception ex) when (ex is IOException || ex is XmlException)
+                    {
+                        missed++;
+                        continue;
+                    }
+
+                    XElement driveElement = driveDocument.Root;
+                    if (driveElement == null || driveElement.Name.LocalName != "DriveObject")
+                    {
+                        continue;
+                    }
+
+                    DriveObject drive = FindDrive(
+                        portal,
+                        Attribute(driveElement, "device"),
+                        Attribute(driveElement, "module"),
+                        Attribute(driveElement, "number"),
+                        ct);
+                    if (drive != null)
+                    {
+                        restored += ApplyDriveSnapshot(drive, driveElement);
+                    }
+
+                    XElement parameterList = driveElement.Element("Parameters");
+                    if (parameterList == null)
+                    {
+                        continue;
+                    }
+
+                    foreach (XElement parameter in parameterList.Elements("Parameter"))
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        if (drive != null && ApplyParameter(drive, parameter))
+                        {
+                            parameters++;
+                            if (parameters == 1 || parameters % 25 == 0)
+                            {
+                                Step(report, "Parameters", parameters, Attribute(parameter, "name"));
+                            }
+                        }
+                        else
+                        {
+                            missed++;
+                        }
+                    }
+                }
+            }
+
+            Finish(report, "Parameters", parameters);
+            restored += ApplyHardwareSnapshots(portal, root, ct);
+            if (nodes == 0 && links == 0 && parameters == 0 && restored == 0)
+            {
+                return OperationResult.Fail(
+                    "No hardware settings were imported.",
+                    missed == 0
+                        ? "HardwareExport has no node addresses, port links, or drive parameters."
+                        : missed.ToString(CultureInfo.InvariantCulture) + " item(s) had no match in the open project. Devices and modules are not created or deleted.");
+            }
+
+            string message =
+                "Imported " + nodes.ToString(CultureInfo.InvariantCulture) + " network node(s), " +
+                links.ToString(CultureInfo.InvariantCulture) + " port link(s), and " +
+                parameters.ToString(CultureInfo.InvariantCulture) + " drive parameter(s). " +
+                (restored > 0
+                    ? "Wrote " + restored.ToString(CultureInfo.InvariantCulture) + " hardware setting(s). "
+                    : string.Empty) +
+                "Devices and modules are not created or deleted.";
+            if (missed > 0)
+            {
+                message += " " + missed.ToString(CultureInfo.InvariantCulture) + " item(s) had no match in the open project.";
+            }
+
+            return OperationResult.Ok(message);
         }
 
         private static void CollectGroup(
@@ -703,12 +900,14 @@ namespace TiaGitAddIn.Services
                     new XAttribute("name", subnet.Name ?? string.Empty),
                     new XAttribute("netType", subnet.NetType.ToString()));
                 AppendAttributes(element, subnet);
-                AppendNamed(element, "Node", subnet.Nodes);
+                AppendNodes(element, subnet.Nodes);
                 AppendNamed(element, "IoSystem", subnet.IoSystems);
                 document.Add(element);
             }
 
-            if (count > 0)
+            AppendUnassignedNodes(document, project, ct);
+            AppendPortLinks(document, project, ct);
+            if (document.HasElements)
             {
                 string folder = Path.Combine(root, "Networks");
                 Directory.CreateDirectory(folder);
@@ -716,6 +915,321 @@ namespace TiaGitAddIn.Services
             }
 
             return count;
+        }
+
+        private static readonly string[] AddressAttributeNames = { "Address", "IpAddress" };
+
+        private static readonly string[] MaskAttributeNames = { "SubnetMask", "NetworkMask" };
+
+        private static readonly string[] RouterUsedAttributeNames = { "UseRouter" };
+
+        private static readonly string[] RouterAttributeNames = { "RouterAddress", "Router", "DefaultGateway" };
+
+        private static readonly string[] ProfinetAttributeNames = { "PnDeviceName", "ProfinetDeviceName", "PnName" };
+
+        private static void AppendNodes(XElement parent, IEnumerable nodes)
+        {
+            if (nodes == null)
+            {
+                return;
+            }
+
+            try
+            {
+                foreach (object entry in nodes)
+                {
+                    if (entry is Node node)
+                    {
+                        parent.Add(NodeElement(node));
+                    }
+                }
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+            }
+        }
+
+        private static void AppendUnassignedNodes(XElement document, Project project, CancellationToken ct)
+        {
+            var assigned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (XElement node in document.Descendants("Node"))
+            {
+                XAttribute id = node.Attribute("nodeId");
+                if (id != null && id.Value.Length > 0)
+                {
+                    assigned.Add(id.Value);
+                }
+            }
+
+            var extra = new XElement("UnassignedNodes");
+            foreach (Device device in project.Devices)
+            {
+                ct.ThrowIfCancellationRequested();
+                AppendInterfaceNodes(extra, device.DeviceItems, assigned, ct);
+            }
+
+            foreach (DeviceUserGroup group in project.DeviceGroups)
+            {
+                AppendGroupInterfaceNodes(extra, group, assigned, ct);
+            }
+
+            if (extra.HasElements)
+            {
+                document.Add(extra);
+            }
+        }
+
+        private static void AppendGroupInterfaceNodes(XElement parent, DeviceUserGroup group, ISet<string> assigned, CancellationToken ct)
+        {
+            foreach (Device device in group.Devices)
+            {
+                ct.ThrowIfCancellationRequested();
+                AppendInterfaceNodes(parent, device.DeviceItems, assigned, ct);
+            }
+
+            foreach (DeviceUserGroup child in group.Groups)
+            {
+                AppendGroupInterfaceNodes(parent, child, assigned, ct);
+            }
+        }
+
+        private static void AppendInterfaceNodes(XElement parent, IEnumerable<DeviceItem> items, ISet<string> assigned, CancellationToken ct)
+        {
+            if (items == null)
+            {
+                return;
+            }
+
+            foreach (DeviceItem item in items)
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    NetworkInterface network = item.GetService<NetworkInterface>();
+                    if (network?.Nodes != null)
+                    {
+                        foreach (Node node in network.Nodes)
+                        {
+                            if (node == null)
+                            {
+                                continue;
+                            }
+
+                            string id = node.NodeId ?? string.Empty;
+                            if (id.Length > 0 && !assigned.Add(id))
+                            {
+                                continue;
+                            }
+
+                            parent.Add(NodeElement(node));
+                        }
+                    }
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                }
+
+                AppendInterfaceNodes(parent, item.DeviceItems, assigned, ct);
+            }
+        }
+
+        private static XElement NodeElement(Node node)
+        {
+            var element = new XElement(
+                "Node",
+                new XAttribute("name", node.Name ?? string.Empty),
+                new XAttribute("nodeId", node.NodeId ?? string.Empty),
+                new XAttribute("type", node.NodeType.ToString()));
+            SetAttribute(element, "address", FirstAttribute(node, AddressAttributeNames));
+            SetAttribute(element, "subnetMask", FirstAttribute(node, MaskAttributeNames));
+            SetAttribute(element, "useRouter", FirstAttribute(node, RouterUsedAttributeNames));
+            SetAttribute(element, "router", FirstAttribute(node, RouterAttributeNames));
+            SetAttribute(element, "profinetName", FirstAttribute(node, ProfinetAttributeNames));
+            AppendAttributes(element, node);
+            DropPromotedAttributes(element);
+            return element;
+        }
+
+        private static void SetAttribute(XElement element, string name, string value)
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                element.SetAttributeValue(name, value);
+            }
+        }
+
+        private static string FirstAttribute(IEngineeringObject engineering, string[] names)
+        {
+            foreach (string name in names)
+            {
+                string value = TryGet(engineering, name);
+                if (value.Length > 0)
+                {
+                    return value;
+                }
+            }
+
+            return string.Empty;
+        }
+
+        private static void DropPromotedAttributes(XElement element)
+        {
+            var promoted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            promoted.UnionWith(AddressAttributeNames);
+            promoted.UnionWith(MaskAttributeNames);
+            promoted.UnionWith(RouterUsedAttributeNames);
+            promoted.UnionWith(RouterAttributeNames);
+            promoted.UnionWith(ProfinetAttributeNames);
+            foreach (XElement attribute in element.Elements("Attribute").ToList())
+            {
+                XAttribute name = attribute.Attribute("name");
+                if (name != null && promoted.Contains(name.Value))
+                {
+                    attribute.Remove();
+                }
+            }
+        }
+
+        private static void AppendPortLinks(XElement document, Project project, CancellationToken ct)
+        {
+            var devices = new List<string>();
+            var modules = new List<string>();
+            var ports = new List<NetworkPort>();
+            foreach (Device device in project.Devices)
+            {
+                ct.ThrowIfCancellationRequested();
+                CollectPorts(device.Name ?? string.Empty, device.DeviceItems, devices, modules, ports, ct);
+            }
+
+            foreach (DeviceUserGroup group in project.DeviceGroups)
+            {
+                CollectGroupPorts(group, devices, modules, ports, ct);
+            }
+
+            var links = new XElement("PortLinks");
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < ports.Count; index++)
+            {
+                ct.ThrowIfCancellationRequested();
+                NetworkPort port = ports[index];
+                IEnumerable partners;
+                try
+                {
+                    partners = port.ConnectedPorts;
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                    continue;
+                }
+
+                if (partners == null)
+                {
+                    continue;
+                }
+
+                foreach (object entry in partners)
+                {
+                    if (!(entry is NetworkPort partner))
+                    {
+                        continue;
+                    }
+
+                    int other = IndexOfPort(ports, partner);
+                    string partnerDevice = other >= 0 ? devices[other] : string.Empty;
+                    string partnerModule = other >= 0 ? modules[other] : string.Empty;
+                    string left = devices[index] + "\n" + modules[index];
+                    string right = partnerDevice + "\n" + partnerModule;
+                    string key = string.Compare(left, right, StringComparison.Ordinal) <= 0 ? left + "\0" + right : right + "\0" + left;
+                    if (!seen.Add(key) || (other == index))
+                    {
+                        continue;
+                    }
+
+                    links.Add(new XElement(
+                        "Link",
+                        new XAttribute("device", devices[index]),
+                        new XAttribute("module", modules[index]),
+                        new XAttribute("partnerDevice", partnerDevice),
+                        new XAttribute("partnerModule", partnerModule)));
+                }
+            }
+
+            if (links.HasElements)
+            {
+                document.Add(links);
+            }
+        }
+
+        private static void CollectGroupPorts(
+            DeviceUserGroup group,
+            List<string> devices,
+            List<string> modules,
+            List<NetworkPort> ports,
+            CancellationToken ct)
+        {
+            foreach (Device device in group.Devices)
+            {
+                ct.ThrowIfCancellationRequested();
+                CollectPorts(device.Name ?? string.Empty, device.DeviceItems, devices, modules, ports, ct);
+            }
+
+            foreach (DeviceUserGroup child in group.Groups)
+            {
+                CollectGroupPorts(child, devices, modules, ports, ct);
+            }
+        }
+
+        private static void CollectPorts(
+            string deviceName,
+            IEnumerable<DeviceItem> items,
+            List<string> devices,
+            List<string> modules,
+            List<NetworkPort> ports,
+            CancellationToken ct)
+        {
+            if (items == null)
+            {
+                return;
+            }
+
+            foreach (DeviceItem item in items)
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    NetworkPort port = item.GetService<NetworkPort>();
+                    if (port != null && IndexOfPort(ports, port) < 0)
+                    {
+                        devices.Add(deviceName);
+                        modules.Add(item.Name ?? string.Empty);
+                        ports.Add(port);
+                    }
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                }
+
+                CollectPorts(deviceName, item.DeviceItems, devices, modules, ports, ct);
+            }
+        }
+
+        private static int IndexOfPort(List<NetworkPort> ports, NetworkPort port)
+        {
+            for (int index = 0; index < ports.Count; index++)
+            {
+                try
+                {
+                    if (ports[index].Equals(port))
+                    {
+                        return index;
+                    }
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                }
+            }
+
+            return -1;
         }
 
         private static void AppendNamed(XElement parent, string elementName, IEnumerable items)
@@ -1061,6 +1575,685 @@ namespace TiaGitAddIn.Services
         {
             report?.Invoke(HmiExportProgress.Format(ChecklistDevice, category, "done", count, string.Empty));
             DispatcherPump.Yield();
+        }
+
+        private static void CollectGroupNodes(
+            DeviceUserGroup group,
+            List<Node> nodes,
+            List<string> portDevices,
+            List<string> portModules,
+            List<NetworkPort> ports,
+            CancellationToken ct)
+        {
+            foreach (Device device in group.Devices)
+            {
+                ct.ThrowIfCancellationRequested();
+                CollectProjectNodes(device.DeviceItems, nodes, ct);
+                CollectPorts(device.Name ?? string.Empty, device.DeviceItems, portDevices, portModules, ports, ct);
+            }
+
+            foreach (DeviceUserGroup child in group.Groups)
+            {
+                CollectGroupNodes(child, nodes, portDevices, portModules, ports, ct);
+            }
+        }
+
+        private static void CollectProjectNodes(IEnumerable<DeviceItem> items, List<Node> nodes, CancellationToken ct)
+        {
+            if (items == null)
+            {
+                return;
+            }
+
+            foreach (DeviceItem item in items)
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    NetworkInterface network = item.GetService<NetworkInterface>();
+                    if (network?.Nodes != null)
+                    {
+                        foreach (Node node in network.Nodes)
+                        {
+                            if (node != null)
+                            {
+                                nodes.Add(node);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                }
+
+                CollectProjectNodes(item.DeviceItems, nodes, ct);
+            }
+        }
+
+        private static bool HasAddress(XElement node)
+        {
+            return Attribute(node, "address").Length > 0
+                || Attribute(node, "subnetMask").Length > 0
+                || Attribute(node, "router").Length > 0
+                || Attribute(node, "profinetName").Length > 0;
+        }
+
+        private static bool ApplyNode(List<Node> nodes, XElement exported)
+        {
+            string nodeId = Attribute(exported, "nodeId");
+            string name = Attribute(exported, "name");
+            Node? match = null;
+            foreach (Node node in nodes)
+            {
+                if (nodeId.Length > 0 && string.Equals(node.NodeId ?? string.Empty, nodeId, StringComparison.OrdinalIgnoreCase))
+                {
+                    match = node;
+                    break;
+                }
+            }
+
+            if (match == null && name.Length > 0)
+            {
+                foreach (Node node in nodes)
+                {
+                    if (string.Equals(node.Name ?? string.Empty, name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        match = node;
+                        break;
+                    }
+                }
+            }
+
+            if (match == null || !HasAddress(exported))
+            {
+                return false;
+            }
+
+            return Assign(match, AddressAttributeNames, Attribute(exported, "address"))
+                & Assign(match, MaskAttributeNames, Attribute(exported, "subnetMask"))
+                & Assign(match, RouterUsedAttributeNames, Attribute(exported, "useRouter"))
+                & Assign(match, RouterAttributeNames, Attribute(exported, "router"))
+                & Assign(match, ProfinetAttributeNames, Attribute(exported, "profinetName"));
+        }
+
+        private static bool Assign(IEngineeringObject target, string[] names, string value)
+        {
+            if (value.Length == 0 || FirstAttribute(target, names) == value)
+            {
+                return true;
+            }
+
+            foreach (string name in names)
+            {
+                if (TryAssign(target, name, value))
+                {
+                    return true;
+                }
+
+                if (bool.TryParse(value, out bool flag) && TryAssign(target, name, flag))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryAssign(IEngineeringObject target, string name, object value)
+        {
+            try
+            {
+                target.SetAttribute(name, value);
+                return true;
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+                return false;
+            }
+        }
+
+        private static bool ApplyLink(List<string> devices, List<string> modules, List<NetworkPort> ports, XElement link)
+        {
+            int left = FindPort(devices, modules, Attribute(link, "device"), Attribute(link, "module"));
+            int right = FindPort(devices, modules, Attribute(link, "partnerDevice"), Attribute(link, "partnerModule"));
+            if (left < 0 || right < 0 || left == right)
+            {
+                return false;
+            }
+
+            try
+            {
+                if (ports[left].ConnectedPorts != null)
+                {
+                    foreach (object entry in ports[left].ConnectedPorts)
+                    {
+                        if (entry is NetworkPort partner && partner.Equals(ports[right]))
+                        {
+                            return true;
+                        }
+                    }
+                }
+
+                ports[left].ConnectToPort(ports[right]);
+                return true;
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+                return false;
+            }
+        }
+
+        private static int FindPort(List<string> devices, List<string> modules, string device, string module)
+        {
+            for (int index = 0; index < devices.Count; index++)
+            {
+                if (string.Equals(devices[index], device, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(modules[index], module, StringComparison.OrdinalIgnoreCase))
+                {
+                    return index;
+                }
+            }
+
+            return -1;
+        }
+
+        private static DriveObject? FindDrive(TiaPortal portal, string deviceName, string moduleName, string number, CancellationToken ct)
+        {
+            foreach (Project project in portal.Projects)
+            {
+                ct.ThrowIfCancellationRequested();
+                foreach (Device device in project.Devices)
+                {
+                    if (!string.Equals(device.Name ?? string.Empty, deviceName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    DriveObject found = FindDriveOnItems(device.DeviceItems, moduleName, number, ct);
+                    if (found != null)
+                    {
+                        return found;
+                    }
+                }
+
+                foreach (DeviceUserGroup group in project.DeviceGroups)
+                {
+                    DriveObject found = FindDriveInGroup(group, deviceName, moduleName, number, ct);
+                    if (found != null)
+                    {
+                        return found;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static DriveObject? FindDriveInGroup(DeviceUserGroup group, string deviceName, string moduleName, string number, CancellationToken ct)
+        {
+            foreach (Device device in group.Devices)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (!string.Equals(device.Name ?? string.Empty, deviceName, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                DriveObject found = FindDriveOnItems(device.DeviceItems, moduleName, number, ct);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            foreach (DeviceUserGroup child in group.Groups)
+            {
+                DriveObject found = FindDriveInGroup(child, deviceName, moduleName, number, ct);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
+        private static DriveObject? FindDriveOnItems(IEnumerable<DeviceItem> items, string moduleName, string number, CancellationToken ct)
+        {
+            if (items == null)
+            {
+                return null;
+            }
+
+            foreach (DeviceItem item in items)
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    if (moduleName.Length == 0 || string.Equals(item.Name ?? string.Empty, moduleName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        DriveObjectContainer container = item.GetService<DriveObjectContainer>();
+                        if (container?.DriveObjects != null)
+                        {
+                            foreach (DriveObject drive in container.DriveObjects)
+                            {
+                                if (drive != null && drive.DriveObjectNumber.ToString(CultureInfo.InvariantCulture) == number)
+                                {
+                                    return drive;
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                }
+
+                DriveObject child = FindDriveOnItems(item.DeviceItems, moduleName, number, ct);
+                if (child != null)
+                {
+                    return child;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool ApplyParameter(DriveObject drive, XElement exported)
+        {
+            string number = Attribute(exported, "number");
+            string name = Attribute(exported, "name");
+            string index = Attribute(exported, "index");
+            string value = Attribute(exported, "value");
+            if (drive.Parameters == null || value.Length == 0)
+            {
+                return false;
+            }
+
+            try
+            {
+                foreach (DriveParameter parameter in drive.Parameters)
+                {
+                    if (parameter == null || Text(parameter.Number) != number)
+                    {
+                        continue;
+                    }
+
+                    if (name.Length > 0 && !string.Equals(Text(parameter.Name), name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (index.Length > 0 && Text(parameter.ArrayIndex) != index)
+                    {
+                        continue;
+                    }
+
+                    if (Text(parameter.Value) == value)
+                    {
+                        return true;
+                    }
+
+                    return TryAssign((IEngineeringObject)parameter, "Value", value);
+                }
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+            }
+
+            return false;
+        }
+
+        private static string Attribute(XElement element, string name)
+        {
+            XAttribute attribute = element.Attribute(name);
+            return attribute == null ? string.Empty : attribute.Value ?? string.Empty;
+        }
+
+        private static int ApplyDriveSnapshot(DriveObject drive, XElement driveElement)
+        {
+            int applied = 0;
+            if (drive is IEngineeringObject engineering)
+            {
+                applied += EngineeringSnapshotRestorer.ApplyElement(engineering, driveElement);
+            }
+
+            XElement security = driveElement.Element("Security");
+            try
+            {
+                if (security != null && drive.Security is IEngineeringObject securityObject)
+                {
+                    applied += EngineeringSnapshotRestorer.ApplyElement(securityObject, security);
+                }
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+            }
+
+            XElement telegrams = driveElement.Element("Telegrams");
+            if (telegrams == null || drive.Telegrams == null)
+            {
+                return applied;
+            }
+
+            foreach (XElement element in telegrams.Elements("Telegram"))
+            {
+                string number = Attribute(element, "number");
+                foreach (Telegram telegram in drive.Telegrams)
+                {
+                    if (telegram == null || telegram.TelegramNumber.ToString(CultureInfo.InvariantCulture) != number)
+                    {
+                        continue;
+                    }
+
+                    if (TrySetTelegramType(telegram, Attribute(element, "type")))
+                    {
+                        applied++;
+                    }
+
+                    if (telegram is IEngineeringObject telegramObject)
+                    {
+                        applied += EngineeringSnapshotRestorer.ApplyElement(telegramObject, element);
+                    }
+                }
+            }
+
+            return applied;
+        }
+
+        private static bool TrySetTelegramType(Telegram telegram, string typeName)
+        {
+            if (telegram == null || string.IsNullOrWhiteSpace(typeName))
+            {
+                return false;
+            }
+
+            try
+            {
+                PropertyInfo property = telegram.GetType().GetProperty("Type");
+                if (property == null || !property.CanWrite)
+                {
+                    return telegram is IEngineeringObject target && TryAssign(target, "Type", typeName);
+                }
+
+                if (!EngineeringSnapshotRestorer.TryCoerce(property.GetValue(telegram), typeName, out object typed))
+                {
+                    return false;
+                }
+
+                property.SetValue(telegram, typed);
+                return true;
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+                return false;
+            }
+        }
+
+        private static int ApplyHardwareSnapshots(TiaPortal portal, string root, CancellationToken ct)
+        {
+            int applied = 0;
+            string subnetFile = Path.Combine(root, "Networks", "Subnets.xml");
+            if (File.Exists(subnetFile))
+            {
+                try
+                {
+                    XDocument document = XDocument.Load(subnetFile);
+                    foreach (Project project in portal.Projects)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        if (project.Subnets == null || document.Root == null)
+                        {
+                            continue;
+                        }
+
+                        foreach (XElement element in document.Root.Elements("Subnet"))
+                        {
+                            string name = Attribute(element, "name");
+                            foreach (Subnet subnet in project.Subnets)
+                            {
+                                if (subnet != null && string.Equals(subnet.Name ?? string.Empty, name, StringComparison.OrdinalIgnoreCase) && subnet is IEngineeringObject engineering)
+                                {
+                                    applied += EngineeringSnapshotRestorer.ApplyElement(engineering, element);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                }
+            }
+
+            foreach (string deviceFolder in Directory.GetDirectories(root))
+            {
+                ct.ThrowIfCancellationRequested();
+                applied += ApplyDeviceSnapshot(portal, deviceFolder, ct);
+            }
+
+            return applied;
+        }
+
+        private static int ApplyDeviceSnapshot(TiaPortal portal, string deviceFolder, CancellationToken ct)
+        {
+            string hardwareFile = Path.Combine(deviceFolder, "Hardware.xml");
+            if (!File.Exists(hardwareFile))
+            {
+                return 0;
+            }
+
+            XDocument document;
+            try
+            {
+                document = XDocument.Load(hardwareFile);
+            }
+            catch (Exception ex) when (ex is IOException || ex is XmlException)
+            {
+                return 0;
+            }
+
+            if (document.Root == null)
+            {
+                return 0;
+            }
+
+            string deviceName = Attribute(document.Root, "name");
+            Device device = FindNamedDevice(portal, deviceName, ct);
+            int applied = 0;
+            if (device is IEngineeringObject deviceObject)
+            {
+                applied += EngineeringSnapshotRestorer.ApplyElement(deviceObject, document.Root);
+            }
+
+            if (device != null)
+            {
+                applied += ApplyModuleSnapshot(device.DeviceItems, document.Root.Elements("Module"), ct);
+            }
+
+            string settingsFolder = Path.Combine(deviceFolder, "Settings");
+            if (device != null && Directory.Exists(settingsFolder))
+            {
+                foreach (string file in Directory.GetFiles(settingsFolder, "*.xml"))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    applied += ApplySettingsFile(device, file);
+                }
+            }
+
+            return applied;
+        }
+
+        private static int ApplyModuleSnapshot(IEnumerable<DeviceItem> items, IEnumerable<XElement> elements, CancellationToken ct)
+        {
+            if (items == null || elements == null)
+            {
+                return 0;
+            }
+
+            var modules = new List<DeviceItem>();
+            foreach (DeviceItem item in items)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (item != null)
+                {
+                    modules.Add(item);
+                }
+            }
+
+            int applied = 0;
+            foreach (XElement element in elements)
+            {
+                string name = Attribute(element, "name");
+                foreach (DeviceItem module in modules)
+                {
+                    if (!string.Equals(module.Name ?? string.Empty, name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (module is IEngineeringObject engineering)
+                    {
+                        applied += EngineeringSnapshotRestorer.ApplyElement(engineering, element);
+                    }
+
+                    applied += ApplyModuleSnapshot(module.DeviceItems, element.Elements("Module"), ct);
+                }
+            }
+
+            return applied;
+        }
+
+        private static int ApplySettingsFile(Device device, string path)
+        {
+            XDocument document;
+            try
+            {
+                document = XDocument.Load(path);
+            }
+            catch (Exception ex) when (ex is IOException || ex is XmlException)
+            {
+                return 0;
+            }
+
+            if (document.Root == null)
+            {
+                return 0;
+            }
+
+            DeviceItem module = FindModule(device.DeviceItems, Attribute(document.Root, "module"));
+            if (module == null)
+            {
+                return 0;
+            }
+
+            int applied = 0;
+            try
+            {
+                DriveFunctionInterface functions = module.GetService<DriveFunctionInterface>();
+                if (functions is IEngineeringObject functionObject)
+                {
+                    applied += EngineeringSnapshotRestorer.ApplyElement(functionObject, document.Root.Element("Functions"));
+                }
+
+                TechnologyExtensionContainer extensions = module.GetService<TechnologyExtensionContainer>();
+                XElement list = document.Root.Element("TechnologyExtensions");
+                if (extensions?.TechnologyExtensions != null && list != null)
+                {
+                    applied += EngineeringSnapshotRestorer.ApplyMembers(extensions.TechnologyExtensions, list.Elements("Extension"), false);
+                }
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+            }
+
+            return applied;
+        }
+
+        private static Device FindNamedDevice(TiaPortal portal, string name, CancellationToken ct)
+        {
+            foreach (Project project in portal.Projects)
+            {
+                ct.ThrowIfCancellationRequested();
+                foreach (Device device in project.Devices)
+                {
+                    if (device != null && string.Equals(device.Name ?? string.Empty, name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return device;
+                    }
+                }
+
+                foreach (DeviceUserGroup group in project.DeviceGroups)
+                {
+                    Device found = FindNamedDevice(group, name, ct);
+                    if (found != null)
+                    {
+                        return found;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static Device FindNamedDevice(DeviceUserGroup group, string name, CancellationToken ct)
+        {
+            if (group == null)
+            {
+                return null;
+            }
+
+            foreach (Device device in group.Devices)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (device != null && string.Equals(device.Name ?? string.Empty, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return device;
+                }
+            }
+
+            foreach (DeviceUserGroup child in group.Groups)
+            {
+                Device found = FindNamedDevice(child, name, ct);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
+        private static DeviceItem FindModule(IEnumerable<DeviceItem> items, string name)
+        {
+            if (items == null || string.IsNullOrWhiteSpace(name))
+            {
+                return null;
+            }
+
+            foreach (DeviceItem item in items)
+            {
+                if (item == null)
+                {
+                    continue;
+                }
+
+                if (string.Equals(item.Name ?? string.Empty, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return item;
+                }
+
+                DeviceItem child = FindModule(item.DeviceItems, name);
+                if (child != null)
+                {
+                    return child;
+                }
+            }
+
+            return null;
         }
 
         private static bool IsSessionDead(Exception ex)

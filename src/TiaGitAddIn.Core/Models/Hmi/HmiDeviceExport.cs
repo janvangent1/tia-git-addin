@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Xml.Linq;
 
 namespace TiaGitAddIn.Models.Hmi
 {
@@ -26,6 +27,8 @@ namespace TiaGitAddIn.Models.Hmi
         public string ProcessValue { get; set; } = string.Empty;
 
         public List<HmiTextExport> Texts { get; set; } = new();
+
+        public XElement Content { get; set; } = null!;
     }
 
     public sealed class HmiScreenExport
@@ -39,6 +42,8 @@ namespace TiaGitAddIn.Models.Hmi
         public int Height { get; set; }
 
         public List<HmiItemExport> Items { get; set; } = new();
+
+        public XElement Content { get; set; } = null!;
     }
 
     public sealed class HmiDeviceExport

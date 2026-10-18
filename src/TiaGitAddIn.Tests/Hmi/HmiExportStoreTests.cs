@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using TiaGitAddIn.Models;
 using TiaGitAddIn.Models.Hmi;
 using TiaGitAddIn.Services.Hmi;
@@ -32,6 +33,20 @@ namespace TiaGitAddIn.Tests.Hmi
                             Name = "Start",
                             Width = 800,
                             Height = 480,
+                            Content = new XElement(
+                                "Details",
+                                new XAttribute("type", "HmiScreen"),
+                                new XElement(
+                                    "Attribute",
+                                    new XAttribute("name", "BackColor"),
+                                    new XAttribute("value", "#112233")),
+                                new XElement(
+                                    "Composition",
+                                    new XAttribute("name", "EventHandlers"),
+                                    new XElement(
+                                        "Object",
+                                        new XAttribute("type", "HmiScreenEventHandler"),
+                                        new XAttribute("name", "Loaded")))),
                             Items = new System.Collections.Generic.List<HmiItemExport>
                             {
                                 new HmiItemExport
@@ -56,6 +71,25 @@ namespace TiaGitAddIn.Tests.Hmi
                                     Width = 120,
                                     Height = 32,
                                     ProcessValue = "DB_Data.Speed"
+                                },
+                                new HmiItemExport
+                                {
+                                    Kind = "Rectangle",
+                                    Name = "Frame",
+                                    Left = 8,
+                                    Top = 8,
+                                    Width = 200,
+                                    Height = 80,
+                                    Content = new XElement(
+                                        "Details",
+                                        new XElement(
+                                            "Attribute",
+                                            new XAttribute("name", "BackColor"),
+                                            new XAttribute("value", "255,255,255")),
+                                        new XElement(
+                                            "Composition",
+                                            new XAttribute("name", "Dynamizations"),
+                                            new XElement("Object", new XAttribute("type", "HmiTagDynamization"))))
                                 }
                             }
                         }
@@ -76,6 +110,11 @@ namespace TiaGitAddIn.Tests.Hmi
                 Assert.Equal("Start", Assert.Single(screen.Items.Single(item => item.Kind == "Button").Texts).Text);
                 Assert.Equal("DB_Data.Speed", screen.Items.Single(item => item.Kind == "IOField").ProcessValue);
                 Assert.Equal(string.Empty, screen.Folder);
+                Assert.Equal("#112233", (string)screen.Content.Elements("Attribute").Single(attribute => (string)attribute.Attribute("name") == "BackColor").Attribute("value"));
+                Assert.Equal("Loaded", (string)screen.Content.Element("Composition").Element("Object").Attribute("name"));
+                HmiItemExport frame = screen.Items.Single(item => item.Kind == "Rectangle");
+                Assert.Equal("255,255,255", (string)frame.Content.Elements("Attribute").Single(attribute => (string)attribute.Attribute("name") == "BackColor").Attribute("value"));
+                Assert.Equal("Dynamizations", (string)frame.Content.Element("Composition").Attribute("name"));
             }
             finally
             {
@@ -216,9 +255,37 @@ namespace TiaGitAddIn.Tests.Hmi
             Assert.False(viewModel.ExportCommand.CanExecute(null));
         }
 
+        [Fact]
+        public async Task ImportRunsOnlyTheCheckedItems()
+        {
+            var exchange = new RecordingExchange();
+            var viewModel = new HmiExchangeViewModel(
+                @"C:\repo",
+                exchange,
+                () => Task.CompletedTask,
+                ImmediateUiDispatcher.Instance);
+
+            viewModel.ImportHardware = false;
+            await viewModel.ImportAsync();
+            Assert.Equal(new[] { @"C:\repo" }, exchange.ImportedPaths);
+            Assert.Empty(exchange.ImportedHardwarePaths);
+
+            viewModel.ImportHmi = false;
+            viewModel.ImportHardware = true;
+            await viewModel.ImportAsync();
+            Assert.Single(exchange.ImportedPaths);
+            Assert.Equal(new[] { @"C:\repo" }, exchange.ImportedHardwarePaths);
+
+            viewModel.ImportHmi = false;
+            viewModel.ImportHardware = false;
+            Assert.False(viewModel.ImportCommand.CanExecute(null));
+        }
+
         private sealed class RecordingExchange : IHmiDeviceExchange
         {
             public System.Collections.Generic.List<string> ImportedPaths { get; } = new System.Collections.Generic.List<string>();
+
+            public System.Collections.Generic.List<string> ImportedHardwarePaths { get; } = new System.Collections.Generic.List<string>();
 
             public void RememberCallerContext()
             {
@@ -244,6 +311,12 @@ namespace TiaGitAddIn.Tests.Hmi
             {
                 ImportedPaths.Add(repositoryPath);
                 return Task.FromResult(OperationResult.Ok("Imported the HMI screens."));
+            }
+
+            public Task<OperationResult> ImportHardwareAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
+            {
+                ImportedHardwarePaths.Add(repositoryPath);
+                return Task.FromResult(OperationResult.Ok("Imported hardware."));
             }
         }
     }

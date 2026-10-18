@@ -100,27 +100,32 @@ namespace TiaGitAddIn.UI.Views
             header.Children.Add(branch);
             header.Children.Add(tracking);
 
-            StackPanel hmiActions = new()
-            {
-                Orientation = Orientation.Horizontal,
-                Margin = new Thickness(0, 8, 0, 0)
-            };
-            hmiActions.Children.Add(ExportChoice(
-                "HMI",
-                "Hmi.ExportHmi",
-                "Include the open Unified or WinCC Comfort device. Writes HmiExport/<device>/."));
-            hmiActions.Children.Add(ExportChoice(
-                "Hardware",
-                "Hmi.ExportHardware",
-                "Include devices, modules, networks, and drive parameters that differ from the factory default. Writes HardwareExport/."));
-            hmiActions.Children.Add(HmiButton(
-                "Export",
-                "Hmi.ExportCommand",
-                "Export the checked items. HMI and hardware can run together."));
-            hmiActions.Children.Add(HmiButton(
-                "Import HMI",
-                "Hmi.ImportCommand",
-                "Apply HmiExport/<device>/ back onto the open Unified or WinCC Comfort device (panel or runtime) after a checkout."));
+            header.Children.Add(ActionRow(
+                ExportChoice(
+                    "HMI",
+                    "Hmi.ExportHmi",
+                    "Include the open Unified or WinCC Comfort device. Writes HmiExport/<device>/."),
+                ExportChoice(
+                    "Hardware",
+                    "Hmi.ExportHardware",
+                    "Include devices, modules, networks, and drive parameters that differ from the factory default. Writes HardwareExport/."),
+                HmiButton(
+                    "Export",
+                    "Hmi.ExportCommand",
+                    "Export the checked items. HMI and hardware can run together.")));
+            StackPanel importRow = ActionRow(
+                ExportChoice(
+                    "HMI",
+                    "Hmi.ImportHmi",
+                    "Apply HmiExport/<device>/ back onto the open Unified or WinCC Comfort device (panel or runtime) after a checkout."),
+                ExportChoice(
+                    "Hardware",
+                    "Hmi.ImportHardware",
+                    "Apply node addresses, port links, and changed drive parameters from HardwareExport onto the matching open devices. Modules are not created or deleted."),
+                HmiButton(
+                    "Import",
+                    "Hmi.ImportCommand",
+                    "Import the checked items. HMI and hardware can run together."));
             TextBlock hmiMessage = new()
             {
                 Margin = new Thickness(8, 0, 0, 0),
@@ -129,9 +134,24 @@ namespace TiaGitAddIn.UI.Views
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
             hmiMessage.SetBinding(TextBlock.TextProperty, new Binding("Hmi.LastOperationMessage"));
-            hmiActions.Children.Add(hmiMessage);
-            header.Children.Add(hmiActions);
+            importRow.Children.Add(hmiMessage);
+            header.Children.Add(importRow);
             return header;
+        }
+
+        private static StackPanel ActionRow(params FrameworkElement[] items)
+        {
+            StackPanel row = new()
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            foreach (FrameworkElement item in items)
+            {
+                row.Children.Add(item);
+            }
+
+            return row;
         }
 
         private static CheckBox ExportChoice(string content, string path, string toolTip)

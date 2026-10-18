@@ -19,6 +19,8 @@ namespace TiaGitAddIn.UI.ViewModels
         private string expandedDevice = string.Empty;
         private bool exportHmi = true;
         private bool exportHardware = true;
+        private bool importHmi = true;
+        private bool importHardware = true;
 
         public HmiExchangeViewModel(
             string repositoryPath,
@@ -36,7 +38,7 @@ namespace TiaGitAddIn.UI.ViewModels
             this.exchange = exchange ?? throw new ArgumentNullException(nameof(exchange));
             this.refreshStatusAsync = refreshStatusAsync ?? throw new ArgumentNullException(nameof(refreshStatusAsync));
             ExportCommand = new AsyncCommand(() => ExportAsync(), () => !IsBusy && (ExportHmi || ExportHardware));
-            ImportCommand = new AsyncCommand(() => ImportAsync(), () => !IsBusy);
+            ImportCommand = new AsyncCommand(() => ImportAsync(), () => !IsBusy && (ImportHmi || ImportHardware));
             CancelCommand = new RelayCommand(_ => RequestCancel(), _ => IsBusy);
             DismissChecklistCommand = new RelayCommand(_ => DismissChecklist());
         }
@@ -77,6 +79,30 @@ namespace TiaGitAddIn.UI.ViewModels
                 if (SetProperty(ref exportHardware, value))
                 {
                     ExportCommand.RaiseCanExecuteChanged();
+                }
+            }
+        }
+
+        public bool ImportHmi
+        {
+            get => importHmi;
+            set
+            {
+                if (SetProperty(ref importHmi, value))
+                {
+                    ImportCommand.RaiseCanExecuteChanged();
+                }
+            }
+        }
+
+        public bool ImportHardware
+        {
+            get => importHardware;
+            set
+            {
+                if (SetProperty(ref importHardware, value))
+                {
+                    ImportCommand.RaiseCanExecuteChanged();
                 }
             }
         }
@@ -132,19 +158,43 @@ namespace TiaGitAddIn.UI.ViewModels
             });
         }
 
-        public Task ImportAsync() =>
-            RunExchangeAsync("Importing HMI screens…", exchange.ImportAsync);
-
-        private Task RunExchangeAsync(
-            string busyMessage,
-            Func<string, IProgress<string>, CancellationToken, Task<OperationResult>> operation)
+        public Task ImportAsync()
         {
+            bool includeHmi = ImportHmi;
+            bool includeHardware = ImportHardware;
+            if (!includeHmi && !includeHardware)
+            {
+                return Task.CompletedTask;
+            }
+
+            InvokeOnUI(ClearChecklist);
+            string busyMessage = includeHmi && includeHardware
+                ? "Importing…"
+                : includeHardware
+                    ? "Importing hardware…"
+                    : "Importing HMI…";
             return RunBusyAsync(busyMessage, async ct =>
             {
                 IProgress<string> progress = new ChecklistProgress(ReportChecklist);
-                OperationResult result = await operation(repositoryPath, progress, ct).ConfigureAwait(false);
-                InvokeOnUI(() => LastOperationMessage = GitUserMessages.Describe(result));
-                if (result.Success)
+                var messages = new System.Collections.Generic.List<string>();
+                bool succeeded = false;
+                if (includeHmi)
+                {
+                    OperationResult hmi = await exchange.ImportAsync(repositoryPath, progress, ct).ConfigureAwait(false);
+                    messages.Add(GitUserMessages.Describe(hmi));
+                    succeeded |= hmi.Success;
+                    ct.ThrowIfCancellationRequested();
+                }
+
+                if (includeHardware)
+                {
+                    OperationResult hardware = await exchange.ImportHardwareAsync(repositoryPath, progress, ct).ConfigureAwait(false);
+                    messages.Add(GitUserMessages.Describe(hardware));
+                    succeeded |= hardware.Success;
+                }
+
+                InvokeOnUI(() => LastOperationMessage = string.Join(" ", messages));
+                if (succeeded)
                 {
                     await refreshStatusAsync().ConfigureAwait(false);
                 }

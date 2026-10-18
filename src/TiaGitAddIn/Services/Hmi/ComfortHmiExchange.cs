@@ -20,7 +20,6 @@ namespace TiaGitAddIn.Services
 {
     /// <summary>
     /// Writes a classic WinCC Comfort panel as Siemens screen XML and reads that folder back.
-    /// Unified panels stay on the smaller button and I/O export.
     /// </summary>
     internal static class ComfortHmiExchange
     {
@@ -123,6 +122,127 @@ namespace TiaGitAddIn.Services
             ImportNamed(target.Cycles, Path.Combine(deviceFolder, "Cycles"), file => target.Cycles.Import(file, ImportOptions.Override), cycle => cycle.Name, cycle => !cycle.IsSystemObject, cycle => cycle.Delete(), ct);
             ImportSingle(Path.Combine(deviceFolder, "GlobalElements.xml"), file => target.ImportScreenGlobalElements(file, ImportOptions.Override), ct);
             ImportSingle(Path.Combine(deviceFolder, "Overview.xml"), file => target.ImportScreenOverview(file, ImportOptions.Override), ct);
+            RestoreGraphicLists(target, Path.Combine(deviceFolder, "GraphicLists"));
+            if (target is IEngineeringObject engineering)
+            {
+                RestoreSnapshotFolder(engineering, Path.Combine(deviceFolder, "Alarms"));
+                RestoreSnapshotFolder(engineering, Path.Combine(deviceFolder, "Graphics"));
+                RestoreSnapshotFolder(engineering, Path.Combine(deviceFolder, "Other"));
+                RestoreSnapshotFolder(engineering, Path.Combine(deviceFolder, "Recipes"));
+                ImportGraphicFiles(engineering, Path.Combine(deviceFolder, "Graphics"));
+            }
+        }
+
+        private static void RestoreGraphicLists(HmiTarget target, string folder)
+        {
+            if (target?.GraphicLists == null || !Directory.Exists(folder))
+            {
+                return;
+            }
+
+            foreach (string file in Directory.GetFiles(folder, "*.xml"))
+            {
+                XElement root;
+                try
+                {
+                    root = XDocument.Load(file).Root;
+                }
+                catch (Exception ex) when (ex is IOException || ex is System.Xml.XmlException)
+                {
+                    continue;
+                }
+
+                if (root == null || root.Name.LocalName != "GraphicList")
+                {
+                    continue;
+                }
+
+                string name = (string)root.Attribute("name") ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    continue;
+                }
+
+                GraphicList list = target.GraphicLists.Find(name);
+                if (list is IEngineeringObject engineering)
+                {
+                    EngineeringSnapshotRestorer.ApplyElement(engineering, root);
+                }
+            }
+        }
+
+        private static void RestoreSnapshotFolder(IEngineeringObject owner, string folder)
+        {
+            if (owner == null || !Directory.Exists(folder))
+            {
+                return;
+            }
+
+            foreach (string file in Directory.GetFiles(folder, "*.xml"))
+            {
+                EngineeringSnapshotRestorer.ApplyOwnedFile(owner, file, true);
+            }
+        }
+
+        private static void ImportGraphicFiles(IEngineeringObject owner, string folder)
+        {
+            if (owner == null || !Directory.Exists(folder))
+            {
+                return;
+            }
+
+            MultiLingualGraphicComposition graphics = null;
+            try
+            {
+                foreach (EngineeringCompositionInfo info in owner.GetCompositionInfos() ?? Enumerable.Empty<EngineeringCompositionInfo>())
+                {
+                    if (info == null || info.Name == null || info.Name.IndexOf("graphic", StringComparison.OrdinalIgnoreCase) < 0)
+                    {
+                        continue;
+                    }
+
+                    if (owner.GetComposition(info.Name) is MultiLingualGraphicComposition composition)
+                    {
+                        graphics = composition;
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+                return;
+            }
+
+            if (graphics == null)
+            {
+                return;
+            }
+
+            foreach (string file in Directory.GetFiles(folder, "*.xml"))
+            {
+                XElement root;
+                try
+                {
+                    root = XDocument.Load(file).Root;
+                }
+                catch (Exception ex) when (ex is IOException || ex is System.Xml.XmlException)
+                {
+                    continue;
+                }
+
+                if (root == null || root.Name.LocalName == "HmiItems" || root.Name.LocalName == "AlarmList" || root.Name.LocalName == "GraphicList")
+                {
+                    continue;
+                }
+
+                try
+                {
+                    graphics.Import(new FileInfo(file), ImportOptions.Override);
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                }
+            }
         }
 
         private static int ExportScreens(ScreenSystemFolder folder, string directory, CancellationToken ct)

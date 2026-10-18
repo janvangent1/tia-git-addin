@@ -285,10 +285,12 @@ namespace TiaGitAddIn.Services.Hmi
                             Language = (string)text.Attribute("language") ?? string.Empty,
                             Text = text.Value ?? string.Empty
                         })
-                        .ToList()
+                        .ToList(),
+                    Content = CopyElement(item.Element("Details"))
                 });
             }
 
+            screen.Content = CopyElement(root.Element("Details"));
             return screen;
         }
 
@@ -299,6 +301,10 @@ namespace TiaGitAddIn.Services.Hmi
                 new XAttribute("name", screen.Name ?? string.Empty),
                 new XAttribute("width", screen.Width.ToString(CultureInfo.InvariantCulture)),
                 new XAttribute("height", screen.Height.ToString(CultureInfo.InvariantCulture)));
+            if (screen.Content != null)
+            {
+                element.Add(new XElement(screen.Content));
+            }
 
             foreach (HmiItemExport item in screen.Items)
             {
@@ -323,6 +329,11 @@ namespace TiaGitAddIn.Services.Hmi
                         text.Text ?? string.Empty));
                 }
 
+                if (item.Content != null)
+                {
+                    itemElement.Add(new XElement(item.Content));
+                }
+
                 element.Add(itemElement);
             }
 
@@ -339,6 +350,11 @@ namespace TiaGitAddIn.Services.Hmi
             {
                 document.Save(writer);
             }
+        }
+
+        private static XElement CopyElement(XElement element)
+        {
+            return element == null ? null! : new XElement(element);
         }
 
         private static int ReadInt(XAttribute attribute)

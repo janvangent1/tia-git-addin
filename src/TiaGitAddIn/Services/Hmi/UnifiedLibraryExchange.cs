@@ -489,6 +489,62 @@ namespace TiaGitAddIn.Services
                 ct,
                 "system text lists");
             ImportNamedFiles(Path.Combine(deviceFolder, "GraphicLists"), (directory, fileName) => software.HmiGraphicLists.Import(directory, fileName), ct, "graphic lists");
+            RestoreSnapshots(software, deviceFolder);
+        }
+
+        private static void RestoreSnapshots(HmiSoftware software, string deviceFolder)
+        {
+            EngineeringSnapshotRestorer.ApplyFile(software.SystemTags, Path.Combine(deviceFolder, "Tags", "SystemTags.xml"), "Item", false);
+            EngineeringSnapshotRestorer.ApplyFile(software.PlantObjectTags, Path.Combine(deviceFolder, "Tags", "PlantObjects.xml"), "Item", false);
+            EngineeringSnapshotRestorer.ApplyFile(software.DiscreteAlarms, Path.Combine(deviceFolder, "Alarms", "DiscreteAlarms.xml"), "Alarm", true);
+            EngineeringSnapshotRestorer.ApplyFile(software.AnalogAlarms, Path.Combine(deviceFolder, "Alarms", "AnalogAlarms.xml"), "Alarm", true);
+            EngineeringSnapshotRestorer.ApplyFile(software.AlarmClasses, Path.Combine(deviceFolder, "Alarms", "AlarmClasses.xml"), "Alarm", true);
+            EngineeringSnapshotRestorer.ApplyFile(software.OpcUaAlarmTypes, Path.Combine(deviceFolder, "Alarms", "OpcUaAlarmTypes.xml"), "Item", true);
+            EngineeringSnapshotRestorer.ApplyFile(software.HmiAlarmAuditClass, Path.Combine(deviceFolder, "Alarms", "AlarmAuditClasses.xml"), "Item", true);
+            EngineeringSnapshotRestorer.ApplyFile(software.Connections, Path.Combine(deviceFolder, "Connections", "Connections.xml"), "Item", true);
+            EngineeringSnapshotRestorer.ApplyFile(software.DataLogs, Path.Combine(deviceFolder, "Logs", "DataLogs.xml"), "Item", true);
+            EngineeringSnapshotRestorer.ApplyFile(software.AlarmLogs, Path.Combine(deviceFolder, "Logs", "AlarmLogs.xml"), "Item", true);
+            EngineeringSnapshotRestorer.ApplyFile(software.AuditTrails, Path.Combine(deviceFolder, "Logs", "AuditTrails.xml"), "Item", true);
+            if (software.RuntimeSettings is IEngineeringObject runtime)
+            {
+                XElement settings = LoadRoot(Path.Combine(deviceFolder, "RuntimeSettings", "RuntimeSettings.xml"));
+                EngineeringSnapshotRestorer.ApplyElement(runtime, settings);
+            }
+
+            if (software is IEngineeringObject engineering)
+            {
+                RestoreFolder(engineering, Path.Combine(deviceFolder, "Other"), true);
+            }
+        }
+
+        private static void RestoreFolder(IEngineeringObject owner, string folder, bool deleteMissing)
+        {
+            if (owner == null || string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+            {
+                return;
+            }
+
+            foreach (string file in Directory.GetFiles(folder, "*.xml"))
+            {
+                EngineeringSnapshotRestorer.ApplyOwnedFile(owner, file, deleteMissing);
+            }
+        }
+
+        private static XElement LoadRoot(string path)
+        {
+            if (!File.Exists(path))
+            {
+                return null;
+            }
+
+            try
+            {
+                return XDocument.Load(path).Root;
+            }
+            catch (Exception ex) when (ex is IOException || ex is System.Xml.XmlException)
+            {
+                return null;
+            }
         }
 
         private static int ExportTagLevel(
