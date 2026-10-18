@@ -1,0 +1,66 @@
+<UserControl x:Class="TiaGitAddIn.UI.Views.AboutView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="12">
+            <TextBlock Text="TIA Git Add-In" FontSize="22" FontWeight="Bold"/>
+            <TextBlock Margin="0,4,0,0" FontSize="16">
+                <Run Text="Version "/>
+                <Run Text="{Binding Version, Mode=OneWay}" FontWeight="Bold"/>
+            </TextBlock>
+            <TextBlock Margin="0,12,0,4"
+                       TextWrapping="Wrap"
+                       Text="Full means a Siemens export or import of that object. Snapshot means the file stores the attributes and child objects Openness exposes. None means that item is left out."/>
+            <Border Background="#FFF4D6" Padding="8" Margin="0,0,0,16">
+                <TextBlock TextWrapping="Wrap"
+                           Text="Shaded rows are left out of export, import, or both. A checkout only puts files on disk. Import is a separate step and does not recreate a device or module."/>
+            </Border>
+            <ItemsControl ItemsSource="{Binding Sections}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="0,0,0,18">
+                            <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="Bold" Margin="0,0,0,6"/>
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="240"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Item" FontWeight="Bold"/>
+                                <TextBlock Grid.Column="1" Text="Export" FontWeight="Bold" Margin="8,0,0,0"/>
+                                <TextBlock Grid.Column="2" Text="Import" FontWeight="Bold" Margin="8,0,0,0"/>
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding Rows}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Padding="0,6" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsGap}" Value="True">
+                                                            <Setter Property="Background" Value="#FFF4D6"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="240"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Item}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="4,0"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Export}" TextWrapping="Wrap" Margin="8,0,8,0"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding Import}" TextWrapping="Wrap" Margin="8,0,4,0"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

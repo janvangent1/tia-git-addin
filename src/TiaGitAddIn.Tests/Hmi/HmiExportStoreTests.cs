@@ -243,6 +243,8 @@ namespace TiaGitAddIn.Tests.Hmi
             await viewModel.ExportAsync();
             Assert.Equal(new[] { @"C:\repo" }, exchange.ExportedPaths);
             Assert.Empty(exchange.HardwarePaths);
+            Assert.StartsWith("Finished in ", viewModel.ElapsedText);
+            Assert.Contains(viewModel.ElapsedText, viewModel.LastOperationMessage);
 
             viewModel.ExportHmi = false;
             viewModel.ExportHardware = true;

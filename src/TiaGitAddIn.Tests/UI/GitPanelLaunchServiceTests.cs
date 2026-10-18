@@ -305,6 +305,9 @@ namespace TiaGitAddIn.Tests.UI
             public Task<IReadOnlyList<string>> GetCommitFilesAsync(string commitHash, CancellationToken ct = default) =>
                 Task.FromResult<IReadOnlyList<string>>(new List<string>());
 
+            public Task<IReadOnlyList<string>> ListExportFilesAsync(string commitHash, CancellationToken ct = default) =>
+                Task.FromResult<IReadOnlyList<string>>(new List<string>());
+
             public Task<IReadOnlyList<RemoteInfo>> GetRemotesAsync(CancellationToken ct = default) =>
                 Task.FromResult<IReadOnlyList<RemoteInfo>>(new List<RemoteInfo>());
         }

@@ -1,3 +1,4 @@
+using System;
 using TiaGitAddIn.Services.Hmi;
 using TiaGitAddIn.UI;
 using TiaGitAddIn.UI.ViewModels;
@@ -68,6 +69,14 @@ namespace TiaGitAddIn.Tests.Hmi
             viewModel.DismissChecklistCommand.Execute(null);
             Assert.False(viewModel.HasChecklist);
             Assert.Empty(viewModel.ChecklistGroups);
+        }
+
+        [Fact]
+        public void ElapsedTimeUsesMinutesAndHours()
+        {
+            Assert.Equal("0:00", HmiExchangeViewModel.FormatElapsed(TimeSpan.Zero));
+            Assert.Equal("1:05", HmiExchangeViewModel.FormatElapsed(TimeSpan.FromSeconds(65)));
+            Assert.Equal("1:01:01", HmiExchangeViewModel.FormatElapsed(TimeSpan.FromSeconds(3661)));
         }
     }
 }

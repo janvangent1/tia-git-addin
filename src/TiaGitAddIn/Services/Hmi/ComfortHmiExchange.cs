@@ -63,7 +63,7 @@ namespace TiaGitAddIn.Services
             count += Run("Scripts", "script", () => ExportScripts(target.VBScriptFolder, Path.Combine(deviceFolder, "Scripts"), ct));
             count += Run("Text lists", "text list", () => ExportNamed(target.TextLists, Path.Combine(deviceFolder, "TextLists"), list => list.Name, (list, file) => list.Export(file, ExportOptions.WithDefaults), ct));
             count += Run("Connections", "connection", () => ExportNamed(target.Connections, Path.Combine(deviceFolder, "Connections"), connection => connection.Name, (connection, file) => connection.Export(file, ExportOptions.WithDefaults), ct));
-            count += Run("Cycles", "cycle", () => ExportNamed(UserCycles(target.Cycles), Path.Combine(deviceFolder, "Cycles"), cycle => cycle.Name, (cycle, file) => cycle.Export(file, ExportOptions.WithDefaults), ct));
+            count += Run("Cycles", "cycle", () => ExportCycles(target.Cycles, Path.Combine(deviceFolder, "Cycles"), ct));
             count += Run("Permanent area", "permanent area", () => ExportSingle(target.ScreenGlobalElements, Path.Combine(deviceFolder, "GlobalElements.xml"), (item, file) => item.Export(file, ExportOptions.WithDefaults), ct));
             count += Run("Overview", "overview", () => ExportSingle(target.ScreenOverview, Path.Combine(deviceFolder, "Overview.xml"), (item, file) => item.Export(file, ExportOptions.WithDefaults), ct));
             count += Run("Graphic lists", "graphic list", () => ExportGraphicListSnapshots(target, Path.Combine(deviceFolder, "GraphicLists"), ct));
@@ -120,6 +120,7 @@ namespace TiaGitAddIn.Services
             ImportNamed(target.TextLists, Path.Combine(deviceFolder, "TextLists"), file => target.TextLists.Import(file, ImportOptions.Override), list => list.Name, list => true, list => list.Delete(), ct);
             ImportNamed(target.Connections, Path.Combine(deviceFolder, "Connections"), file => target.Connections.Import(file, ImportOptions.Override), connection => connection.Name, connection => true, connection => connection.Delete(), ct);
             ImportNamed(target.Cycles, Path.Combine(deviceFolder, "Cycles"), file => target.Cycles.Import(file, ImportOptions.Override), cycle => cycle.Name, cycle => !cycle.IsSystemObject, cycle => cycle.Delete(), ct);
+            ImportSystemCycles(target, Path.Combine(deviceFolder, "Cycles", "System"), ct);
             ImportSingle(Path.Combine(deviceFolder, "GlobalElements.xml"), file => target.ImportScreenGlobalElements(file, ImportOptions.Override), ct);
             ImportSingle(Path.Combine(deviceFolder, "Overview.xml"), file => target.ImportScreenOverview(file, ImportOptions.Override), ct);
             RestoreGraphicLists(target, Path.Combine(deviceFolder, "GraphicLists"));
@@ -458,6 +459,48 @@ namespace TiaGitAddIn.Services
         {
             ImportNamed(folder.VBScripts, directory, file => folder.VBScripts.Import(file, ImportOptions.Override), script => script.Name, script => true, script => script.Delete(), ct);
             ImportChildFolders(folder.Folders, directory, name => folder.Folders.Find(name) ?? folder.Folders.Create(name), child => child.Delete(), child => child.Name, (child, childDirectory) => ImportScripts(child, childDirectory, ct), ct);
+        }
+
+        private static int ExportCycles(CycleComposition cycles, string directory, CancellationToken ct)
+        {
+            int count = ExportNamed(UserCycles(cycles), directory, cycle => cycle.Name, (cycle, file) => cycle.Export(file, ExportOptions.WithDefaults), ct);
+            count += ExportNamed(SystemCycles(cycles), Path.Combine(directory, "System"), cycle => cycle.Name, (cycle, file) => cycle.Export(file, ExportOptions.WithDefaults), ct);
+            return count;
+        }
+
+        private static void ImportSystemCycles(HmiTarget target, string directory, CancellationToken ct)
+        {
+            if (target?.Cycles == null || !Directory.Exists(directory))
+            {
+                return;
+            }
+
+            foreach (string file in Directory.GetFiles(directory, "*.xml").OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    target.Cycles.Import(new FileInfo(file), ImportOptions.Override);
+                }
+                catch (Exception ex)
+                {
+                    HmiExportTrace.Error(ex);
+                    if (IsSessionDead(ex))
+                    {
+                        throw new InvalidOperationException("System cycle \"" + Path.GetFileName(file) + "\" could not be imported.", ex);
+                    }
+                }
+            }
+        }
+
+        private static IEnumerable<Cycle> SystemCycles(CycleComposition cycles)
+        {
+            if (cycles == null)
+            {
+                return Array.Empty<Cycle>();
+            }
+
+            return cycles.Where(cycle => cycle.IsSystemObject);
         }
 
         private static IEnumerable<Cycle> UserCycles(CycleComposition cycles)

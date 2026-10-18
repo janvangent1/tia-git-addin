@@ -211,6 +211,11 @@ namespace TiaGitAddIn.UI.Views
                     },
                     new TabItem
                     {
+                        Header = "Export",
+                        Content = new ExportView { DataContext = vm.Export }
+                    },
+                    new TabItem
+                    {
                         Header = "Diff",
                         Content = new DiffView { DataContext = vm.Diff }
                     },
@@ -218,6 +223,11 @@ namespace TiaGitAddIn.UI.Views
                     {
                         Header = "Settings",
                         Content = new SettingsView { DataContext = vm.Settings }
+                    },
+                    new TabItem
+                    {
+                        Header = "About",
+                        Content = new AboutView { DataContext = vm.About }
                     }
                 }
             };
@@ -340,6 +350,21 @@ namespace TiaGitAddIn.UI.Views
             cancel.SetBinding(ContentControl.ContentProperty, new Binding("OverlayActionText"));
             cancel.SetBinding(Button.CommandProperty, new Binding("OverlayActionCommand"));
 
+            TextBlock timer = new()
+            {
+                Foreground = Brushes.White,
+                FontSize = 18,
+                FontWeight = FontWeights.SemiBold,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 0, 0, 12)
+            };
+            timer.SetBinding(TextBlock.TextProperty, new Binding("Hmi.ElapsedText"));
+            timer.SetBinding(UIElement.VisibilityProperty, new Binding("Hmi.HasElapsed")
+            {
+                Converter = new BooleanToVisibilityConverter()
+            });
+
+            panel.Children.Add(timer);
             panel.Children.Add(progress);
             panel.Children.Add(message);
             panel.Children.Add(list);

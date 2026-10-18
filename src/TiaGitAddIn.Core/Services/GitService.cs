@@ -654,6 +654,17 @@ namespace TiaGitAddIn.Services
             return GitOutputParser.ParseDiffTree(result.StandardOutput);
         }
 
+        public async Task<IReadOnlyList<string>> ListExportFilesAsync(string commitHash, CancellationToken ct = default)
+        {
+            GitProcessResult result = await RunAsync(
+                new[] { "ls-tree", "-r", "--name-only", commitHash, "--", "HmiExport", "HardwareExport" },
+                ct).ConfigureAwait(false);
+
+            EnsureSuccess(result, "Unable to read the export in this commit.");
+            return (result.StandardOutput ?? string.Empty)
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        }
+
         public async Task<IReadOnlyList<RemoteInfo>> GetRemotesAsync(CancellationToken ct = default)
         {
             GitProcessResult result = await RunAsync(

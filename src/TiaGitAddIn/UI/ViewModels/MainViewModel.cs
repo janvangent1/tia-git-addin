@@ -49,8 +49,10 @@ namespace TiaGitAddIn.UI.ViewModels
                 UiDispatcher,
                 () => configurationService.Load(repositoryPath).DefaultRemote);
             History = new HistoryViewModel(gitService, UiDispatcher, RefreshStatusAndBranchesAsync, repositoryPath);
+            Export = new ExportCatalogViewModel(gitService, UiDispatcher);
             Diff = new DiffViewModel(gitService, revisionProvider, comparisonCoordinator, mapper, logger, UiDispatcher);
             Settings = new SettingsViewModel(configurationService, repositoryPath, gitService, UiDispatcher);
+            About = new AboutViewModel();
             Hmi = new HmiExchangeViewModel(
                 repositoryPath,
                 hmiExchange ?? new UnavailableHmiDeviceExchange(),
@@ -67,7 +69,7 @@ namespace TiaGitAddIn.UI.ViewModels
             Hmi.PropertyChanged += OnChildPropertyChanged;
         }
 
-        public const int DiffTabIndex = 4;
+        public const int DiffTabIndex = 5;
 
         private int selectedTabIndex;
 
@@ -83,8 +85,10 @@ namespace TiaGitAddIn.UI.ViewModels
         public CommitViewModel Commit { get; }
         public BranchViewModel Branch { get; }
         public HistoryViewModel History { get; }
+        public ExportCatalogViewModel Export { get; }
         public DiffViewModel Diff { get; }
         public SettingsViewModel Settings { get; }
+        public AboutViewModel About { get; }
         public HmiExchangeViewModel Hmi { get; }
 
         public RelayCommand CancelCommand { get; }
@@ -114,6 +118,7 @@ namespace TiaGitAddIn.UI.ViewModels
             if (e.PropertyName == nameof(HistoryViewModel.SelectedCommit) && sender is HistoryViewModel)
             {
                 CommitInfo? commit = History.SelectedCommit;
+                _ = Export.ShowAsync(commit);
                 if (commit != null)
                 {
                     // Fire-and-forget is safe here: LoadCommitDiffAsync is built on RunBusyAsync, which

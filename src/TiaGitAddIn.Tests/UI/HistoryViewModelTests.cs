@@ -102,6 +102,9 @@ namespace TiaGitAddIn.Tests.UI
                 this.firstFiles = firstFiles;
             }
 
+            public Task<IReadOnlyList<string>> ListExportFilesAsync(string commitHash, CancellationToken ct = default) =>
+                Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+
             public async Task<IReadOnlyList<string>> GetCommitFilesAsync(string commitHash, CancellationToken ct = default)
             {
                 if (commitHash == "first")

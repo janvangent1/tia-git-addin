@@ -218,7 +218,20 @@ namespace TiaGitAddIn.Services
                     fileCount += written;
                 }
 
-                return OperationResult.Ok(ExportMessage(unified.Count, screenCount, comfort.Count, comfortFiles, fileCount));
+                int projectFiles = 0;
+                foreach (Project project in portal.Projects)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    Announce(progress, project.Name, new[] { "Pictures", "Library" });
+                    projectFiles += ProjectContentExchange.Export(
+                        project,
+                        repositoryPath,
+                        ct,
+                        message => ReportProgress(progress, string.Empty, message));
+                }
+
+                fileCount += projectFiles;
+                return OperationResult.Ok(ExportMessage(unified.Count, screenCount, comfort.Count, comfortFiles, fileCount, projectFiles));
             }
             catch (OperationCanceledException)
             {
@@ -239,7 +252,8 @@ namespace TiaGitAddIn.Services
             {
                 progress?.Report("Reading HmiExport…");
                 IReadOnlyList<HmiDeviceExport> exported = HmiExportStore.ReadAll(repositoryPath);
-                if (exported.Count == 0)
+                bool hasProjectContent = Directory.Exists(ProjectContentStore.SharedRoot(repositoryPath));
+                if (exported.Count == 0 && !hasProjectContent)
                 {
                     return OperationResult.Fail("This repository has no HmiExport folder yet. Export the HMI device first.");
                 }
@@ -250,6 +264,14 @@ namespace TiaGitAddIn.Services
                 if (unified.Count == 0 && comfort.Count == 0)
                 {
                     return OperationResult.Fail("No Unified or WinCC Comfort HMI device was found in the open TIA project.");
+                }
+
+                int projectItems = 0;
+                foreach (Project project in portal.Projects)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    progress?.Report("Importing project pictures and library types for " + project.Name + "…");
+                    projectItems += ProjectContentExchange.Import(project, repositoryPath, ct);
                 }
 
                 var usedUnified = new HashSet<HmiSoftware>();
@@ -301,7 +323,7 @@ namespace TiaGitAddIn.Services
                     applied++;
                 }
 
-                if (applied == 0)
+                if (applied == 0 && projectItems == 0)
                 {
                     return OperationResult.Fail("Could not import the HMI export.", string.Join(" ", missing));
                 }
@@ -309,6 +331,10 @@ namespace TiaGitAddIn.Services
                 string message =
                     "Imported " + applied.ToString(CultureInfo.InvariantCulture) +
                     " HMI device(s) from HmiExport.";
+                if (projectItems > 0)
+                {
+                    message += " Wrote " + projectItems.ToString(CultureInfo.InvariantCulture) + " project picture(s) or library type(s).";
+                }
                 return missing.Count == 0
                     ? OperationResult.Ok(message)
                     : OperationResult.Ok(message + " " + string.Join(" ", missing));
@@ -380,7 +406,7 @@ namespace TiaGitAddIn.Services
             }
         }
 
-        private static string ExportMessage(int unifiedDevices, int screenCount, int comfortDevices, int comfortFiles, int fileCount)
+        private static string ExportMessage(int unifiedDevices, int screenCount, int comfortDevices, int comfortFiles, int fileCount, int projectFiles)
         {
             var parts = new List<string>();
             if (unifiedDevices > 0)
@@ -395,6 +421,11 @@ namespace TiaGitAddIn.Services
                 parts.Add(
                     comfortFiles.ToString(CultureInfo.InvariantCulture) + " WinCC Comfort file(s) from " +
                     comfortDevices.ToString(CultureInfo.InvariantCulture) + " device(s)");
+            }
+
+            if (projectFiles > 0)
+            {
+                parts.Add(projectFiles.ToString(CultureInfo.InvariantCulture) + " project picture(s) or library type(s)");
             }
 
             string message = "Exported " + string.Join(" and ", parts) +

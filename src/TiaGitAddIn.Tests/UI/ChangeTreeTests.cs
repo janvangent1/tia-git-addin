@@ -112,5 +112,21 @@ namespace TiaGitAddIn.Tests.UI
                 new[] { "Hardware · G120 (3)", "Hardware · Networks (1)", "HMI · Panel (1)" },
                 roots.Select(node => node.Title).ToArray());
         }
+
+        [Fact]
+        public void GroupPlacesProjectPicturesAndLibraryTypesBesideTheDevices()
+        {
+            var roots = ChangeTree.Group(
+                new[]
+                {
+                    "HmiExport/_Project/Line 1/Graphics/Logo.xml",
+                    "HmiExport/_Project/Line 1/Library/Motors/Pump/type.xml",
+                },
+                path => path);
+
+            ChangeNode project = Assert.Single(roots);
+            Assert.Equal("Project · Line 1 (2)", project.Title);
+            Assert.Equal(new[] { "Graphics (1)", "Library (1)" }, project.Children!.Select(child => child.Title).ToArray());
+        }
     }
 }

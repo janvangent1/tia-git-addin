@@ -1,0 +1,37 @@
+<UserControl x:Class="TiaGitAddIn.UI.Views.ExportView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:TiaGitAddIn.UI.ViewModels">
+    <DockPanel Margin="8">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <TextBlock Text="{Binding Heading}"
+                       FontWeight="Bold"
+                       FontSize="16"
+                       TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding Summary}"
+                       Margin="0,4,0,0"
+                       Foreground="DimGray"
+                       TextWrapping="Wrap"/>
+        </StackPanel>
+        <TreeView ItemsSource="{Binding Groups}"
+                  BorderThickness="1"
+                  BorderBrush="#CCCCCC">
+            <TreeView.Resources>
+                <HierarchicalDataTemplate DataType="{x:Type vm:ChangeNode}"
+                                          ItemsSource="{Binding Children}">
+                    <TextBlock Text="{Binding Title}"
+                               FontFamily="Consolas"
+                               FontSize="13"
+                               TextWrapping="Wrap"
+                               ToolTip="{Binding Item}"/>
+                </HierarchicalDataTemplate>
+            </TreeView.Resources>
+            <TreeView.ItemContainerStyle>
+                <Style TargetType="TreeViewItem">
+                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=OneWay}"/>
+                    <Setter Property="Padding" Value="0,2"/>
+                </Style>
+            </TreeView.ItemContainerStyle>
+        </TreeView>
+    </DockPanel>
+</UserControl>

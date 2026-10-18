@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using TiaGitAddIn.Services.Hmi;
 
 namespace TiaGitAddIn.UI.ViewModels
 {
@@ -52,9 +53,13 @@ namespace TiaGitAddIn.UI.ViewModels
             "Connections",
             "Cycles",
             "Alarms",
-            "Recipes",
             "Logs",
+            "Runtime settings",
+            "Other",
+            "Recipes",
             "Graphics",
+            "Pictures",
+            "Library",
             "Drives",
             "Settings",
             "Networks",
@@ -162,6 +167,12 @@ namespace TiaGitAddIn.UI.ViewModels
             if (export >= 0 && export + 2 < parts.Length)
             {
                 string device = parts[export + 1];
+                if (device.Equals(ProjectContentStore.FolderName, StringComparison.OrdinalIgnoreCase) && export + 3 < parts.Length)
+                {
+                    string category = export + 4 < parts.Length ? CategoryName(parts[export + 3]) : "Configuration";
+                    return (parts[export + 2], category, "Project");
+                }
+
                 if (export + 3 >= parts.Length)
                 {
                     return (device, "Configuration", label);
@@ -234,6 +245,14 @@ namespace TiaGitAddIn.UI.ViewModels
                     return "Connections";
                 case "CYCLES":
                     return "Cycles";
+                case "ALARMS":
+                    return "Alarms";
+                case "LOGS":
+                    return "Logs";
+                case "RUNTIMESETTINGS":
+                    return "Runtime settings";
+                case "OTHER":
+                    return "Other";
                 case "DRIVES":
                     return "Drives";
                 case "SETTINGS":

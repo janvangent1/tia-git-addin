@@ -49,6 +49,8 @@ namespace TiaGitAddIn.Services
 
         Task<IReadOnlyList<string>> GetCommitFilesAsync(string commitHash, CancellationToken ct = default);
 
+        Task<IReadOnlyList<string>> ListExportFilesAsync(string commitHash, CancellationToken ct = default);
+
         Task<IReadOnlyList<RemoteInfo>> GetRemotesAsync(CancellationToken ct = default);
     }
 }
