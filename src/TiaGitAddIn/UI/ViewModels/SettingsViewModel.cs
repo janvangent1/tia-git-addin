@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Win32;
 using TiaGitAddIn.Configuration;
 using TiaGitAddIn.Models;
 using TiaGitAddIn.Services;
+using TiaGitAddIn.Services.Hmi;
 using TiaGitAddIn.UI;
 
 namespace TiaGitAddIn.UI.ViewModels
@@ -40,10 +42,16 @@ namespace TiaGitAddIn.UI.ViewModels
             BrowseGitExeCommand = new RelayCommand(_ => BrowseGitExe());
             SaveCommand = new AsyncCommand(() => SaveAsync(), () => canSaveSettings);
 
+            HmiCategories = Choices(HmiExportProgress.UnifiedCategories);
+            HardwareCategories = Choices(HmiExportProgress.HardwareCategories);
             LoadSettings();
             _ = RefreshRemoteUrlAsync();
             _ = FillIdentityFromGitAsync();
         }
+
+        public IReadOnlyList<ExportCategoryOption> HmiCategories { get; }
+
+        public IReadOnlyList<ExportCategoryOption> HardwareCategories { get; }
 
         public string GitExecutablePath
         {
@@ -170,9 +178,37 @@ namespace TiaGitAddIn.UI.ViewModels
             remoteUrl = config.RemoteUrl ?? string.Empty;
             maxLogEntries = config.MaxLogEntries;
             compareXmlByElement = config.CompareXmlByElement;
+            ApplyDisabled(HmiCategories, config.DisabledHmiCategories);
+            ApplyDisabled(HardwareCategories, config.DisabledHardwareCategories);
 
             OnPropertyChanged(string.Empty);
             Validate();
+        }
+
+        public ExportCategorySet ExportCategories() =>
+            new ExportCategorySet(DisabledNames(HmiCategories), DisabledNames(HardwareCategories));
+
+        private static ExportCategoryOption[] Choices(IEnumerable<string> names) =>
+            names.Select(name => new ExportCategoryOption(name)).ToArray();
+
+        private static void ApplyDisabled(IReadOnlyList<ExportCategoryOption> choices, IEnumerable<string> disabled)
+        {
+            var off = new HashSet<string>(disabled ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+            foreach (ExportCategoryOption choice in choices)
+            {
+                choice.IsChecked = !off.Contains(choice.Name);
+            }
+        }
+
+        private static IEnumerable<string> DisabledNames(IEnumerable<ExportCategoryOption> choices)
+        {
+            foreach (ExportCategoryOption choice in choices)
+            {
+                if (!choice.IsChecked)
+                {
+                    yield return choice.Name;
+                }
+            }
         }
 
         private Task SaveAsync()
@@ -187,6 +223,8 @@ namespace TiaGitAddIn.UI.ViewModels
                 CommitAuthorName = CommitAuthorName.Trim(),
                 CommitAuthorEmail = CommitAuthorEmail.Trim(),
                 CompareXmlByElement = compareXmlByElement,
+                DisabledHmiCategories = DisabledNames(HmiCategories).ToList(),
+                DisabledHardwareCategories = DisabledNames(HardwareCategories).ToList(),
                 Version = 1
             };
 
@@ -394,6 +432,24 @@ namespace TiaGitAddIn.UI.ViewModels
             public string Caption { get; }
 
             public bool ByElement { get; }
+        }
+
+        public sealed class ExportCategoryOption : ViewModelBase
+        {
+            private bool isChecked = true;
+
+            public ExportCategoryOption(string name)
+            {
+                Name = name;
+            }
+
+            public string Name { get; }
+
+            public bool IsChecked
+            {
+                get => isChecked;
+                set => SetProperty(ref isChecked, value);
+            }
         }
     }
 }

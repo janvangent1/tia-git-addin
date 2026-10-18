@@ -119,6 +119,67 @@ namespace TiaGitAddIn.Tests.UI
             Assert.Equal(1, calls);
         }
 
+        [Fact]
+        public async Task FileFilterHidesPathsThatDoNotMatch()
+        {
+            var status = new GitStatus
+            {
+                Entries = new List<FileStatusEntry>
+                {
+                    new FileStatusEntry { FilePath = "HmiExport/Panel/Screens/Main.xml", WorkTreeStatus = FileStatus.Modified },
+                    new FileStatusEntry { FilePath = "Blocks/Program.xml", WorkTreeStatus = FileStatus.Modified }
+                }
+            };
+            var viewModel = new StatusViewModel(new FakeGitService(status));
+            await viewModel.RefreshAsync();
+
+            viewModel.FileFilter = "Screens";
+
+            Assert.Single(viewModel.UnstagedEntries);
+            Assert.Contains("Screens", viewModel.UnstagedEntries[0].FilePath);
+        }
+
+        [Fact]
+        public async Task DiscardSelectedAsyncStopsWhenTheUserSaysNo()
+        {
+            var status = new GitStatus
+            {
+                Entries = new List<FileStatusEntry>
+                {
+                    new FileStatusEntry { FilePath = "Blocks/Program.xml", WorkTreeStatus = FileStatus.Modified }
+                }
+            };
+            var gitService = new FakeGitService(status, new GitStatus());
+            var viewModel = new StatusViewModel(gitService)
+            {
+                Confirm = _ => false
+            };
+
+            await viewModel.RefreshAsync();
+            await viewModel.DiscardSelectedAsync(viewModel.UnstagedEntries[0]);
+
+            Assert.Empty(gitService.DiscardedPaths);
+        }
+
+        [Fact]
+        public async Task ConflictedFilesAreListedOnTheirOwn()
+        {
+            var status = new GitStatus
+            {
+                Entries = new List<FileStatusEntry>
+                {
+                    new FileStatusEntry { FilePath = "Blocks/Program.xml", IndexStatus = FileStatus.Conflicted, WorkTreeStatus = FileStatus.Conflicted }
+                }
+            };
+            var viewModel = new StatusViewModel(new FakeGitService(status));
+
+            await viewModel.RefreshAsync();
+
+            Assert.True(viewModel.HasConflicts);
+            Assert.Single(viewModel.ConflictedEntries);
+            Assert.Empty(viewModel.UnstagedEntries);
+        }
+
         private sealed class FakeGitService : IGitService
         {
             private readonly Queue<GitStatus> statuses;

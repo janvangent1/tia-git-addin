@@ -10,6 +10,7 @@ namespace TiaGitAddIn.UI.Views
     {
         public DiffView()
         {
+            PanelTheme.Apply(this);
             InitializeComponent();
         }
 

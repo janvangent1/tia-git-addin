@@ -79,10 +79,22 @@ namespace TiaGitAddIn.UI.ViewModels
             private set => SetProperty(lastOperationMessage, value ?? string.Empty, updated => lastOperationMessage = updated);
         }
 
+        public Func<string, Task>? OpenFileAsync { get; set; }
+
         public AsyncCommand RefreshCommand { get; }
         public AsyncCommand RestoreCommand { get; }
         public RelayCommand ExportPdfCommand { get; }
         public RelayCommand CancelCommand { get; }
+
+        public Task OpenFile(string path)
+        {
+            if (OpenFileAsync == null || string.IsNullOrWhiteSpace(path))
+            {
+                return Task.CompletedTask;
+            }
+
+            return OpenFileAsync(path);
+        }
 
         public Task RefreshAsync() =>
             RunBusyAsync("Loading history…", async ct =>

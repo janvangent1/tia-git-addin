@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using TiaGitAddIn.UI;
 using TiaGitAddIn.UI.ViewModels.Comparison;
 
 namespace TiaGitAddIn.UI.Views.Comparison
@@ -10,6 +11,7 @@ namespace TiaGitAddIn.UI.Views.Comparison
     {
         public TextDiffView()
         {
+            PanelTheme.Apply(this);
             InitializeComponent();
             DataContextChanged += OnDataContextChanged;
         }

@@ -20,8 +20,8 @@ namespace TiaGitAddIn.UI.ViewModels
         private string expandedDevice = string.Empty;
         private bool exportHmi = true;
         private bool exportHardware = true;
-        private bool importHmi = true;
-        private bool importHardware = true;
+        private bool importHmi;
+        private bool importHardware;
         private readonly Stopwatch elapsed = new Stopwatch();
         private Timer? elapsedTimer;
         private int elapsedGeneration;
@@ -158,6 +158,10 @@ namespace TiaGitAddIn.UI.ViewModels
 
         public RelayCommand DismissChecklistCommand { get; }
 
+        public Func<string, bool>? Confirm { get; set; }
+
+        public Func<ExportCategorySet>? Categories { get; set; }
+
         public Task ExportAsync()
         {
             bool includeHmi = ExportHmi;
@@ -167,6 +171,7 @@ namespace TiaGitAddIn.UI.ViewModels
                 return Task.CompletedTask;
             }
 
+            ExportCategorySet.Pending = Categories?.Invoke() ?? ExportCategorySet.All;
             InvokeOnUI(() =>
             {
                 ClearChecklist();
@@ -218,8 +223,15 @@ namespace TiaGitAddIn.UI.ViewModels
                             FinishElapsed(ct.IsCancellationRequested);
                         }
                     });
+                    ExportCategorySet.Pending = null;
                 }
             });
+        }
+
+        private static string ImportPrompt(bool hmi, bool hardware)
+        {
+            string target = hmi && hardware ? "HMI and hardware files" : hardware ? "hardware files" : "HMI files";
+            return "Import writes the checked " + target + " onto the open project. A checkout only puts files on disk. Continue?";
         }
 
         public Task ImportAsync()
@@ -227,6 +239,11 @@ namespace TiaGitAddIn.UI.ViewModels
             bool includeHmi = ImportHmi;
             bool includeHardware = ImportHardware;
             if (!includeHmi && !includeHardware)
+            {
+                return Task.CompletedTask;
+            }
+
+            if (Confirm != null && !Confirm(ImportPrompt(includeHmi, includeHardware)))
             {
                 return Task.CompletedTask;
             }

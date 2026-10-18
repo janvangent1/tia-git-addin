@@ -81,7 +81,8 @@ namespace TiaGitAddIn.Services
                 portal,
                 repositoryPath,
                 ct,
-                message => ReportProgress(progress, string.Empty, message)), blockDispatcher: false);
+                message => ReportProgress(progress, string.Empty, message),
+                ExportCategorySet.CurrentOr(ExportCategorySet.All)), blockDispatcher: false);
         }
 
         public Task<OperationResult> ImportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
@@ -186,8 +187,9 @@ namespace TiaGitAddIn.Services
                     ct.ThrowIfCancellationRequested();
                     UnifiedDevice device = unified[index];
                     progress?.Report("Unified panel " + (index + 1).ToString(CultureInfo.InvariantCulture) + " of " + unified.Count.ToString(CultureInfo.InvariantCulture) + ": " + device.Name);
+                    ExportCategorySet categories = ExportCategorySet.CurrentOr(ExportCategorySet.All);
                     Announce(progress, device.Name, HmiExportProgress.UnifiedCategories);
-                    HmiDeviceExport export = ReadDevice(device, progress, ct);
+                    HmiDeviceExport export = ReadDevice(device, progress, ct, categories);
                     screenCount += export.Screens.Count;
                     progress?.Report("Writing " + device.Name + "…");
                     string folder = HmiExportStore.DeviceFolder(repositoryPath, device.Name);
@@ -198,7 +200,8 @@ namespace TiaGitAddIn.Services
                         device.Name,
                         folder,
                         ct,
-                        message => ReportProgress(progress, device.Name + ": ", message));
+                        message => ReportProgress(progress, device.Name + ": ", message),
+                        categories);
                     HmiExportNormalizer.StabilizeCreationTimestamps(folder, previousTimestamps);
                 }
 
@@ -212,7 +215,12 @@ namespace TiaGitAddIn.Services
                     string folder = HmiExportStore.DeviceFolder(repositoryPath, device.Name);
                     IReadOnlyDictionary<string, string> previousTimestamps = HmiExportNormalizer.CaptureCreationTimestamps(folder);
                     folder = HmiExportStore.PrepareDeviceFolder(repositoryPath, device.Name, HmiDeviceExport.ComfortKind);
-                    int written = ComfortHmiExchange.Export(device.Target, folder, ct, message => ReportProgress(progress, prefix + " — ", message)) + 1;
+                    int written = ComfortHmiExchange.Export(
+                        device.Target,
+                        folder,
+                        ct,
+                        message => ReportProgress(progress, prefix + " — ", message),
+                        ExportCategorySet.CurrentOr(ExportCategorySet.All)) + 1;
                     HmiExportNormalizer.StabilizeCreationTimestamps(folder, previousTimestamps);
                     comfortFiles += written;
                     fileCount += written;
@@ -439,13 +447,23 @@ namespace TiaGitAddIn.Services
             return message + " Stage that folder to keep it in Git.";
         }
 
-        private static HmiDeviceExport ReadDevice(UnifiedDevice device, IProgress<string>? progress, CancellationToken ct)
+        private static HmiDeviceExport ReadDevice(
+            UnifiedDevice device,
+            IProgress<string>? progress,
+            CancellationToken ct,
+            ExportCategorySet categories)
         {
             var export = new HmiDeviceExport
             {
                 Name = device.Name,
                 Kind = HmiDeviceExport.UnifiedKind
             };
+
+            if (categories != null && !categories.AllowsHmi("Screens"))
+            {
+                progress?.Report(HmiExportProgress.Format(device.Name, "Screens", "skipped", 0, "Turned off in Settings."));
+                return export;
+            }
 
             int index = 0;
             progress?.Report(HmiExportProgress.Format(device.Name, "Screens", "running", 0, string.Empty));

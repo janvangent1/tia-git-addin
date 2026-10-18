@@ -6,6 +6,7 @@ namespace TiaGitAddIn.UI.Views
     {
         public SettingsView()
         {
+            PanelTheme.Apply(this);
             InitializeComponent();
         }
     }

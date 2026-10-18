@@ -18,12 +18,12 @@
                 <DataTrigger Binding="{Binding StatusLabel}"
                              Value="+">
                     <Setter Property="Background"
-                            Value="#DDFFDD"/>
+                            Value="{StaticResource AddedBrush}"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding StatusLabel}"
                              Value="−">
                     <Setter Property="Background"
-                            Value="#FFDDDD"/>
+                            Value="{StaticResource RemovedBrush}"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding StatusLabel}"
                              Value="…">

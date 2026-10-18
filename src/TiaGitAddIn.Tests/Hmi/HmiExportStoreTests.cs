@@ -222,6 +222,7 @@ namespace TiaGitAddIn.Tests.Hmi
                 },
                 ImmediateUiDispatcher.Instance);
 
+            viewModel.ImportHmi = true;
             await viewModel.ImportAsync();
 
             Assert.Equal(new[] { @"C:\repo" }, exchange.ImportedPaths);
@@ -267,6 +268,7 @@ namespace TiaGitAddIn.Tests.Hmi
                 () => Task.CompletedTask,
                 ImmediateUiDispatcher.Instance);
 
+            viewModel.ImportHmi = true;
             viewModel.ImportHardware = false;
             await viewModel.ImportAsync();
             Assert.Equal(new[] { @"C:\repo" }, exchange.ImportedPaths);

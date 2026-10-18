@@ -17,7 +17,9 @@
         </Grid.RowDefinitions>
 
         <!-- Commit log -->
-        <ListView Grid.Row="0"
+        <ListView x:Name="CommitList"
+                  Grid.Row="0"
+                  SizeChanged="OnCommitListSizeChanged"
                   ItemsSource="{Binding Commits}"
                   SelectedItem="{Binding SelectedCommit}"
                   SelectionMode="Single"
@@ -47,7 +49,8 @@
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
-                    <GridViewColumn Header="Message"
+                    <GridViewColumn x:Name="MessageColumn"
+                            Header="Message"
                             Width="450"
                             DisplayMemberBinding="{Binding Subject}"/>
                 </GridView>
@@ -71,68 +74,18 @@
             <!-- Commit metadata + message -->
             <Border Grid.Column="0"
                     BorderThickness="1"
-                    BorderBrush="#CCCCCC"
+                    BorderBrush="{StaticResource LineBrush}"
                     Padding="8">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Text="Hash:"
-                            FontWeight="Bold"
-                               Grid.Row="0"
-                            Grid.Column="0"
-                            Margin="0,0,10,4"
-                            VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding SelectedCommit.Hash}"
-                               Grid.Row="0"
-                            Grid.Column="1"
-                            FontFamily="Consolas"
-                               Margin="0,0,0,4"
-                            VerticalAlignment="Center"/>
-
-                    <TextBlock Text="Author:"
-                            FontWeight="Bold"
-                               Grid.Row="1"
-                            Grid.Column="0"
-                            Margin="0,0,10,4"
-                            VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding SelectedCommit.AuthorName}"
-                               Grid.Row="1"
-                            Grid.Column="1"
-                               Margin="0,0,0,4"
-                            VerticalAlignment="Center"/>
-
-                    <TextBlock Text="Date:"
-                            FontWeight="Bold"
-                               Grid.Row="2"
-                            Grid.Column="0"
-                            Margin="0,0,10,4"
-                            VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding SelectedCommit.AuthorDate, StringFormat=\{0:yyyy-MM-dd HH:mm:ss zzz\}}"
-                               Grid.Row="2"
-                            Grid.Column="1"
-                               Margin="0,0,0,4"
-                            VerticalAlignment="Center"/>
-
-                    <ScrollViewer Grid.Row="3"
-                            Grid.Column="0"
-                            Grid.ColumnSpan="2"
-                                  VerticalScrollBarVisibility="Auto"
-                            HorizontalScrollBarVisibility="Disabled"
-                                  Margin="0,8,0,0">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="Message"
+                               FontWeight="Bold"
+                               Margin="0,0,0,6"/>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <TextBlock Text="{Binding SelectedCommit.Subject}"
-                                   TextWrapping="Wrap"
-                                FontSize="13"/>
+                                   TextWrapping="Wrap"/>
                     </ScrollViewer>
-                </Grid>
+                </DockPanel>
             </Border>
 
             <GridSplitter Grid.Column="1"
@@ -155,6 +108,7 @@
                     </Border>
                     <TreeView ItemsSource="{Binding ChangedFileGroups}"
                               BorderThickness="0"
+                              SelectedItemChanged="OnFileSelected"
                               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <TreeView.Resources>
                             <HierarchicalDataTemplate DataType="{x:Type vm:ChangeNode}"

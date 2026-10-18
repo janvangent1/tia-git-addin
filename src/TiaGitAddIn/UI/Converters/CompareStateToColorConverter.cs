@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Windows.Data;
 using System.Windows.Media;
 using TiaGitAddIn.Models.Sact;
+using TiaGitAddIn.UI;
 
 namespace TiaGitAddIn.UI.Converters
 {
@@ -15,11 +16,11 @@ namespace TiaGitAddIn.UI.Converters
                 switch (state)
                 {
                     case CompareState.Changed:
-                        return new SolidColorBrush(Color.FromRgb(255, 255, 200)); // light yellow
+                        return new SolidColorBrush(PanelTheme.Changed);
                     case CompareState.MissingOnLeft:
-                        return new SolidColorBrush(Color.FromRgb(200, 255, 200)); // light green
+                        return new SolidColorBrush(PanelTheme.Added);
                     case CompareState.MissingOnRight:
-                        return new SolidColorBrush(Color.FromRgb(255, 200, 200)); // light red
+                        return new SolidColorBrush(PanelTheme.Removed);
                     case CompareState.Equal:
                     default:
                         return Brushes.Transparent;

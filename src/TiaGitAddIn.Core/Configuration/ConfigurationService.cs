@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
 using TiaGitAddIn.Models;
@@ -92,8 +93,30 @@ namespace TiaGitAddIn.Configuration
 
                 CommitAuthorName = configuration.CommitAuthorName ?? string.Empty,
                 CommitAuthorEmail = configuration.CommitAuthorEmail ?? string.Empty,
-                CompareXmlByElement = configuration.CompareXmlByElement
+                CompareXmlByElement = configuration.CompareXmlByElement,
+                MaxLogEntries = configuration.MaxLogEntries > 0 ? configuration.MaxLogEntries : 200,
+                DisabledHmiCategories = CopyNames(configuration.DisabledHmiCategories),
+                DisabledHardwareCategories = CopyNames(configuration.DisabledHardwareCategories)
             };
+        }
+
+        private static List<string> CopyNames(IEnumerable<string>? names)
+        {
+            var copy = new List<string>();
+            if (names == null)
+            {
+                return copy;
+            }
+
+            foreach (string name in names)
+            {
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    copy.Add(name.Trim());
+                }
+            }
+
+            return copy;
         }
 
         private static void EnsureValidRepositoryRoot(string repositoryRoot)

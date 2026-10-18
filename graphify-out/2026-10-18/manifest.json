@@ -1,0 +1,1718 @@
+{
+  ".codex/hooks.json": {
+    "mtime": 1791446166.2976408,
+    "seen": 1791448833.1751454,
+    "ast_hash": "23b8944f327a4c55bdd0f6505e033053",
+    "semantic_hash": ""
+  },
+  "TiaGitAddIn.sln": {
+    "mtime": 1791446166.4999194,
+    "seen": 1791448833.1751454,
+    "ast_hash": "b5ef80db28c03a0985a711b18d033934",
+    "semantic_hash": ""
+  },
+  "global.json": {
+    "mtime": 1791446166.5439992,
+    "seen": 1791448833.1751454,
+    "ast_hash": "a03ee0d5f9650fc3bf0c2be633a4a694",
+    "semantic_hash": ""
+  },
+  "installer/PluginInstaller.cs": {
+    "mtime": 1792264532.2146761,
+    "seen": 1792353217.5656452,
+    "ast_hash": "89660ec221d889e8854280d3dbc43fca",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Configuration/ConfigurationService.cs": {
+    "mtime": 1792352241.9757993,
+    "seen": 1792353217.5656452,
+    "ast_hash": "7c9444f94fd6f5b9b72499356817d4bb",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Configuration/IConfigurationService.cs": {
+    "mtime": 1791446166.5808816,
+    "seen": 1791448833.1751454,
+    "ast_hash": "df98847a07465b540d9366076dbb1b0f",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Configuration/PathValidator.cs": {
+    "mtime": 1791446166.5827851,
+    "seen": 1791448833.1751454,
+    "ast_hash": "f72d28272f31c2ca42b2add89893747e",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Configuration/ValidationResult.cs": {
+    "mtime": 1791446166.5827851,
+    "seen": 1791448833.1751454,
+    "ast_hash": "e2ea7b3e97d046391020b35a77543325",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Logging/FileLogger.cs": {
+    "mtime": 1791446166.5863407,
+    "seen": 1791448833.1751454,
+    "ast_hash": "fc346c7ded3d0bd9212acb338d6b820a",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Logging/IAddInLogger.cs": {
+    "mtime": 1791446166.5886407,
+    "seen": 1791448833.1751454,
+    "ast_hash": "b53fe63ccaadc8a9f733b47b8d27d0ae",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/BranchInfo.cs": {
+    "mtime": 1791446166.5931947,
+    "seen": 1791448833.1751454,
+    "ast_hash": "618e94f594c3697f99c043608e456bcb",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/ChangeType.cs": {
+    "mtime": 1791446166.5941055,
+    "seen": 1791448833.1751454,
+    "ast_hash": "895bc1db909bf4e46f2dee583d3a583b",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/CommitInfo.cs": {
+    "mtime": 1791446166.5941055,
+    "seen": 1791448833.1751454,
+    "ast_hash": "3584887dd17d63ef8b28d49115c6157f",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Comparison/ComparisonPresentations.cs": {
+    "mtime": 1791446166.5967298,
+    "seen": 1791448833.1751454,
+    "ast_hash": "b3041b252457aa4500d36c2ce76451ff",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Comparison/ImmutableCopy.cs": {
+    "mtime": 1791446166.5967298,
+    "seen": 1791448833.1751454,
+    "ast_hash": "7b012ca3e8f4fc508da5467236248703",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Comparison/InterfacePresentation.cs": {
+    "mtime": 1791446166.5967298,
+    "seen": 1791448833.1751454,
+    "ast_hash": "f81c31353af46dda1dbb351d253b0be7",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Comparison/InterfaceSnapshot.cs": {
+    "mtime": 1791446166.6034935,
+    "seen": 1791448833.1751454,
+    "ast_hash": "3fddf44f9d2086deb1d16b86180f1217",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Comparison/LadPresentation.cs": {
+    "mtime": 1791446166.6050508,
+    "seen": 1791448833.1751454,
+    "ast_hash": "5cbf3689f6261360da74c050c6f7c6d1",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Comparison/PlcArtifactDescriptor.cs": {
+    "mtime": 1791446166.6069255,
+    "seen": 1791448833.1751454,
+    "ast_hash": "4d1088b7cd8c7b6f4810307d4eea955f",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Comparison/PlcComparisonDiagnostic.cs": {
+    "mtime": 1791446166.6099634,
+    "seen": 1791448833.1751454,
+    "ast_hash": "2da841c2682846f632c0bcb78cdc7061",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Comparison/PlcComparisonEnums.cs": {
+    "mtime": 1791446166.6099634,
+    "seen": 1791448833.1751454,
+    "ast_hash": "1150ec562b0364e5c56352d4e97af60f",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Comparison/PlcComparisonRequest.cs": {
+    "mtime": 1791446166.6139686,
+    "seen": 1791448833.1751454,
+    "ast_hash": "d9fc624fefcb26aff158a1ad8ae8852a",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Comparison/PlcComparisonResult.cs": {
+    "mtime": 1791446166.6139686,
+    "seen": 1791448833.1751454,
+    "ast_hash": "6e6133370cdef906db63210fb1441511",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Comparison/PlcRevision.cs": {
+    "mtime": 1791446166.616129,
+    "seen": 1791448833.1751454,
+    "ast_hash": "03fbf5c173e91b8805fcbf45a70e347a",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/DiffEntry.cs": {
+    "mtime": 1791446166.6175072,
+    "seen": 1791448833.1751454,
+    "ast_hash": "4a015998aa9f436373a8cfae7607f3e5",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/DiffHunk.cs": {
+    "mtime": 1791446166.6175072,
+    "seen": 1791448833.1751454,
+    "ast_hash": "cab046d28b839df0bb58691114ba2e96",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/DiffLine.cs": {
+    "mtime": 1791446166.6212876,
+    "seen": 1791448833.1751454,
+    "ast_hash": "e799255e3dc68c890173063ffc0cc0f0",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/DiffLineType.cs": {
+    "mtime": 1791446166.6224897,
+    "seen": 1791448833.1751454,
+    "ast_hash": "5dd328a83a2ea7fb6969fb26d233baa1",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/DiffResult.cs": {
+    "mtime": 1791446166.6241236,
+    "seen": 1791448833.1751454,
+    "ast_hash": "898b29846812e848c851bddaf69a74ad",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/FileStatus.cs": {
+    "mtime": 1791446166.6241236,
+    "seen": 1791448833.1751454,
+    "ast_hash": "aa3e547e69cf546d04bf14f69b1109e8",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/FileStatusEntry.cs": {
+    "mtime": 1791446166.6276891,
+    "seen": 1791448833.1751454,
+    "ast_hash": "9e8c1bb32f9defd19663816bf4c3d3aa",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/GitConfiguration.cs": {
+    "mtime": 1792352236.7082102,
+    "seen": 1792353217.5656452,
+    "ast_hash": "41cd5669c68f73eaa6156f8ea8a7a3c2",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/GitStatus.cs": {
+    "mtime": 1791446166.6315167,
+    "seen": 1791448833.1751454,
+    "ast_hash": "57f87b331443c7cd0a2202d87985e0c4",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Lad/LadElementLayout.cs": {
+    "mtime": 1791446166.632605,
+    "seen": 1791448833.1751454,
+    "ast_hash": "fbdc38140721a26f5d22dd8dec7e64c5",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Lad/LadElementType.cs": {
+    "mtime": 1791446166.6354058,
+    "seen": 1791448833.1751454,
+    "ast_hash": "3c515557805cc0009df1068a3c1fda86",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Lad/LadNetworkLayout.cs": {
+    "mtime": 1791446166.6406257,
+    "seen": 1791448833.1751454,
+    "ast_hash": "8985a7e77d6f84e195e79f4783ed505a",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Lad/LadNetworkPairLayout.cs": {
+    "mtime": 1791446166.6406257,
+    "seen": 1791448833.1751454,
+    "ast_hash": "2c57e9e07d8b8f2e3ebda16ec8eaf25f",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Lad/LadPinLayout.cs": {
+    "mtime": 1791446166.6447282,
+    "seen": 1791448833.1751454,
+    "ast_hash": "182baaabf60ff5a451b1d62d8871d681",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Lad/LadWireSegment.cs": {
+    "mtime": 1791446166.6447282,
+    "seen": 1791448833.1751454,
+    "ast_hash": "2e56180beee69c56ac0e9eda393f0333",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/OperationResult.cs": {
+    "mtime": 1791446166.6447282,
+    "seen": 1791448833.1751454,
+    "ast_hash": "1978ce00e4f948b16f46f595205ce6c3",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/RemoteInfo.cs": {
+    "mtime": 1791446166.6487975,
+    "seen": 1791448833.1751454,
+    "ast_hash": "08695cfa8a31ff91c81ef5c2fb983dbc",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Sact/CompareState.cs": {
+    "mtime": 1791446166.6511023,
+    "seen": 1791448833.1751454,
+    "ast_hash": "876bf98f653c98965425841d010648d1",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Sact/SactCompareResult.cs": {
+    "mtime": 1791446166.6511023,
+    "seen": 1791448833.1751454,
+    "ast_hash": "6fa59bdbcf52f37eb7eafffe5b98c26f",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Sact/SactComponentData.cs": {
+    "mtime": 1791446166.6528106,
+    "seen": 1791448833.1751454,
+    "ast_hash": "781adc7bbad4a528476ccfc912e37883",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Sact/SactConnectorData.cs": {
+    "mtime": 1791446166.662401,
+    "seen": 1791448833.1751454,
+    "ast_hash": "f3bf2ba8d638cbf2c6af2eb529ea7c24",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Sact/SactContentResult.cs": {
+    "mtime": 1791446166.6637561,
+    "seen": 1791448833.1751454,
+    "ast_hash": "9d6d49264594636dc80e56d8ea5acf99",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Sact/SactInterfaceMemberComparison.cs": {
+    "mtime": 1791446166.666669,
+    "seen": 1791448833.1751454,
+    "ast_hash": "a664c67f16069616e89871d8ebcd668c",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Sact/SactInterfaceResult.cs": {
+    "mtime": 1791446166.666669,
+    "seen": 1791448833.1751454,
+    "ast_hash": "fd47f46a55973e1dab4071e5d09d1738",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Sact/SactInterfaceSections.cs": {
+    "mtime": 1791446166.670346,
+    "seen": 1791448833.1751454,
+    "ast_hash": "1df55a407b8c00f1dd58144b049af43d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Sact/SactNetworkResult.cs": {
+    "mtime": 1791446166.673203,
+    "seen": 1791448833.1751454,
+    "ast_hash": "a542569a8f3d0002043ba4ca5560261b",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Sact/SactNumberPair.cs": {
+    "mtime": 1791446166.6742587,
+    "seen": 1791448833.1751454,
+    "ast_hash": "3cbcb460ec22c43d87dd78fa07b45ff7",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Sact/SactOperandConnector.cs": {
+    "mtime": 1791446166.6762178,
+    "seen": 1791448833.1751454,
+    "ast_hash": "8822f0b9a3d9d6b372e34d28ba60a9dd",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Sact/SactParameterData.cs": {
+    "mtime": 1791446166.6791565,
+    "seen": 1791448833.1751454,
+    "ast_hash": "686bb3200c35389db94675a765ae2395",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Reporting/DiffPdfReport.cs": {
+    "mtime": 1791446166.6811016,
+    "seen": 1791448833.1751454,
+    "ast_hash": "caca77d3d50682a63902edf5b8d9687c",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Reporting/HistoryPdfReport.cs": {
+    "mtime": 1791446166.6830316,
+    "seen": 1791448833.1751454,
+    "ast_hash": "f9acebe16b0ab4938d2aa20fdfe14fe0",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Reporting/PdfReport.cs": {
+    "mtime": 1791446166.6830316,
+    "seen": 1791448833.1751454,
+    "ast_hash": "2e272ebb08038bc31029212286875429",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Reporting/PdfReportWriter.cs": {
+    "mtime": 1791446166.6867056,
+    "seen": 1791448833.1751454,
+    "ast_hash": "f32b27b76828526d74baea48535dd70d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Comparison/ComparisonDiagnosticSanitizer.cs": {
+    "mtime": 1791446166.6870239,
+    "seen": 1791448833.1751454,
+    "ast_hash": "d00ed15f2e998ae9e895821abdb4c712",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Comparison/IPlcComparisonStrategy.cs": {
+    "mtime": 1791446166.6870239,
+    "seen": 1791448833.1751454,
+    "ast_hash": "fb656ddf88186991b420335c466a5b11",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Comparison/ITextComparer.cs": {
+    "mtime": 1791446166.6905005,
+    "seen": 1791448833.1751454,
+    "ast_hash": "f0bb54526ba8235abf596168dac5c1e4",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Comparison/InterfaceComparer.cs": {
+    "mtime": 1791446166.692421,
+    "seen": 1791448833.1751454,
+    "ast_hash": "4a6b778d66b6d4b8d868eb8a3d4b17fb",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Comparison/InterfaceSnapshotBuilder.cs": {
+    "mtime": 1791446166.692421,
+    "seen": 1791448833.1751454,
+    "ast_hash": "6b370ecbcdc9a3b48700efc90ee7eaa0",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Comparison/LadComparisonStrategy.cs": {
+    "mtime": 1791446166.6953478,
+    "seen": 1791448833.1751454,
+    "ast_hash": "677e22447e79c8dd67b124a64542dc17",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Comparison/LineTextComparer.cs": {
+    "mtime": 1791446166.6999657,
+    "seen": 1791448833.1751454,
+    "ast_hash": "b38d6ec8ce2e8276e230ce10a41791ca",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Comparison/PlcArtifactClassifier.cs": {
+    "mtime": 1791446166.6999657,
+    "seen": 1791448833.1751454,
+    "ast_hash": "0cbc13f9d5fff16fbaad435459a9a267",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Comparison/PlcComparisonCoordinator.cs": {
+    "mtime": 1791446166.703711,
+    "seen": 1791448833.1751454,
+    "ast_hash": "fd8b11fff8a91de7ad3f2b43ba4d3088",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Comparison/PlcComparisonResultFactory.cs": {
+    "mtime": 1792269644.0645814,
+    "seen": 1792353217.5656452,
+    "ast_hash": "272def85afc13390055992ee0c0defd7",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Comparison/SactCompareResultCloner.cs": {
+    "mtime": 1791446166.7061617,
+    "seen": 1791448833.1751454,
+    "ast_hash": "80b8214009ed29c65c8d92d51117deed",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Comparison/SclLexicalProbe.cs": {
+    "mtime": 1791446166.7061617,
+    "seen": 1791448833.1751454,
+    "ast_hash": "73e4b8ed97200be001d223f5665f7b47",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Comparison/SimaticMlEvidenceReader.cs": {
+    "mtime": 1791446166.7107296,
+    "seen": 1791448833.1751454,
+    "ast_hash": "82ebde91ad4c98a29dd3802723669778",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Comparison/TextFallbackStrategy.cs": {
+    "mtime": 1792271505.5539591,
+    "seen": 1792353217.5656452,
+    "ast_hash": "91fa041add2ee2ad659f19c10bf16a8a",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/GitArgumentEscaper.cs": {
+    "mtime": 1791446166.7107296,
+    "seen": 1791448833.1751454,
+    "ast_hash": "a6b358cf964bdb9368c9ac7379a124a2",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/GitExecutableLocator.cs": {
+    "mtime": 1791447448.5378432,
+    "seen": 1791448833.1751454,
+    "ast_hash": "e2b8da0cea39a0c2740be4117c9de30c",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/GitOperationInProgressException.cs": {
+    "mtime": 1791446166.7142897,
+    "seen": 1791448833.1751454,
+    "ast_hash": "f2be20596d26e565d47f95123294e89d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/GitOutputParser.cs": {
+    "mtime": 1792153413.9773185,
+    "seen": 1792153577.7908072,
+    "ast_hash": "b579c4a72566fffcec9b75027665fbf7",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/GitProcessResult.cs": {
+    "mtime": 1791446166.7166202,
+    "seen": 1791448833.1751454,
+    "ast_hash": "1e1bb550997b5af906d6ef49e9422f7c",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/GitRepositoryInitializer.cs": {
+    "mtime": 1791447312.4952922,
+    "seen": 1791448833.1751454,
+    "ast_hash": "e7780d7ade58e50641f01a81523fead9",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/GitService.cs": {
+    "mtime": 1792343619.3906188,
+    "seen": 1792353217.5656452,
+    "ast_hash": "f0a4d07eac0f76dea507f9ba60faee98",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/GitUserMessages.cs": {
+    "mtime": 1791447293.8889177,
+    "seen": 1791448833.1751454,
+    "ast_hash": "3444ad84f95d64c0d08abffea0751103",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/IGitProcessRunner.cs": {
+    "mtime": 1791446166.7207377,
+    "seen": 1791448833.1751454,
+    "ast_hash": "83829fce5e8925a00f205c4d0904ccef",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/IGitRepositoryInitializer.cs": {
+    "mtime": 1791447294.1880007,
+    "seen": 1791448833.1751454,
+    "ast_hash": "d4ef963a341f06bee430f65fabf2557d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/IGitService.cs": {
+    "mtime": 1792343616.1338084,
+    "seen": 1792353217.5656452,
+    "ast_hash": "8830b97746b1b6e7c3f8ba6cf446d685",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/IRepositoryDiscovery.cs": {
+    "mtime": 1791446166.7272372,
+    "seen": 1791448833.1751454,
+    "ast_hash": "387d7cee99d684683b8c69dc48922783",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/IVciWorkspaceLocator.cs": {
+    "mtime": 1791446166.7306707,
+    "seen": 1791448833.1751454,
+    "ast_hash": "592089f6274b07ecf57c86c1fd82b850",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/LadLayoutEngine.cs": {
+    "mtime": 1791446166.7306707,
+    "seen": 1791448833.1751454,
+    "ast_hash": "e92000fc8e237542708d5ed70b1b3d9d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/OperationSerializer.cs": {
+    "mtime": 1791446166.738547,
+    "seen": 1791448833.1751454,
+    "ast_hash": "6f02e1e2dcbc87c62635a0fb5e9fcc3d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/RepositoryDiscovery.cs": {
+    "mtime": 1791446166.738547,
+    "seen": 1791448833.1751454,
+    "ast_hash": "52a09ad6ed5898e4b5b62d1b71a44afe",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Revision/GitBlobReader.cs": {
+    "mtime": 1791446166.742259,
+    "seen": 1791448833.1751454,
+    "ast_hash": "65f254f47856fc688df39084ce909d7e",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Revision/IGitBinaryProcessRunner.cs": {
+    "mtime": 1791446166.7459884,
+    "seen": 1791448833.1751454,
+    "ast_hash": "e897af341f32ff22b17499fb42dd0a63",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Revision/IGitBlobReader.cs": {
+    "mtime": 1791446166.7479799,
+    "seen": 1791448833.1751454,
+    "ast_hash": "768e9be0c272501242e8f182b43062c0",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Revision/IPlcRevisionProvider.cs": {
+    "mtime": 1791446166.7479799,
+    "seen": 1791448833.1751454,
+    "ast_hash": "efbf00929e3ee23ec78cb04fdcc083e0",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Revision/PlcRevisionLease.cs": {
+    "mtime": 1791446166.7514453,
+    "seen": 1791448833.1751454,
+    "ast_hash": "6f241f705c32603fe50e17a9c90b36f5",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Revision/PlcRevisionProvider.cs": {
+    "mtime": 1791446166.753311,
+    "seen": 1791448833.1751454,
+    "ast_hash": "4ff5b9e4a673a7c7c2a0d63110f86e02",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Revision/RevisionExceptions.cs": {
+    "mtime": 1791446166.753311,
+    "seen": 1791448833.1751454,
+    "ast_hash": "ecf2b9b7c87f9cbb6c41b42a232564c5",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/SimaticMl/ISimaticMlSchemaLocator.cs": {
+    "mtime": 1791446166.757545,
+    "seen": 1791448833.1751454,
+    "ast_hash": "3726b0c0dc75289e614205176462987d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/SimaticMl/LadVisualGraphBuilder.cs": {
+    "mtime": 1791446166.7606428,
+    "seen": 1791448833.1751454,
+    "ast_hash": "d948b100ee825f80832838e5d4049e79",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/SimaticMl/SimaticMlComparer.cs": {
+    "mtime": 1791446166.7606428,
+    "seen": 1791448833.1751454,
+    "ast_hash": "5e207d680b9a81d9794baba7c4800b1e",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/SimaticMl/SimaticMlModels.cs": {
+    "mtime": 1791446166.7635214,
+    "seen": 1791448833.1751454,
+    "ast_hash": "526634f27ea727941398e115ee32d16d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/SimaticMl/SimaticMlParseResult.cs": {
+    "mtime": 1791446166.7635214,
+    "seen": 1791448833.1751454,
+    "ast_hash": "2c02e6a5dc7df3aa908c849add6b1f47",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/SimaticMl/SimaticMlParser.cs": {
+    "mtime": 1791446166.7697392,
+    "seen": 1791448833.1751454,
+    "ast_hash": "a4dcf165550cb4170c12e9bd20184907",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/SimaticMl/SimaticMlParserLimits.cs": {
+    "mtime": 1791446166.7697392,
+    "seen": 1791448833.1751454,
+    "ast_hash": "024074ccd850b820cf1fde5ef9cec907",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/SimaticMl/SimaticMlReader.cs": {
+    "mtime": 1791446166.7735245,
+    "seen": 1791448833.1751454,
+    "ast_hash": "7f9253b9d1b82d014f6f17259154e3fd",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/SimaticMl/SimaticMlSchemaLocator.cs": {
+    "mtime": 1791446166.7760892,
+    "seen": 1791448833.1751454,
+    "ast_hash": "394e88e61371132445eb68f1be301375",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/SimaticMl/SimaticMlSchemaModels.cs": {
+    "mtime": 1791446166.7770698,
+    "seen": 1791448833.1751454,
+    "ast_hash": "4d935aed5d8cf1d51c7741538ab52278",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/SimaticMl/SimaticMlSchemaValidator.cs": {
+    "mtime": 1791446166.7810156,
+    "seen": 1791448833.1751454,
+    "ast_hash": "2b350e508ce75268d7aa83c9d18c0130",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/SimaticMl/SimaticMlToSactMapper.cs": {
+    "mtime": 1791446166.783444,
+    "seen": 1791448833.1751454,
+    "ast_hash": "d18bd3168924410593fabd0d18e61614",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/VciWorkspaceLocator.cs": {
+    "mtime": 1791446166.783444,
+    "seen": 1791448833.1751454,
+    "ast_hash": "d7061455574632a0650abb903ec97331",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/TiaGitAddIn.Core.csproj": {
+    "mtime": 1791446166.7867284,
+    "seen": 1791448833.1751454,
+    "ast_hash": "2dd4bbef3a26e530c4012f35367952c4",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.IntegrationTests/Architecture/ComparisonProjectBoundaryTests.cs": {
+    "mtime": 1791446166.792616,
+    "seen": 1791448833.1751454,
+    "ast_hash": "300ec69dbd3990de624431978c4b70e3",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.IntegrationTests/Reporting/PdfReportTests.cs": {
+    "mtime": 1791446166.7938783,
+    "seen": 1791448833.1751454,
+    "ast_hash": "ca9ac4106c815a9630590ef906184314",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.IntegrationTests/Services/GitRepositoryInitializerTests.cs": {
+    "mtime": 1791447353.6178143,
+    "seen": 1791448833.1751454,
+    "ast_hash": "6162991ea1248737c540ef666b2af3d6",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.IntegrationTests/Services/GitServiceRestoreTests.cs": {
+    "mtime": 1791446166.7991364,
+    "seen": 1791448833.1751454,
+    "ast_hash": "25e6dedc781c7b4d92ae09bd1cebd64b",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.IntegrationTests/Services/GitServiceWorkspaceCommandTests.cs": {
+    "mtime": 1792152405.5895443,
+    "seen": 1792153577.7908072,
+    "ast_hash": "497228012096d4904030469daa0717c1",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.IntegrationTests/TestData/VciGitWorkflow/manifest.json": {
+    "mtime": 1791446166.8059175,
+    "seen": 1791448833.1751454,
+    "ast_hash": "7745038c5b959f5312a9cc75891a8958",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.IntegrationTests/TiaGitAddIn.IntegrationTests.csproj": {
+    "mtime": 1791446166.8059175,
+    "seen": 1791448833.1751454,
+    "ast_hash": "b22550ad113bce075cc49f3886c10350",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Architecture/ComparisonBoundaryTests.cs": {
+    "mtime": 1791446166.810982,
+    "seen": 1791448833.1751454,
+    "ast_hash": "bff708b2c0fdcaa1e23d3517b00a0071",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Comparison/ComparisonDiagnosticSanitizerTests.cs": {
+    "mtime": 1791446166.810982,
+    "seen": 1791448833.1751454,
+    "ast_hash": "ea7b1ce69449848170b5cbfc3e7481a4",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Comparison/ComparisonTestData.cs": {
+    "mtime": 1791446166.810982,
+    "seen": 1791448833.1751454,
+    "ast_hash": "444840ba1573a028c628c9ed5f194f4c",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Comparison/LineTextComparerTests.cs": {
+    "mtime": 1791446166.8184564,
+    "seen": 1791448833.1751454,
+    "ast_hash": "40cb19c20aaaffe0ccfd30a0d79c3e36",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Comparison/PlcArtifactClassifierTests.cs": {
+    "mtime": 1791446166.820244,
+    "seen": 1791448833.1751454,
+    "ast_hash": "a001bc81a0d75c4d4e19e252061d5e49",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Comparison/PlcComparisonContractTests.cs": {
+    "mtime": 1791446166.820244,
+    "seen": 1791448833.1751454,
+    "ast_hash": "e401e28bfcb9dc56701634b2e6002a2e",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Comparison/PlcComparisonCoordinatorTests.cs": {
+    "mtime": 1791446166.8226466,
+    "seen": 1791448833.1751454,
+    "ast_hash": "3dc5bda88226b9cfdbb18ff6ed38d4e2",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Comparison/SclLexicalProbeTests.cs": {
+    "mtime": 1791446166.8249257,
+    "seen": 1791448833.1751454,
+    "ast_hash": "dff58e7d65b506100d1f1a766a567801",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Comparison/SimaticMlEvidenceReaderTests.cs": {
+    "mtime": 1791446166.8265347,
+    "seen": 1791448833.1751454,
+    "ast_hash": "6642b646a9e50aa3525da33dedc1f629",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Comparison/TextFallbackStrategyTests.cs": {
+    "mtime": 1791446166.8306656,
+    "seen": 1791448833.1751454,
+    "ast_hash": "81ea57f001d4a3b0880e704a942fc56d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Configuration/AddInPublisherConfigurationTests.cs": {
+    "mtime": 1791446166.832995,
+    "seen": 1791448833.1751454,
+    "ast_hash": "273501af62d024d0f8a4e2385b93cca5",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Configuration/ConfigurationServiceTests.cs": {
+    "mtime": 1792352923.276084,
+    "seen": 1792353217.5656452,
+    "ast_hash": "be068aa5cb7a20367a2ee87de1a46593",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Configuration/PathValidatorTests.cs": {
+    "mtime": 1791446166.8378167,
+    "seen": 1791448833.1751454,
+    "ast_hash": "e21ca9c9d37e6b8ff2815f7bdf3021b8",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Configuration/ProjectBoundaryTests.cs": {
+    "mtime": 1791446166.8418372,
+    "seen": 1791448833.1751454,
+    "ast_hash": "503e8c0c6db6aef10cb5f7d943dc368b",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Configuration/ReleaseWorkflowTests.cs": {
+    "mtime": 1791446166.8418372,
+    "seen": 1791448833.1751454,
+    "ast_hash": "6d8bf0f6897044dd86d69f73c4229d52",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Entry/MenuSelectionContextResolverTests.cs": {
+    "mtime": 1791446166.8418372,
+    "seen": 1791448833.1751454,
+    "ast_hash": "9a7ca41ba7badc97d87433862d997b0b",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Models/GitStatusTests.cs": {
+    "mtime": 1791446166.8445663,
+    "seen": 1791448833.1751454,
+    "ast_hash": "911ee3ecc6d16eeb00bd2f49ec31a1c5",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Revision/EncodingFixture.cs": {
+    "mtime": 1791446166.8445663,
+    "seen": 1791448833.1751454,
+    "ast_hash": "0b454537f09699cd30697c9af2af5694",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Revision/FakeGitBlobReader.cs": {
+    "mtime": 1791446166.8465703,
+    "seen": 1791448833.1751454,
+    "ast_hash": "73e25506ec5a25e5acb02286bb0ca7db",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Revision/PlcRevisionLeaseTests.cs": {
+    "mtime": 1791446166.8473232,
+    "seen": 1791448833.1751454,
+    "ast_hash": "ae3049c5f7b4070738cc93f56b474d74",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Revision/PlcRevisionProviderTests.cs": {
+    "mtime": 1791446166.8482738,
+    "seen": 1791448833.1751454,
+    "ast_hash": "26ea7d110377700f34f4e85c98cc2464",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Services/GitArgumentEscaperTests.cs": {
+    "mtime": 1791446166.8490167,
+    "seen": 1791448833.1751454,
+    "ast_hash": "d5c16e375cb7a8e53dba247ee447d3f9",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Services/GitOutputParserTests.cs": {
+    "mtime": 1792153417.6512325,
+    "seen": 1792153577.7908072,
+    "ast_hash": "cea1e936c4d3ab03b4dd9cb6204929bd",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Services/GitProcessRunnerTests.cs": {
+    "mtime": 1791446166.8538542,
+    "seen": 1791448833.1751454,
+    "ast_hash": "8af636b29d3ef60bdb153899e5a322ca",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Services/InterfaceComparerTests.cs": {
+    "mtime": 1791446166.8554852,
+    "seen": 1791448833.1751454,
+    "ast_hash": "83ac71285912f149af54461c5da1a284",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Services/LadComparisonStrategyTests.cs": {
+    "mtime": 1791446166.8562245,
+    "seen": 1791448833.1751454,
+    "ast_hash": "fb67960d10cd9c54635c0b556901f433",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Services/LadLayoutEngineTests.cs": {
+    "mtime": 1791446166.85776,
+    "seen": 1791448833.1751454,
+    "ast_hash": "6a43dcaf4477da189196008dc9f08f80",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Services/OperationSerializerTests.cs": {
+    "mtime": 1791446166.8622267,
+    "seen": 1791448833.1751454,
+    "ast_hash": "29bb68be40abd5e9c3210b30ffe4ed4d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Services/SimaticMlComparerTests.cs": {
+    "mtime": 1791446166.865449,
+    "seen": 1791448833.1751454,
+    "ast_hash": "b2b7f1b2f8c57c24820cc29648bbb276",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Services/SimaticMlParserSecurityTests.cs": {
+    "mtime": 1791446166.8670688,
+    "seen": 1791448833.1751454,
+    "ast_hash": "a588d2bd49b5317eacb9bee79e4426a1",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Services/SimaticMlParserTests.cs": {
+    "mtime": 1791446166.8691437,
+    "seen": 1791448833.1751454,
+    "ast_hash": "6313f8b0966da0c76bb6563c84fa7e24",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Services/SimaticMlSchemaLocatorTests.cs": {
+    "mtime": 1791446166.8708024,
+    "seen": 1791448833.1751454,
+    "ast_hash": "ddf979837726892b2dba3db06a56a2c8",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Services/SimaticMlSchemaValidatorTests.cs": {
+    "mtime": 1791446166.8753598,
+    "seen": 1791448833.1751454,
+    "ast_hash": "3bd19916969d90b97121cd80a11f422a",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Services/SimaticMlToSactMapperTests.cs": {
+    "mtime": 1791446166.8764718,
+    "seen": 1791448833.1751454,
+    "ast_hash": "42886c3366e1aa0714475938e1fbbef7",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Services/VciWorkspaceLocatorTests.cs": {
+    "mtime": 1791446166.8781762,
+    "seen": 1791448833.1751454,
+    "ast_hash": "da6f3201a4a80772bad4051aefb52f4e",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/TiaGitAddIn.Tests.csproj": {
+    "mtime": 1792164451.915366,
+    "seen": 1792164581.2868683,
+    "ast_hash": "6d22a0cad967697e51cb82ba7ab193a4",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/UI/CommitViewModelTests.cs": {
+    "mtime": 1792343631.6110387,
+    "seen": 1792353217.5656452,
+    "ast_hash": "fcd3bad50fe9061927dc2b7867664ede",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/UI/CommitViewXamlTests.cs": {
+    "mtime": 1791446166.8861957,
+    "seen": 1791448833.1751454,
+    "ast_hash": "3e089f67dfacd717fe004af00ee40f89",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/UI/ComparisonPresentationMapperTests.cs": {
+    "mtime": 1791446166.8861957,
+    "seen": 1791448833.1751454,
+    "ast_hash": "ea5a1c84855612961deb816f2851d1d5",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/UI/ComparisonSelectionCoordinatorTests.cs": {
+    "mtime": 1791446166.88916,
+    "seen": 1791448833.1751454,
+    "ast_hash": "ac588705018190a03b0ed6c46b59b2db",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/UI/ComparisonViewSmokeTests.cs": {
+    "mtime": 1791446166.8911574,
+    "seen": 1791448833.1751454,
+    "ast_hash": "236aa3a0e487b779bde7ed8bf069c26b",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/UI/DiffViewModelTests.cs": {
+    "mtime": 1792353011.6477406,
+    "seen": 1792353217.5656452,
+    "ast_hash": "49e0d79cac7e267188a155d4dd7e0955",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/UI/GitPanelLaunchServiceTests.cs": {
+    "mtime": 1792343626.852857,
+    "seen": 1792353217.5656452,
+    "ast_hash": "bc38084123846cf97a9769121f7f0efb",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/UI/GitPanelWindowTests.cs": {
+    "mtime": 1792343634.8610392,
+    "seen": 1792353217.5656452,
+    "ast_hash": "289bbe7aed067f64305e79d76f0bb97b",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/UI/HistoryViewModelTests.cs": {
+    "mtime": 1792343624.164134,
+    "seen": 1792353217.5656452,
+    "ast_hash": "3711e7228e03a439c3074a3fdb9e7757",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/UI/LadDiffViewXamlTests.cs": {
+    "mtime": 1791446166.8950346,
+    "seen": 1791448833.1751454,
+    "ast_hash": "e1e839a76cb1c3db25f12777a19a9aac",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/UI/StatusViewModelTests.cs": {
+    "mtime": 1792352929.250087,
+    "seen": 1792353217.5656452,
+    "ast_hash": "f9f5e8d796899d77085151d4ac824dc5",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/UI/WpfTestHost.cs": {
+    "mtime": 1791446166.896878,
+    "seen": 1791448833.1751454,
+    "ast_hash": "2621b2650c04e200c22f31884590046c",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/Entry/GitVciEditorProvider.cs": {
+    "mtime": 1792161282.7491708,
+    "seen": 1792161450.9279761,
+    "ast_hash": "136e4b6992f61e1e2eae972de85d515a",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/Entry/GitVciWorkspaceMenu.cs": {
+    "mtime": 1792166017.5713694,
+    "seen": 1792353217.5656452,
+    "ast_hash": "aee1d25a4e20c60263966130e07cf98d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/Entry/GitVciWorkspaceViewProvider.cs": {
+    "mtime": 1791446166.9039123,
+    "seen": 1791448833.1751454,
+    "ast_hash": "6c8c31eb29f31dc137decb64d07246b6",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/Entry/MenuSelectionContextResolver.cs": {
+    "mtime": 1791446166.9039123,
+    "seen": 1791448833.1751454,
+    "ast_hash": "93430918e6089d6c263acf957f7a6a81",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/Services/GitProcessRunner.cs": {
+    "mtime": 1791446166.9062884,
+    "seen": 1791448833.1751454,
+    "ast_hash": "52f42a897871c02471a2f521b4f178dd",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/TiaGitAddIn.csproj": {
+    "mtime": 1792344060.60061,
+    "seen": 1792353217.5656452,
+    "ast_hash": "e8df46fc1f5bcf52dc99f6e583e946f4",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/AsyncCommand.cs": {
+    "mtime": 1791446166.9091485,
+    "seen": 1791448833.1751454,
+    "ast_hash": "291b57fc12579656649a7aa9d8be66bf",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Converters/BoolToVisibilityConverter.cs": {
+    "mtime": 1791446166.9091485,
+    "seen": 1791448833.1751454,
+    "ast_hash": "538ea8b48ae7971423ddd0b6b35d2c0b",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Converters/CompareStateToColorConverter.cs": {
+    "mtime": 1792352419.6930466,
+    "seen": 1792353217.5656452,
+    "ast_hash": "f29d5e06e2a09ac76dc2bb3a14d0fd40",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Converters/DiffLineTypeToColorConverter.cs": {
+    "mtime": 1792352423.159891,
+    "seen": 1792353217.5656452,
+    "ast_hash": "b6bcaddbcfd3677e66db514e96772bd4",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Converters/FileStatusToColorConverter.cs": {
+    "mtime": 1791446166.9188848,
+    "seen": 1791448833.1751454,
+    "ast_hash": "7bb10325c2d649d8bd1807a63acdab12",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Converters/LadElementTypeToGeometryConverter.cs": {
+    "mtime": 1791446166.9188848,
+    "seen": 1791448833.1751454,
+    "ast_hash": "13bd9c2c77ebb472b2ecef8595b08dd4",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/GitPanelLaunchResult.cs": {
+    "mtime": 1791446166.9188848,
+    "seen": 1791448833.1751454,
+    "ast_hash": "8ad2915f47b86712c6fce278b33e8658",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/GitPanelLaunchService.cs": {
+    "mtime": 1792271506.8082364,
+    "seen": 1792353217.5656452,
+    "ast_hash": "9ff5fbcb24274e508ac6260c74988605",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/IUiDispatcher.cs": {
+    "mtime": 1791446166.921473,
+    "seen": 1791448833.1751454,
+    "ast_hash": "dac9673f2e22a30ef105336b85d190d3",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ImmediateUiDispatcher.cs": {
+    "mtime": 1791446166.9234009,
+    "seen": 1791448833.1751454,
+    "ast_hash": "1101a06680b3c4386eafa258c1b6cbab",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Mapping/ComparisonPresentationMapper.cs": {
+    "mtime": 1791446166.9234009,
+    "seen": 1791448833.1751454,
+    "ast_hash": "2fca16917c97f8b7879d702746da89d4",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Mapping/ErrorPresentationViewModelFactory.cs": {
+    "mtime": 1791446166.9270642,
+    "seen": 1791448833.1751454,
+    "ast_hash": "75fb2c3d060d69c4c110ea2e7df0ce19",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Mapping/IComparisonPresentationMapper.cs": {
+    "mtime": 1791446166.9280572,
+    "seen": 1791448833.1751454,
+    "ast_hash": "556583696e15db0fd48779ffb62c45c6",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Mapping/IComparisonPresentationViewModelFactory.cs": {
+    "mtime": 1791446166.9280572,
+    "seen": 1791448833.1751454,
+    "ast_hash": "7c24d9ae0582ede09d67f0a9a0181e8d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Mapping/InterfacePresentationViewModelFactory.cs": {
+    "mtime": 1791446166.9309964,
+    "seen": 1791448833.1751454,
+    "ast_hash": "994352aafa69272f6cb969c0efcd9da3",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Mapping/LadPresentationViewModelFactory.cs": {
+    "mtime": 1791446166.9317176,
+    "seen": 1791448833.1751454,
+    "ast_hash": "b2798edf075b79f9b34e45a3c65efa0c",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Mapping/TextPresentationViewModelFactory.cs": {
+    "mtime": 1791446166.9317176,
+    "seen": 1791448833.1751454,
+    "ast_hash": "e3506e5fa69bcb1591e7fa29c4e9da46",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Mapping/UnsupportedPresentationViewModelFactory.cs": {
+    "mtime": 1791446166.9317176,
+    "seen": 1791448833.1751454,
+    "ast_hash": "0bb79e58139565f12a1cad7fff2df6d5",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/RepositoryInitPrompt.cs": {
+    "mtime": 1791447303.9575405,
+    "seen": 1791448833.1751454,
+    "ast_hash": "1a6b8a3a74b075c9a7c377f95c1cf77b",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/BranchViewModel.cs": {
+    "mtime": 1792152405.9858398,
+    "seen": 1792153577.7908072,
+    "ast_hash": "aa057277af91c8d40729c49f480b54f4",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/CommitViewModel.cs": {
+    "mtime": 1791446166.935973,
+    "seen": 1791448833.1751454,
+    "ast_hash": "ce9c4c106a519b9da962f1193c7f1027",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/Comparison/ComparisonDiagnosticViewModel.cs": {
+    "mtime": 1791446166.9392686,
+    "seen": 1791448833.1751454,
+    "ast_hash": "7f267a8dfcebaacf9f6142a18288d740",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/Comparison/ComparisonPresentationViewModel.cs": {
+    "mtime": 1791446166.9392686,
+    "seen": 1791448833.1751454,
+    "ast_hash": "f6047e2d451cd8adab950a1762c644cf",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/Comparison/ComparisonRawTextViewModel.cs": {
+    "mtime": 1791446166.9436915,
+    "seen": 1791448833.1751454,
+    "ast_hash": "573c05166c79ca2e59ad05aee81960af",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/Comparison/ComparisonSelection.cs": {
+    "mtime": 1791446166.9436915,
+    "seen": 1791448833.1751454,
+    "ast_hash": "282359e8c0c04ad722daf2a6f471977d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/Comparison/ComparisonSelectionCoordinator.cs": {
+    "mtime": 1791446166.9436915,
+    "seen": 1791448833.1751454,
+    "ast_hash": "7f5222a5e1b0892b0043aeb9f7e06c91",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/Comparison/ComparisonViewModelMetadata.cs": {
+    "mtime": 1791446166.9455159,
+    "seen": 1791448833.1751454,
+    "ast_hash": "4b018835c7989751427493404f0ddfee",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/Comparison/ErrorComparisonViewModel.cs": {
+    "mtime": 1791446166.9475577,
+    "seen": 1791448833.1751454,
+    "ast_hash": "74c3e48837a1d33aa8b1d4477d0ccaf9",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/Comparison/InterfaceComparisonViewModel.cs": {
+    "mtime": 1791446166.9475577,
+    "seen": 1791448833.1751454,
+    "ast_hash": "91a61fba27cb790be3fbc221e60bd67b",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/Comparison/LadComparisonViewModel.cs": {
+    "mtime": 1791446166.9496696,
+    "seen": 1791448833.1751454,
+    "ast_hash": "cea93026cbf974fa7ba5091a1fa69f64",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/Comparison/TextComparisonViewModel.cs": {
+    "mtime": 1792153737.8608053,
+    "seen": 1792153845.7736309,
+    "ast_hash": "b9bdc093e4985fee362305d0ec59b74e",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/Comparison/UnsupportedComparisonViewModel.cs": {
+    "mtime": 1791446166.9515786,
+    "seen": 1791448833.1751454,
+    "ast_hash": "8007af337c69bc4779e8d42322a07960",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/DiffViewModel.cs": {
+    "mtime": 1792353121.36547,
+    "seen": 1792353217.5656452,
+    "ast_hash": "6a8177d0e801503c9070e6c96265d9f5",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/FileStatusItemViewModel.cs": {
+    "mtime": 1792352427.155755,
+    "seen": 1792353217.5656452,
+    "ast_hash": "0fd54a00c9f4d57bc9c2da61ae520f34",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/HistoryViewModel.cs": {
+    "mtime": 1792352546.936416,
+    "seen": 1792353217.5656452,
+    "ast_hash": "987c8ec803d6b6bb945a602d0694b41f",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/LadDiffViewModel.cs": {
+    "mtime": 1792352609.740291,
+    "seen": 1792353217.5656452,
+    "ast_hash": "3900e53e4ce9149ab80fc34b86220a93",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/LadElementViewModel.cs": {
+    "mtime": 1791446166.9579265,
+    "seen": 1791448833.1751454,
+    "ast_hash": "c169f8fd36c56e9171b6eaae10f518fc",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/LadNetworkPairViewModel.cs": {
+    "mtime": 1791446166.9590902,
+    "seen": 1791448833.1751454,
+    "ast_hash": "804bf97c6374b1f5a883049e627ee26b",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/LadNetworkViewModel.cs": {
+    "mtime": 1791446166.9617348,
+    "seen": 1791448833.1751454,
+    "ast_hash": "2e0d94d01fabe99fad4405658bc1e636",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/LadPinViewModel.cs": {
+    "mtime": 1791446166.9628422,
+    "seen": 1791448833.1751454,
+    "ast_hash": "48912d90e4777c46b006c93286296d7c",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/LadWireViewModel.cs": {
+    "mtime": 1791446166.9638336,
+    "seen": 1791448833.1751454,
+    "ast_hash": "562d1e7468307e36f9613f4a08324348",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/MainViewModel.cs": {
+    "mtime": 1792353173.5576224,
+    "seen": 1792353217.5656452,
+    "ast_hash": "9281f45fb367d1b49df63d55b22a0faf",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/RelayCommand.cs": {
+    "mtime": 1791446166.973251,
+    "seen": 1791448833.1751454,
+    "ast_hash": "fcbe961e8a281a5b5121914f4d898fb7",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/SettingsViewModel.cs": {
+    "mtime": 1792352601.688843,
+    "seen": 1792353217.5656452,
+    "ast_hash": "8cb6008f8848e171f95b45dc62f5489d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/StatusViewModel.cs": {
+    "mtime": 1792352487.6763585,
+    "seen": 1792353217.5656452,
+    "ast_hash": "056b6f4926c1e462bc096b38e7136ed8",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/ViewModelBase.cs": {
+    "mtime": 1791446166.9785702,
+    "seen": 1791448833.1751454,
+    "ast_hash": "806d890b37c6f9d851e35e2f99d5c13b",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/BranchView.xaml": {
+    "mtime": 1791450149.162595,
+    "seen": 1791450211.4122832,
+    "ast_hash": "e05be9bc6e594dd288087ce123051df3",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/BranchView.xaml.cs": {
+    "mtime": 1791446166.983474,
+    "seen": 1791448833.1751454,
+    "ast_hash": "3af6d15a366920cfe313fdc8f61c2440",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/CommitView.xaml": {
+    "mtime": 1791446166.983474,
+    "seen": 1791448833.1751454,
+    "ast_hash": "32aab796765f9171e4787f5669d2eddd",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/CommitView.xaml.cs": {
+    "mtime": 1791446166.983474,
+    "seen": 1791448833.1751454,
+    "ast_hash": "881c6a85017dad19505b9dc46a35a27f",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/Comparison/ComparisonPresentationHost.xaml": {
+    "mtime": 1791446166.983474,
+    "seen": 1791448833.1751454,
+    "ast_hash": "60ebadb828a242690243a7f0224795ce",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/Comparison/ComparisonPresentationHost.xaml.cs": {
+    "mtime": 1791446166.9878328,
+    "seen": 1791448833.1751454,
+    "ast_hash": "7afe35b651aab70d35f0d3890bbc51d1",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/Comparison/ComparisonTemplates.xaml": {
+    "mtime": 1791446166.9918947,
+    "seen": 1791448833.1751454,
+    "ast_hash": "362fc911fae7639de4d91855d23ab3b1",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/Comparison/InterfaceDiffView.xaml": {
+    "mtime": 1791446166.9918947,
+    "seen": 1791448833.1751454,
+    "ast_hash": "1643555da162d24a1a4144d9709793a3",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/Comparison/InterfaceDiffView.xaml.cs": {
+    "mtime": 1791446166.9939637,
+    "seen": 1791448833.1751454,
+    "ast_hash": "00784177a9dd2dfca8a0406e373c1cf7",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/Comparison/TextDiffView.xaml": {
+    "mtime": 1792352776.1146326,
+    "seen": 1792353217.5656452,
+    "ast_hash": "99cbe560f55404c4a258a3b3efbe944f",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/Comparison/TextDiffView.xaml.cs": {
+    "mtime": 1792352783.3576148,
+    "seen": 1792353217.5656452,
+    "ast_hash": "64e2d1e67599adc52bac2083a7af460e",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/DiffView.xaml": {
+    "mtime": 1792352678.0457714,
+    "seen": 1792353217.5656452,
+    "ast_hash": "24613b39df1d3706d7504fc8f3ce4e06",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/DiffView.xaml.cs": {
+    "mtime": 1792352679.4884324,
+    "seen": 1792353217.5656452,
+    "ast_hash": "1eeb550200461c783b4e437a9e92bed3",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/GitPanelWindow.cs": {
+    "mtime": 1792352883.365341,
+    "seen": 1792353217.5656452,
+    "ast_hash": "efbeef8e50e7875a8d225f812481d73d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/HistoryView.xaml": {
+    "mtime": 1792352661.6924012,
+    "seen": 1792353217.5656452,
+    "ast_hash": "73ba55163b7a3eb7e547e87dce723abf",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/HistoryView.xaml.cs": {
+    "mtime": 1792352665.4412055,
+    "seen": 1792353217.5656452,
+    "ast_hash": "dcb9ee8c60395fe975ae21cdcc2f1980",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/LadDiffView.xaml": {
+    "mtime": 1792352755.8826065,
+    "seen": 1792353217.5656452,
+    "ast_hash": "3469dad91972430574ff8f6642a3b9f8",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/LadDiffView.xaml.cs": {
+    "mtime": 1792352775.3865535,
+    "seen": 1792353217.5656452,
+    "ast_hash": "81d2b64400a9730a733d5e8803ebc1d0",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/SettingsView.xaml": {
+    "mtime": 1792352717.145035,
+    "seen": 1792353217.5656452,
+    "ast_hash": "a120c395b7e8d1b48de3f5fb556ecd4e",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/SettingsView.xaml.cs": {
+    "mtime": 1792352717.326198,
+    "seen": 1792353217.5656452,
+    "ast_hash": "8e62d14fe7ca0269eecb87b87b201dfb",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/StatusView.xaml": {
+    "mtime": 1792352642.4592361,
+    "seen": 1792353217.5656452,
+    "ast_hash": "18a87a9ac681b5083f433a5eb1ca04d2",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/StatusView.xaml.cs": {
+    "mtime": 1792352645.040787,
+    "seen": 1792353217.5656452,
+    "ast_hash": "5a379ae3ce1d9affb56fb3223890d948",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/WpfUiDispatcher.cs": {
+    "mtime": 1791446167.0116067,
+    "seen": 1791448833.1751454,
+    "ast_hash": "c345308257611b0fbf6e60f6ad2cbbdb",
+    "semantic_hash": ""
+  },
+  ".github/workflows/release.yml": {
+    "mtime": 1791446166.3357196,
+    "seen": 1791448833.1751454,
+    "ast_hash": "3e36d39a1f927b6f724e120f906ba91c",
+    "semantic_hash": ""
+  },
+  "docs/overview.png": {
+    "mtime": 1791446166.5055792,
+    "seen": 1791448833.1751454,
+    "ast_hash": "42cf7498e7ea928ec6f9b58a0d96dd33",
+    "semantic_hash": ""
+  },
+  "installer/build_plugin_installer.py": {
+    "mtime": 1792264532.2246797,
+    "seen": 1792353217.5656452,
+    "ast_hash": "c201e6a61bee1868debdde575d4d47d3",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Entry/GitVciWorkspaceMenuTests.cs": {
+    "mtime": 1791449998.2811215,
+    "seen": 1791450046.489281,
+    "ast_hash": "1f3ad58ab59e147785c3a08a84db3756",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/WpfHostExceptions.cs": {
+    "mtime": 1791449996.502165,
+    "seen": 1791450046.489281,
+    "ast_hash": "cd1bbbf1c38d0dbbe538820071be84e0",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/UI/TextComparisonNavigationTests.cs": {
+    "mtime": 1792153775.8911982,
+    "seen": 1792153845.7736309,
+    "ast_hash": "bab10a2a2bbca2648c83e6ff606e80d3",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Models/Hmi/HmiDeviceExport.cs": {
+    "mtime": 1792304122.28588,
+    "seen": 1792353217.5656452,
+    "ast_hash": "a61534ffb02b30b252a7c92129b0a227",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Hmi/HmiExportStore.cs": {
+    "mtime": 1792304123.774133,
+    "seen": 1792353217.5656452,
+    "ast_hash": "e38572f8beee481d8373ca9e514083c4",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Hmi/IHmiDeviceExchange.cs": {
+    "mtime": 1792303008.0464966,
+    "seen": 1792353217.5656452,
+    "ast_hash": "80a904815f5d421a7a9251ec7e623043",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Hmi/UnavailableHmiDeviceExchange.cs": {
+    "mtime": 1792303009.7792988,
+    "seen": 1792353217.5656452,
+    "ast_hash": "afbab50898be5a02b5f0a29f87608654",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Hmi/HmiExportStoreTests.cs": {
+    "mtime": 1792350383.9356909,
+    "seen": 1792353217.5656452,
+    "ast_hash": "f017987cc5d99f48d89f3ebb3930a266",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/Services/Hmi/PortalHmiDeviceExchange.cs": {
+    "mtime": 1792352389.202034,
+    "seen": 1792353217.5656452,
+    "ast_hash": "8dc7b357b329d7c1588cb419ae8879bb",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/HmiExchangeViewModel.cs": {
+    "mtime": 1792352582.4735043,
+    "seen": 1792353217.5656452,
+    "ast_hash": "719de5a61948bfabe425846719f55cfe",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/Services/Hmi/ComfortHmiExchange.cs": {
+    "mtime": 1792352251.766042,
+    "seen": 1792353217.5656452,
+    "ast_hash": "7c2790e8ee8bd5f0a5af956d3e8a403b",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Hmi/StaThreadInvokerTests.cs": {
+    "mtime": 1792166050.8814096,
+    "seen": 1792353217.5656452,
+    "ast_hash": "2b060ef3762bb5e2feba8963d5fe1287",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Services/GitServiceUnbornHeadTests.cs": {
+    "mtime": 1792164458.7981987,
+    "seen": 1792164581.2868683,
+    "ast_hash": "855a9c5a58ad9375257c3e39e8b14823",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/Services/Hmi/StaThreadInvoker.cs": {
+    "mtime": 1792164500.5581622,
+    "seen": 1792164581.2868683,
+    "ast_hash": "8bb2bff74ef6485830938a7d40fad7a3",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Comparison/XmlStructureComparer.cs": {
+    "mtime": 1792269782.4734402,
+    "seen": 1792353217.5656452,
+    "ast_hash": "a9c543f73bbf2b0c85d9a93412a0b10f",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Hmi/ExportCategorySet.cs": {
+    "mtime": 1792352225.0872257,
+    "seen": 1792353217.5656452,
+    "ast_hash": "4ad8a0598640da8cb9df90366a47d5a4",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Hmi/HmiExportNormalizer.cs": {
+    "mtime": 1792267569.6699345,
+    "seen": 1792353217.5656452,
+    "ast_hash": "e3ba99f09afeb525abafb3237cc0f3bf",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Hmi/HmiExportProgress.cs": {
+    "mtime": 1792269066.8590524,
+    "seen": 1792353217.5656452,
+    "ast_hash": "4198bd8bd4cd77af91fd2697701e9be3",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Core/Services/Hmi/ProjectContentStore.cs": {
+    "mtime": 1792349243.1590118,
+    "seen": 1792353217.5656452,
+    "ast_hash": "7599ce36e23ea26407c5b7ba61472925",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Comparison/XmlStructureComparerTests.cs": {
+    "mtime": 1792271538.4674928,
+    "seen": 1792353217.5656452,
+    "ast_hash": "3c5e66b2f195174681750daf287cc478",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Hmi/EngineeringSnapshotRestorerTests.cs": {
+    "mtime": 1792305212.6357727,
+    "seen": 1792353217.5656452,
+    "ast_hash": "983480a819f11b09feb252b6286e7bab",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Hmi/HmiExportNormalizerTests.cs": {
+    "mtime": 1792267435.3501027,
+    "seen": 1792353217.5656452,
+    "ast_hash": "a0e2cf3de2ea3398ba47357fc55643f4",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Hmi/HmiExportProgressTests.cs": {
+    "mtime": 1792350410.3904843,
+    "seen": 1792353217.5656452,
+    "ast_hash": "6f6ff27886c5215a50d34159d2c85677",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Hmi/ProjectContentStoreTests.cs": {
+    "mtime": 1792349169.3044887,
+    "seen": 1792353217.5656452,
+    "ast_hash": "519823698935888ebb84cc50b8b950d5",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/Hmi/UnifiedAlarmTextTests.cs": {
+    "mtime": 1792174236.5976715,
+    "seen": 1792353217.5656452,
+    "ast_hash": "b59534e7bac7ba7fe2d52a0b415c03cf",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/UI/AboutViewModelTests.cs": {
+    "mtime": 1792349161.6762114,
+    "seen": 1792353217.5656452,
+    "ast_hash": "cbf1763f69955fd3dae6b2e2e5694668",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/UI/ChangeTreeTests.cs": {
+    "mtime": 1792349183.3127153,
+    "seen": 1792353217.5656452,
+    "ast_hash": "920aadc93db34a708f954d418cd4c942",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn.Tests/UI/ExportCatalogViewModelTests.cs": {
+    "mtime": 1792343732.843685,
+    "seen": 1792353217.5656452,
+    "ast_hash": "b014f145ec3ca2b8391389cacafd6b51",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/Services/Hmi/DispatcherPump.cs": {
+    "mtime": 1792270871.320632,
+    "seen": 1792353217.5656452,
+    "ast_hash": "99eeac981bfe8447e2e32dc8eb7b0630",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/Services/Hmi/EngineeringSnapshotRestorer.cs": {
+    "mtime": 1792305172.236165,
+    "seen": 1792353217.5656452,
+    "ast_hash": "02b4768ac041fa8def415aa7ff848f17",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/Services/Hmi/HardwareExchange.cs": {
+    "mtime": 1792352372.651641,
+    "seen": 1792353217.5656452,
+    "ast_hash": "90ec34d1cf8b7fb6bec28623ebcacd24",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/Services/Hmi/HmiExportTrace.cs": {
+    "mtime": 1792168927.531912,
+    "seen": 1792353217.5656452,
+    "ast_hash": "ebd10c112a9160976ed019a25ab7375b",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/Services/Hmi/ProjectContentExchange.cs": {
+    "mtime": 1792349244.9517412,
+    "seen": 1792353217.5656452,
+    "ast_hash": "dc5072d939d7c89ece793730790b60a9",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/Services/Hmi/UnifiedLibraryExchange.cs": {
+    "mtime": 1792352302.5296185,
+    "seen": 1792353217.5656452,
+    "ast_hash": "2a208c58cd76d5a791ba815d839a972d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/Services/Hmi/UnifiedObjectSnapshot.cs": {
+    "mtime": 1792304950.509187,
+    "seen": 1792353217.5656452,
+    "ast_hash": "f74556b2b3516052e3977fdbe962a43d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/PanelTheme.cs": {
+    "mtime": 1792353014.9719603,
+    "seen": 1792353217.5656452,
+    "ast_hash": "f0a7069c9167db57d41f9dd4adbc1675",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/AboutCoverage.cs": {
+    "mtime": 1792352910.931216,
+    "seen": 1792353217.5656452,
+    "ast_hash": "dc417e282e2f194b26a4561330d14d23",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/AboutViewModel.cs": {
+    "mtime": 1792343935.3854814,
+    "seen": 1792353217.5656452,
+    "ast_hash": "daeddaf36833175e0287216ba3fdf90c",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/ChangeTree.cs": {
+    "mtime": 1792353013.1451633,
+    "seen": 1792353217.5656452,
+    "ast_hash": "c1b10b12000523ca97a9d8c6eb620f02",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/ExportCatalogViewModel.cs": {
+    "mtime": 1792343691.7955515,
+    "seen": 1792353217.5656452,
+    "ast_hash": "48b61a4b73c96f5dcca599fdc480793d",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/ViewModels/HmiChecklistItem.cs": {
+    "mtime": 1792266939.3076782,
+    "seen": 1792353217.5656452,
+    "ast_hash": "d0bd831f2353e97bd854648c877b7276",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/AboutView.xaml": {
+    "mtime": 1792343947.912004,
+    "seen": 1792353217.5656452,
+    "ast_hash": "06b73f6bbb7a6e1f537c21bfbcfc1380",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/AboutView.xaml.cs": {
+    "mtime": 1792343948.896061,
+    "seen": 1792353217.5656452,
+    "ast_hash": "230882876ec545df973d3e134308e08a",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/ExportView.xaml": {
+    "mtime": 1792343667.7055554,
+    "seen": 1792353217.5656452,
+    "ast_hash": "d87c870716e28861dde8f67e93ae5b68",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/ExportView.xaml.cs": {
+    "mtime": 1792343728.4788053,
+    "seen": 1792353217.5656452,
+    "ast_hash": "04b449168dab252c436056aaf75c47d2",
+    "semantic_hash": ""
+  }
+}

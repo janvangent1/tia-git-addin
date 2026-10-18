@@ -27,7 +27,19 @@ namespace TiaGitAddIn.Services
     {
         private const string ChecklistDevice = "Hardware";
 
-        public static OperationResult Export(TiaPortal portal, string repositoryPath, CancellationToken ct, Action<string> report)
+        private static ExportCategorySet scope = ExportCategorySet.All;
+
+        private static void Skip(Action<string> report, string category)
+        {
+            report?.Invoke(HmiExportProgress.Format(ChecklistDevice, category, "skipped", 0, "Turned off in Settings."));
+        }
+
+        public static OperationResult Export(
+            TiaPortal portal,
+            string repositoryPath,
+            CancellationToken ct,
+            Action<string> report,
+            ExportCategorySet? categories = null)
         {
             if (portal == null)
             {
@@ -47,74 +59,158 @@ namespace TiaGitAddIn.Services
 
             Directory.CreateDirectory(root);
             Announce(report);
+            ExportCategorySet previousScope = scope;
+            scope = categories ?? ExportCategorySet.All;
 
             int devices = 0;
             int modules = 0;
+            int seenDevices = 0;
             int networks = 0;
             int drives = 0;
             int parameters = 0;
             int telegrams = 0;
             var usedFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var deviceFolders = new List<string>();
+            try
+            {
+            bool writeDevices = scope.AllowsHardware("Devices");
+            bool writeModules = scope.AllowsHardware("Modules");
+            if (!writeDevices)
+            {
+                Skip(report, "Devices");
+            }
 
-            // Each category checks off before the next one starts, matching the HMI checklist.
-            Step(report, "Devices", 0, string.Empty);
-            Step(report, "Modules", 0, string.Empty);
+            if (!writeModules)
+            {
+                Skip(report, "Modules");
+            }
+
+            if (writeDevices)
+            {
+                Step(report, "Devices", 0, string.Empty);
+            }
+
+            if (writeModules)
+            {
+                Step(report, "Modules", 0, string.Empty);
+            }
+
             DispatcherPump.Yield();
             foreach (Project project in portal.Projects)
             {
                 ct.ThrowIfCancellationRequested();
                 foreach (Device device in project.Devices)
                 {
-                    CollectDevice(device, root, usedFolders, deviceFolders, ct, report, ref devices, ref modules);
+                    CollectDevice(device, root, usedFolders, deviceFolders, ct, report, ref devices, ref modules, ref seenDevices);
                 }
 
                 foreach (DeviceUserGroup group in project.DeviceGroups)
                 {
-                    CollectGroup(group, root, usedFolders, deviceFolders, ct, report, ref devices, ref modules);
+                    CollectGroup(group, root, usedFolders, deviceFolders, ct, report, ref devices, ref modules, ref seenDevices);
                 }
             }
 
-            Finish(report, "Devices", devices);
-            Finish(report, "Modules", modules);
-
-            Step(report, "Networks", 0, string.Empty);
-            DispatcherPump.Yield();
-            foreach (Project project in portal.Projects)
+            if (writeDevices)
             {
-                ct.ThrowIfCancellationRequested();
-                networks += WriteSubnets(project, root, ct, report);
+                Finish(report, "Devices", devices);
+            }
+
+            if (writeModules)
+            {
+                Finish(report, "Modules", modules);
+            }
+
+            if (!scope.AllowsHardware("Networks"))
+            {
+                Skip(report, "Networks");
+            }
+            else
+            {
+                Step(report, "Networks", 0, string.Empty);
                 DispatcherPump.Yield();
+                foreach (Project project in portal.Projects)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    networks += WriteSubnets(project, root, ct, report);
+                    DispatcherPump.Yield();
+                }
+
+                Finish(report, "Networks", networks);
             }
 
-            Finish(report, "Networks", networks);
-
-            Step(report, "Drives", 0, string.Empty);
-            Step(report, "Parameters", 0, string.Empty);
-            Step(report, "Telegrams", 0, string.Empty);
-            DispatcherPump.Yield();
-            var seenDrives = new List<DriveObject>();
-            int folderIndex = 0;
-            foreach (Project project in portal.Projects)
+            bool writeDrives = scope.AllowsHardware("Drives");
+            bool writeParameters = scope.AllowsHardware("Parameters");
+            bool writeTelegrams = scope.AllowsHardware("Telegrams");
+            if (!writeDrives && !writeParameters && !writeTelegrams)
             {
-                ct.ThrowIfCancellationRequested();
-                foreach (Device device in project.Devices)
+                Skip(report, "Drives");
+                Skip(report, "Parameters");
+                Skip(report, "Telegrams");
+            }
+            else
+            {
+                if (writeDrives)
                 {
-                    ExportDrives(device, deviceFolders[folderIndex], seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
-                    folderIndex++;
+                    Step(report, "Drives", 0, string.Empty);
+                }
+                else
+                {
+                    Skip(report, "Drives");
                 }
 
-                foreach (DeviceUserGroup group in project.DeviceGroups)
+                if (writeParameters)
                 {
-                    ExportDriveGroup(group, deviceFolders, ref folderIndex, seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
+                    Step(report, "Parameters", 0, string.Empty);
+                }
+                else
+                {
+                    Skip(report, "Parameters");
+                }
+
+                if (writeTelegrams)
+                {
+                    Step(report, "Telegrams", 0, string.Empty);
+                }
+                else
+                {
+                    Skip(report, "Telegrams");
+                }
+
+                DispatcherPump.Yield();
+                var seenDrives = new List<DriveObject>();
+                int folderIndex = 0;
+                foreach (Project project in portal.Projects)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    foreach (Device device in project.Devices)
+                    {
+                        ExportDrives(device, deviceFolders[folderIndex], seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
+                        folderIndex++;
+                    }
+
+                    foreach (DeviceUserGroup group in project.DeviceGroups)
+                    {
+                        ExportDriveGroup(group, deviceFolders, ref folderIndex, seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
+                    }
+                }
+
+                if (writeDrives)
+                {
+                    Finish(report, "Drives", drives);
+                }
+
+                if (writeParameters)
+                {
+                    Finish(report, "Parameters", parameters);
+                }
+
+                if (writeTelegrams)
+                {
+                    Finish(report, "Telegrams", telegrams);
                 }
             }
 
-            Finish(report, "Drives", drives);
-            Finish(report, "Parameters", parameters);
-            Finish(report, "Telegrams", telegrams);
-
-            if (devices == 0)
+            if (seenDevices == 0)
             {
                 return OperationResult.Fail("No hardware device is open in TIA Portal.");
             }
@@ -125,6 +221,11 @@ namespace TiaGitAddIn.Services
                 drives.ToString(CultureInfo.InvariantCulture) + " drive object(s), and " +
                 parameters.ToString(CultureInfo.InvariantCulture) + " drive parameter(s) to HardwareExport. " +
                 "PLC blocks stay on the existing Git path. Stage that folder to keep it in Git.");
+            }
+            finally
+            {
+                scope = previousScope;
+            }
         }
 
         public static OperationResult Import(TiaPortal portal, string repositoryPath, CancellationToken ct, Action<string> report)
@@ -330,16 +431,17 @@ namespace TiaGitAddIn.Services
             CancellationToken ct,
             Action<string> report,
             ref int devices,
-            ref int modules)
+            ref int modules,
+            ref int seenDevices)
         {
             foreach (Device device in group.Devices)
             {
-                CollectDevice(device, root, usedFolders, deviceFolders, ct, report, ref devices, ref modules);
+                CollectDevice(device, root, usedFolders, deviceFolders, ct, report, ref devices, ref modules, ref seenDevices);
             }
 
             foreach (DeviceUserGroup child in group.Groups)
             {
-                CollectGroup(child, root, usedFolders, deviceFolders, ct, report, ref devices, ref modules);
+                CollectGroup(child, root, usedFolders, deviceFolders, ct, report, ref devices, ref modules, ref seenDevices);
             }
         }
 
@@ -351,28 +453,43 @@ namespace TiaGitAddIn.Services
             CancellationToken ct,
             Action<string> report,
             ref int devices,
-            ref int modules)
+            ref int modules,
+            ref int seenDevices)
         {
             ct.ThrowIfCancellationRequested();
-            devices++;
-            Step(report, "Devices", devices, device.Name);
+            seenDevices++;
+            bool writeDevices = scope.AllowsHardware("Devices");
+            bool writeModules = scope.AllowsHardware("Modules");
             string folderName = HmiExportStore.UniqueName(HmiExportStore.FolderName(device.Name), usedFolders);
             string folder = Path.Combine(root, folderName);
             Directory.CreateDirectory(folder);
+            deviceFolders.Add(folder);
 
-            var module = new XElement(
-                "Device",
-                new XAttribute("name", device.Name ?? string.Empty),
-                new XAttribute("type", device.TypeIdentifier ?? string.Empty));
-            AppendAttributes(module, device);
-            var usedSettings = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (DeviceItem item in device.DeviceItems)
+            if (writeDevices || writeModules)
             {
-                module.Add(WriteItem(item, folder, usedSettings, ct, report, ref modules));
+                var module = new XElement(
+                    "Device",
+                    new XAttribute("name", device.Name ?? string.Empty),
+                    new XAttribute("type", device.TypeIdentifier ?? string.Empty));
+                if (writeDevices)
+                {
+                    devices++;
+                    Step(report, "Devices", devices, device.Name);
+                    AppendAttributes(module, device);
+                }
+
+                if (writeModules)
+                {
+                    var usedSettings = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (DeviceItem item in device.DeviceItems)
+                    {
+                        module.Add(WriteItem(item, folder, usedSettings, ct, report, ref modules));
+                    }
+                }
+
+                new XDocument(module).Save(Path.Combine(folder, "Hardware.xml"));
             }
 
-            new XDocument(module).Save(Path.Combine(folder, "Hardware.xml"));
-            deviceFolders.Add(folder);
             DispatcherPump.Yield();
         }
 
@@ -524,9 +641,18 @@ namespace TiaGitAddIn.Services
                 }
 
                 seenDrives.Add(drive);
-                drives++;
                 string label = DriveLabel(drive);
-                Step(report, "Drives", drives, label);
+                if (scope.AllowsHardware("Drives"))
+                {
+                    drives++;
+                    Step(report, "Drives", drives, label);
+                }
+
+                if (!scope.AllowsHardware("Drives") && !scope.AllowsHardware("Parameters") && !scope.AllowsHardware("Telegrams"))
+                {
+                    continue;
+                }
+
                 string driveFolder = Path.Combine(folder, "Drives");
                 Directory.CreateDirectory(driveFolder);
                 string fileName = HmiExportStore.UniqueName((item.Name ?? "Module") + "_" + label, usedDrives);
@@ -608,9 +734,20 @@ namespace TiaGitAddIn.Services
                 writer.WriteAttributeString("device", deviceName ?? string.Empty);
                 writer.WriteAttributeString("number", drive.DriveObjectNumber.ToString(CultureInfo.InvariantCulture));
                 writer.WriteAttributeString("name", DriveLabel(drive));
-                WriteAttributeElements(writer, drive);
-                parameters += WriteParameters(writer, drive, ct, report, parameters);
-                telegrams += WriteTelegrams(writer, drive, report, telegrams);
+                if (scope.AllowsHardware("Drives"))
+                {
+                    WriteAttributeElements(writer, drive);
+                }
+
+                if (scope.AllowsHardware("Parameters"))
+                {
+                    parameters += WriteParameters(writer, drive, ct, report, parameters);
+                }
+
+                if (scope.AllowsHardware("Telegrams"))
+                {
+                    telegrams += WriteTelegrams(writer, drive, report, telegrams);
+                }
                 WriteSecurity(writer, drive);
                 writer.WriteEndElement();
                 writer.WriteEndDocument();

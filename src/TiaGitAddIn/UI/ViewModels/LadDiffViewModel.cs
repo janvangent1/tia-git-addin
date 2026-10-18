@@ -21,6 +21,8 @@ namespace TiaGitAddIn.UI.ViewModels
 
         private bool isLadDiffLoaded;
         private string ladDiffError = string.Empty;
+        private double zoom = 1;
+        private LadNetworkPairViewModel? selectedNetwork;
 
         public LadDiffViewModel(SactCompareResult result, InterfaceComparisonViewModel interfaceComparison,
             IAddInLogger logger, IUiDispatcher? uiDispatcher)
@@ -31,7 +33,41 @@ namespace TiaGitAddIn.UI.ViewModels
                 LadLayoutEngine.LayoutAll(result).Select(layout => new LadNetworkPairViewModel(layout)));
             InterfaceComparison = interfaceComparison ?? throw new ArgumentNullException(nameof(interfaceComparison));
             IsLadDiffLoaded = true;
+            if (Networks.Count > 0)
+            {
+                selectedNetwork = Networks[0];
+            }
+
+            ZoomInCommand = new RelayCommand(_ => Zoom = Math.Min(2.5, Zoom + 0.25));
+            ZoomOutCommand = new RelayCommand(_ => Zoom = Math.Max(0.25, Zoom - 0.25));
+            ResetZoomCommand = new RelayCommand(_ => Zoom = 1);
         }
+
+        public RelayCommand ZoomInCommand { get; }
+
+        public RelayCommand ZoomOutCommand { get; }
+
+        public RelayCommand ResetZoomCommand { get; }
+
+        public double Zoom
+        {
+            get => zoom;
+            set
+            {
+                if (SetProperty(ref zoom, value))
+                {
+                    OnPropertyChanged(nameof(ZoomText));
+                }
+            }
+        }
+
+        public LadNetworkPairViewModel? SelectedNetwork
+        {
+            get => selectedNetwork;
+            set => SetProperty(ref selectedNetwork, value);
+        }
+
+        public string ZoomText => Math.Round(Zoom * 100).ToString(System.Globalization.CultureInfo.InvariantCulture) + "%";
 
         public ObservableCollection<LadNetworkPairViewModel> Networks { get; }
 

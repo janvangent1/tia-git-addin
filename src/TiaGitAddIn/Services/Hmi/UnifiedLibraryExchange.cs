@@ -19,7 +19,13 @@ namespace TiaGitAddIn.Services
     /// </summary>
     internal static class UnifiedLibraryExchange
     {
-        public static int Export(HmiSoftware software, string deviceName, string deviceFolder, CancellationToken ct, Action<string> report)
+        public static int Export(
+            HmiSoftware software,
+            string deviceName,
+            string deviceFolder,
+            CancellationToken ct,
+            Action<string> report,
+            ExportCategorySet? categories = null)
         {
             if (software == null)
             {
@@ -28,6 +34,8 @@ namespace TiaGitAddIn.Services
 
             stepDevice = deviceName ?? string.Empty;
             stepReport = report;
+            ExportCategorySet previous = enabledCategories;
+            enabledCategories = categories ?? ExportCategorySet.All;
             try
             {
                 return ExportCore(software, deviceFolder, ct);
@@ -36,77 +44,126 @@ namespace TiaGitAddIn.Services
             {
                 stepCategory = string.Empty;
                 stepReport = null;
+                enabledCategories = previous;
             }
+        }
+
+        private static ExportCategorySet enabledCategories = ExportCategorySet.All;
+
+        private static bool Want(string category)
+        {
+            if (enabledCategories.AllowsHmi(category))
+            {
+                return true;
+            }
+
+            Skip(category, "Turned off in Settings.");
+            return false;
         }
 
         private static int ExportCore(HmiSoftware software, string deviceFolder, CancellationToken ct)
         {
             int count = 0;
-            Begin("Tags");
-            if (software.Tags != null && software.Tags.Count > 0)
+            if (Want("Tags"))
             {
-                count += ExportTagLevel(software.TagTables, software.TagTableGroups, Path.Combine(deviceFolder, "Tags"), ct, Track);
+                Begin("Tags");
+                if (software.Tags != null && software.Tags.Count > 0)
+                {
+                    count += ExportTagLevel(software.TagTables, software.TagTableGroups, Path.Combine(deviceFolder, "Tags"), ct, Track);
+                }
+
+                count += ExportObjects(software.PlantObjectTags, Path.Combine(deviceFolder, "Tags", "PlantObjects.xml"), "PlantObject", "plant object", ct, true);
+                Finish("Tags", stepCount);
             }
 
-            count += ExportObjects(software.PlantObjectTags, Path.Combine(deviceFolder, "Tags", "PlantObjects.xml"), "PlantObject", "plant object", ct, true);
-            Finish("Tags", stepCount);
-
-            Begin("System tags");
-            count += ExportObjects(software.SystemTags, Path.Combine(deviceFolder, "Tags", "SystemTags.xml"), "SystemTag", "system tag", ct, false);
-            Finish("System tags", stepCount);
-
-            Begin("Scripts");
-            if (software.Scripts != null && software.Scripts.Count > 0)
+            if (Want("System tags"))
             {
-                count += ExportFolder(Path.Combine(deviceFolder, "Scripts"), directory => software.Scripts.Export(directory), ct, Track, "scripts");
+                Begin("System tags");
+                count += ExportObjects(software.SystemTags, Path.Combine(deviceFolder, "Tags", "SystemTags.xml"), "SystemTag", "system tag", ct, false);
+                Finish("System tags", stepCount);
             }
 
-            Finish("Scripts", stepCount);
-
-            Begin("Text lists");
-            if (software.HmiTextLists != null && software.HmiTextLists.Count > 0)
+            if (Want("Scripts"))
             {
-                count += ExportNamedFile(Path.Combine(deviceFolder, "TextLists"), "TextLists.xml", (directory, fileName) => software.HmiTextLists.Export(directory, fileName), ct, Track, "text lists");
+                Begin("Scripts");
+                if (software.Scripts != null && software.Scripts.Count > 0)
+                {
+                    count += ExportFolder(Path.Combine(deviceFolder, "Scripts"), directory => software.Scripts.Export(directory), ct, Track, "scripts");
+                }
+
+                Finish("Scripts", stepCount);
             }
 
-            Finish("Text lists", stepCount);
-
-            Begin("Graphic lists");
-            if (software.HmiGraphicLists != null && software.HmiGraphicLists.Count > 0)
+            if (Want("Text lists"))
             {
-                count += ExportNamedFile(Path.Combine(deviceFolder, "GraphicLists"), "GraphicLists.xml", (directory, fileName) => software.HmiGraphicLists.Export(directory, fileName), ct, Track, "graphic lists");
+                Begin("Text lists");
+                if (software.HmiTextLists != null && software.HmiTextLists.Count > 0)
+                {
+                    count += ExportNamedFile(Path.Combine(deviceFolder, "TextLists"), "TextLists.xml", (directory, fileName) => software.HmiTextLists.Export(directory, fileName), ct, Track, "text lists");
+                }
+
+                Finish("Text lists", stepCount);
             }
 
-            Finish("Graphic lists", stepCount);
-
-            Begin("System text lists");
-            if (software.HmiSystemTextLists != null && software.HmiSystemTextLists.Count > 0)
+            if (Want("Graphic lists"))
             {
-                count += ExportNamedFile(Path.Combine(deviceFolder, "TextLists"), "SystemTextLists.xml", (directory, fileName) => software.HmiSystemTextLists.Export(directory, fileName), ct, Track, "system text lists");
+                Begin("Graphic lists");
+                if (software.HmiGraphicLists != null && software.HmiGraphicLists.Count > 0)
+                {
+                    count += ExportNamedFile(Path.Combine(deviceFolder, "GraphicLists"), "GraphicLists.xml", (directory, fileName) => software.HmiGraphicLists.Export(directory, fileName), ct, Track, "graphic lists");
+                }
+
+                Finish("Graphic lists", stepCount);
             }
 
-            Finish("System text lists", stepCount);
+            if (Want("System text lists"))
+            {
+                Begin("System text lists");
+                if (software.HmiSystemTextLists != null && software.HmiSystemTextLists.Count > 0)
+                {
+                    count += ExportNamedFile(Path.Combine(deviceFolder, "TextLists"), "SystemTextLists.xml", (directory, fileName) => software.HmiSystemTextLists.Export(directory, fileName), ct, Track, "system text lists");
+                }
 
-            Begin("Alarms");
-            count += ExportAlarmFile(software.DiscreteAlarms, alarm => alarm == null ? string.Empty : alarm.Name ?? string.Empty, Path.Combine(deviceFolder, "Alarms", "DiscreteAlarms.xml"), "Discrete", "discrete alarm", ct, Track);
-            count += ExportAlarmFile(software.AnalogAlarms, alarm => alarm == null ? string.Empty : alarm.Name ?? string.Empty, Path.Combine(deviceFolder, "Alarms", "AnalogAlarms.xml"), "Analog", "analog alarm", ct, Track);
-            count += ExportAlarmFile(software.AlarmClasses, alarmClass => alarmClass == null ? string.Empty : alarmClass.Name ?? string.Empty, Path.Combine(deviceFolder, "Alarms", "AlarmClasses.xml"), "AlarmClass", "alarm class", ct, Track);
-            count += ExportObjects(software.OpcUaAlarmTypes, Path.Combine(deviceFolder, "Alarms", "OpcUaAlarmTypes.xml"), "OpcUaAlarm", "OPC UA alarm", ct, false);
-            count += ExportObjects(software.HmiAlarmAuditClass, Path.Combine(deviceFolder, "Alarms", "AlarmAuditClasses.xml"), "AuditClass", "alarm audit class", ct, false);
-            Finish("Alarms", stepCount);
+                Finish("System text lists", stepCount);
+            }
 
-            Begin("Connections");
-            count += ExportObjects(software.Connections, Path.Combine(deviceFolder, "Connections", "Connections.xml"), "Connection", "connection", ct, true);
-            Finish("Connections", stepCount);
+            if (Want("Alarms"))
+            {
+                Begin("Alarms");
+                count += ExportAlarmFile(software.DiscreteAlarms, alarm => alarm == null ? string.Empty : alarm.Name ?? string.Empty, Path.Combine(deviceFolder, "Alarms", "DiscreteAlarms.xml"), "Discrete", "discrete alarm", ct, Track);
+                count += ExportAlarmFile(software.AnalogAlarms, alarm => alarm == null ? string.Empty : alarm.Name ?? string.Empty, Path.Combine(deviceFolder, "Alarms", "AnalogAlarms.xml"), "Analog", "analog alarm", ct, Track);
+                count += ExportAlarmFile(software.AlarmClasses, alarmClass => alarmClass == null ? string.Empty : alarmClass.Name ?? string.Empty, Path.Combine(deviceFolder, "Alarms", "AlarmClasses.xml"), "AlarmClass", "alarm class", ct, Track);
+                count += ExportObjects(software.OpcUaAlarmTypes, Path.Combine(deviceFolder, "Alarms", "OpcUaAlarmTypes.xml"), "OpcUaAlarm", "OPC UA alarm", ct, false);
+                count += ExportObjects(software.HmiAlarmAuditClass, Path.Combine(deviceFolder, "Alarms", "AlarmAuditClasses.xml"), "AuditClass", "alarm audit class", ct, false);
+                Finish("Alarms", stepCount);
+            }
 
-            Begin("Logs");
-            count += ExportObjects(software.DataLogs, Path.Combine(deviceFolder, "Logs", "DataLogs.xml"), "DataLog", "data log", ct, true);
-            count += ExportObjects(software.AlarmLogs, Path.Combine(deviceFolder, "Logs", "AlarmLogs.xml"), "AlarmLog", "alarm log", ct, true);
-            count += ExportObjects(software.AuditTrails, Path.Combine(deviceFolder, "Logs", "AuditTrails.xml"), "AuditTrail", "audit trail", ct, true);
-            Finish("Logs", stepCount);
+            if (Want("Connections"))
+            {
+                Begin("Connections");
+                count += ExportObjects(software.Connections, Path.Combine(deviceFolder, "Connections", "Connections.xml"), "Connection", "connection", ct, true);
+                Finish("Connections", stepCount);
+            }
 
-            count += ExportRecipeCompositions(software, deviceFolder, ct);
-            count += ExportRuntimeSettings(software, deviceFolder);
+            if (Want("Logs"))
+            {
+                Begin("Logs");
+                count += ExportObjects(software.DataLogs, Path.Combine(deviceFolder, "Logs", "DataLogs.xml"), "DataLog", "data log", ct, true);
+                count += ExportObjects(software.AlarmLogs, Path.Combine(deviceFolder, "Logs", "AlarmLogs.xml"), "AlarmLog", "alarm log", ct, true);
+                count += ExportObjects(software.AuditTrails, Path.Combine(deviceFolder, "Logs", "AuditTrails.xml"), "AuditTrail", "audit trail", ct, true);
+                Finish("Logs", stepCount);
+            }
+
+            if (Want("Other"))
+            {
+                count += ExportRecipeCompositions(software, deviceFolder, ct);
+            }
+
+            if (Want("Runtime settings"))
+            {
+                count += ExportRuntimeSettings(software, deviceFolder);
+            }
+
             return count;
         }
 

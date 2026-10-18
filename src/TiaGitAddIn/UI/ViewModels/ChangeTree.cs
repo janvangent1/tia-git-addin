@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using TiaGitAddIn.Services.Hmi;
 
@@ -9,7 +10,7 @@ namespace TiaGitAddIn.UI.ViewModels
     /// <summary>
     /// One row in a changed-file tree. Groups have children; a file row keeps the original item.
     /// </summary>
-    public sealed class ChangeNode
+    public sealed class ChangeNode : INotifyPropertyChanged
     {
         public ChangeNode(string title, object? item, IReadOnlyList<ChangeNode>? children, bool isExpanded)
         {
@@ -27,7 +28,24 @@ namespace TiaGitAddIn.UI.ViewModels
 
         public bool IsExpanded { get; }
 
-        public bool IsSelected { get; set; }
+        private bool isSelected;
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public bool IsSelected
+        {
+            get => isSelected;
+            set
+            {
+                if (isSelected == value)
+                {
+                    return;
+                }
+
+                isSelected = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+            }
+        }
 
         public bool IsFile => Item != null;
     }

@@ -29,6 +29,7 @@ namespace TiaGitAddIn.UI.ViewModels
         private string reportTitle = "Diff";
         private string? currentDiffCommitHash;
         private ComparisonPresentationViewModel? currentPresentation;
+        private string fileFilter = string.Empty;
 
         public DiffViewModel(
             IGitService gitService,
@@ -54,6 +55,8 @@ namespace TiaGitAddIn.UI.ViewModels
                 effectiveLogger);
 
             ExportPdfCommand = new RelayCommand(_ => ExportPdf(), _ => !IsBusy && Entries.Count > 0);
+            NextFileCommand = new RelayCommand(_ => MoveFile(1), _ => !IsBusy && Entries.Count > 1);
+            PreviousFileCommand = new RelayCommand(_ => MoveFile(-1), _ => !IsBusy && Entries.Count > 1);
             CancelCommand = new RelayCommand(_ => RequestCancel(), _ => IsBusy);
         }
 
@@ -91,10 +94,67 @@ namespace TiaGitAddIn.UI.ViewModels
         public ComparisonPresentationViewModel? CurrentPresentation
         {
             get => currentPresentation;
-            private set => SetProperty(currentPresentation, value, updated => currentPresentation = updated);
+            private set
+            {
+                if (SetProperty(currentPresentation, value, updated => currentPresentation = updated))
+                {
+                    OnPropertyChanged(nameof(ComparisonKind));
+                }
+            }
+        }
+
+        public string LoadedCommitHash => currentDiffCommitHash ?? string.Empty;
+
+        public bool IsWorkingTreeDiff => currentDiffCommitHash == null && Entries.Count > 0;
+
+        public string FileFilter
+        {
+            get => fileFilter;
+            set
+            {
+                if (SetProperty(fileFilter, value ?? string.Empty, updated => fileFilter = updated))
+                {
+                    FileTree = ChangeTree.Group(FilteredEntries(), entry => entry.FilePath);
+                }
+            }
+        }
+
+        public string ComparisonKind
+        {
+            get
+            {
+                if (CurrentPresentation == null)
+                {
+                    return string.Empty;
+                }
+
+                switch (CurrentPresentation.Kind)
+                {
+                    case ComparisonPresentationKind.LogicNetwork:
+                        return "LAD";
+                    case ComparisonPresentationKind.Interface:
+                        return "Interface";
+                    case ComparisonPresentationKind.Scl:
+                        return "SCL";
+                    case ComparisonPresentationKind.Unsupported:
+                        return "Unsupported";
+                    case ComparisonPresentationKind.Error:
+                        return "Unavailable";
+                    default:
+                        if (CurrentPresentation.HasLimitation)
+                        {
+                            return "Plain text";
+                        }
+
+                        string path = SelectedEntry?.FilePath ?? string.Empty;
+                        return path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase) ? "XML" : "Text";
+                }
+            }
         }
 
         public RelayCommand ExportPdfCommand { get; }
+        public RelayCommand NextFileCommand { get; }
+        public RelayCommand PreviousFileCommand { get; }
         public RelayCommand CancelCommand { get; }
 
         public Task LoadCommitDiffAsync(string commitHash)
@@ -133,6 +193,32 @@ namespace TiaGitAddIn.UI.ViewModels
             return selectionCoordinator.SelectAsync(selection, cancellationToken);
         }
 
+        public Task FocusFileAsync(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return Task.CompletedTask;
+            }
+
+            DiffEntryViewModel? match = null;
+            foreach (DiffEntryViewModel entry in Entries)
+            {
+                if (string.Equals(entry.FilePath, path, StringComparison.OrdinalIgnoreCase))
+                {
+                    match = entry;
+                    break;
+                }
+            }
+
+            if (match == null)
+            {
+                return Task.CompletedTask;
+            }
+
+            SelectNode(match);
+            return SelectEntryAsync(match, CancellationToken.None);
+        }
+
         private static PlcPairChangeKind ToChangeKind(string? changeType) => changeType?.Trim().ToUpperInvariant() switch
         {
             "A" => PlcPairChangeKind.Added,
@@ -147,7 +233,9 @@ namespace TiaGitAddIn.UI.ViewModels
             {
                 Entries = new ObservableCollection<DiffEntryViewModel>(
                     result.Entries.Select(e => new DiffEntryViewModel(e)));
-                FileTree = ChangeTree.Group(Entries, entry => entry.FilePath);
+                FileTree = ChangeTree.Group(FilteredEntries(), entry => entry.FilePath);
+                NextFileCommand.RaiseCanExecuteChanged();
+                PreviousFileCommand.RaiseCanExecuteChanged();
                 ChangeNode? onlyFile = ChangeTree.OnlyFile(FileTree);
                 if (onlyFile != null)
                 {
@@ -276,6 +364,67 @@ namespace TiaGitAddIn.UI.ViewModels
             }
         }
 
+        private IEnumerable<DiffEntryViewModel> FilteredEntries()
+        {
+            string filter = fileFilter.Trim();
+            if (filter.Length == 0)
+            {
+                return Entries;
+            }
+
+            return Entries.Where(entry =>
+                entry.FilePath.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        private void MoveFile(int direction)
+        {
+            List<DiffEntryViewModel> files = FilteredEntries().ToList();
+            if (files.Count == 0)
+            {
+                return;
+            }
+
+            int index = SelectedEntry == null ? -1 : files.FindIndex(entry =>
+                string.Equals(entry.FilePath, SelectedEntry.FilePath, StringComparison.OrdinalIgnoreCase));
+            int next = index < 0 ? 0 : index + direction;
+            if (next < 0)
+            {
+                next = files.Count - 1;
+            }
+            else if (next >= files.Count)
+            {
+                next = 0;
+            }
+
+            SelectNode(files[next]);
+            _ = SelectEntryAsync(files[next], CancellationToken.None);
+        }
+
+        private void SelectNode(DiffEntryViewModel entry)
+        {
+            SelectedEntry = entry;
+            foreach (ChangeNode node in Flatten(FileTree))
+            {
+                node.IsSelected = node.Item is DiffEntryViewModel item &&
+                    string.Equals(item.FilePath, entry.FilePath, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        private static IEnumerable<ChangeNode> Flatten(IEnumerable<ChangeNode> nodes)
+        {
+            foreach (ChangeNode node in nodes)
+            {
+                yield return node;
+                if (node.Children != null)
+                {
+                    foreach (ChangeNode child in Flatten(node.Children))
+                    {
+                        yield return child;
+                    }
+                }
+            }
+        }
+
         protected override void ReportStatus(string message) => LastOperationMessage = message;
 
         protected override void OnBusyChanged()
@@ -283,6 +432,8 @@ namespace TiaGitAddIn.UI.ViewModels
             InvokeOnUI(() =>
             {
                 ExportPdfCommand.RaiseCanExecuteChanged();
+                NextFileCommand.RaiseCanExecuteChanged();
+                PreviousFileCommand.RaiseCanExecuteChanged();
                 CancelCommand.RaiseCanExecuteChanged();
             });
         }

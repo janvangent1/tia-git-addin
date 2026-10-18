@@ -82,6 +82,31 @@ namespace TiaGitAddIn.Tests.UI
         }
 
         [Fact]
+        public async Task FocusFileAsyncSelectsTheRequestedPath()
+        {
+            var gitService = new FakeGitService
+            {
+                CommitDiff = new DiffResult
+                {
+                    Entries = new List<DiffEntry>
+                    {
+                        new DiffEntry { FilePath = "a.xml", ChangeType = "M", Hunks = new List<DiffHunk>() },
+                        new DiffEntry { FilePath = "HmiExport/Panel/Screens/Main.xml", ChangeType = "M", Hunks = new List<DiffHunk>() }
+                    }
+                }
+            };
+            var viewModel = new DiffViewModel(
+                gitService, new RecordingRevisionProvider(), new StubComparisonCoordinator(), new StubMapper(),
+                uiDispatcher: ImmediateUiDispatcher.Instance);
+
+            await viewModel.LoadCommitDiffAsync("abc1234567890abcdef1234567890abcdef1234");
+            await viewModel.FocusFileAsync("HmiExport/Panel/Screens/Main.xml");
+
+            Assert.Equal("HmiExport/Panel/Screens/Main.xml", viewModel.SelectedEntry.FilePath);
+            Assert.Equal("Unsupported", viewModel.ComparisonKind);
+        }
+
+        [Fact]
         public void SelectedEntry_SetterOnlyStoresValueAndTriggersNoComparison()
         {
             var gitService = new FakeGitService();

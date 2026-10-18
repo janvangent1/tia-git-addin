@@ -22,6 +22,10 @@
 
         <!-- Main content -->
         <Grid Grid.Row="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="360"
                                   MinWidth="220"/>
@@ -29,8 +33,31 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
+            <DockPanel Grid.Row="0" Grid.ColumnSpan="3" Margin="0,0,0,6">
+                <Border DockPanel.Dock="Right"
+                        Background="{StaticResource ChangedBrush}"
+                        CornerRadius="3"
+                        Padding="8,2"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="{Binding ComparisonKind}" FontWeight="SemiBold"/>
+                </Border>
+                <Button DockPanel.Dock="Right"
+                        Content="Next file"
+                        Command="{Binding NextFileCommand}"
+                        Margin="6,0,0,0"
+                        Padding="8,2"/>
+                <Button DockPanel.Dock="Right"
+                        Content="Previous file"
+                        Command="{Binding PreviousFileCommand}"
+                        Padding="8,2"/>
+                <TextBox Text="{Binding FileFilter, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Show files whose path contains this text."/>
+            </DockPanel>
+
             <!-- File list panel -->
-            <TreeView Grid.Column="0"
+            <TreeView Grid.Row="1"
+                      Grid.Column="0"
                       ItemsSource="{Binding FileTree}"
                       BorderThickness="0"
                       SelectedItemChanged="OnSelectionChanged"
@@ -79,14 +106,16 @@
                 </TreeView.ItemContainerStyle>
             </TreeView>
 
-            <GridSplitter Grid.Column="1"
+            <GridSplitter Grid.Row="1"
+                          Grid.Column="1"
                           Width="5"
                           HorizontalAlignment="Stretch"
                           Background="#DDDDDD"/>
 
             <!-- Diff content panel: every artifact kind (text, LAD, interface-only, unsupported, error)
                  renders through the one ComparisonPresentationHost, driven entirely by CurrentPresentation. -->
-            <comparison:ComparisonPresentationHost Grid.Column="2"
+            <comparison:ComparisonPresentationHost Grid.Row="1"
+                                                    Grid.Column="2"
                                                     DataContext="{Binding CurrentPresentation}"/>
         </Grid>
 

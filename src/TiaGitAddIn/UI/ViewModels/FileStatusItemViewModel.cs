@@ -13,6 +13,8 @@ namespace TiaGitAddIn.UI.ViewModels
 
         public string StatusText { get; } = GetStatusText(entry);
 
+        public string StatusBadge { get; } = Badge(entry);
+
         public bool CanStage { get; } = entry.IsUnstaged || entry.IndexStatus == FileStatus.Untracked;
 
         public bool CanUnstage { get; } = entry.IsStaged;
@@ -40,6 +42,26 @@ namespace TiaGitAddIn.UI.ViewModels
 
             FileStatus status = entry.IsStaged ? entry.IndexStatus : entry.WorkTreeStatus;
             return status.ToString();
+        }
+
+        private static string Badge(FileStatusEntry entry)
+        {
+            if (entry.IsConflicted)
+            {
+                return "C";
+            }
+
+            FileStatus status = entry.IsStaged ? entry.IndexStatus : entry.WorkTreeStatus;
+            switch (status)
+            {
+                case FileStatus.Added: return "A";
+                case FileStatus.Deleted: return "D";
+                case FileStatus.Renamed: return "R";
+                case FileStatus.Copied: return "C";
+                case FileStatus.Untracked: return "?";
+                case FileStatus.Modified: return "M";
+                default: return "·";
+            }
         }
     }
 }

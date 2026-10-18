@@ -238,13 +238,14 @@ The summary table under **HMI and hardware in Git** is the list of what export a
 
 5. **Diagram viewer**
    - Cleaner orthogonal wire routing.
-   - Zoom and pan in the LAD diff.
-   - Follow the TIA Portal theme and system colors.
+   - The LAD view can zoom, jump to a network, and fit the width. Panning is the scroll bars.
+   - The panel follows the Windows app theme. It does not read TIA Portal's own theme.
 
 ## Changelog
 
 The add-in version is `AddInVersion` in `src/TiaGitAddIn/AddInPublisherConfiguration.xml`. Newest first.
 
+- **1.2.38** — The Changes page holds commit, export, and import. A file opens in the diff, and Settings can leave HMI and hardware categories out of an export.
 - **1.2.37** — Export and import show a running timer, and the finished time stays on the checklist.
 - **1.2.36** — Export and import cover project pictures, project-library faceplate types and styles, and Comfort system cycles.
 - **1.2.35** — The About page shows the add-in version and what export and import cover, including the items they leave out.

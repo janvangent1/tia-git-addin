@@ -3,12 +3,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:local="clr-namespace:TiaGitAddIn.UI.Views"
              xmlns:vm="clr-namespace:TiaGitAddIn.UI.ViewModels"
              xmlns:conv="clr-namespace:TiaGitAddIn.UI.Converters"
              mc:Ignorable="d"
              d:DesignHeight="450"
-        d:DesignWidth="800">
+             d:DesignWidth="800">
     <UserControl.Resources>
         <conv:FileStatusToColorConverter x:Key="StatusToColor"/>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
@@ -24,45 +23,32 @@
                            Visibility="{Binding IsFile, Converter={StaticResource GroupVis}}"/>
                 <Grid Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="22"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="{Binding Item.StatusText}"
-                               Foreground="{Binding Item.Status, Converter={StaticResource StatusToColor}}"
-                               FontWeight="Bold"
-                               Width="70"
-                               Grid.Column="0"/>
+                    <Border Grid.Column="0"
+                            CornerRadius="2"
+                            Background="{Binding Item.Status, Converter={StaticResource StatusToColor}}"
+                            ToolTip="{Binding Item.StatusText}">
+                        <TextBlock Text="{Binding Item.StatusBadge}"
+                                   Foreground="White"
+                                   FontWeight="Bold"
+                                   FontSize="11"
+                                   HorizontalAlignment="Center"/>
+                    </Border>
                     <TextBlock Text="{Binding Title}"
                                ToolTip="{Binding Item.FilePath}"
                                Grid.Column="1"
-                               Margin="5,0"
+                               Margin="6,0,0,0"
+                               VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"/>
-                    <StackPanel Grid.Column="2" Orientation="Horizontal">
-                        <Button Content="Stage"
-                                Visibility="{Binding Item.CanStage, Converter={StaticResource BoolToVis}}"
-                                Command="{Binding DataContext.StageSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding Item}"
-                                Padding="5,0"/>
-                        <Button Content="Unstage"
-                                Visibility="{Binding Item.CanUnstage, Converter={StaticResource BoolToVis}}"
-                                Command="{Binding DataContext.UnstageSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding Item}"
-                                Padding="5,0"/>
-                        <Button Content="Discard"
-                                Visibility="{Binding Item.CanDiscard, Converter={StaticResource BoolToVis}}"
-                                Command="{Binding DataContext.DiscardSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding Item}"
-                                Margin="4,0,0,0"
-                                Padding="5,0"
-                                ToolTip="Put this file back to the last commit."/>
-                    </StackPanel>
                 </Grid>
             </Grid>
         </HierarchicalDataTemplate>
 
         <Style x:Key="ChangeTreeItemStyle" TargetType="TreeViewItem">
             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=OneWay}"/>
+            <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
             <Setter Property="Padding" Value="0,1"/>
         </Style>
     </UserControl.Resources>
@@ -74,80 +60,82 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0"
-                Margin="0,0,0,10">
-            <TextBlock Text="{Binding CurrentBranch, StringFormat='Branch: {0}'}"
-                    FontWeight="Bold"
-                    FontSize="14"/>
-            <TextBlock Text="{Binding TrackingSummary}"
-                    Foreground="Gray"
-                    Visibility="{Binding TrackingSummary, Converter={StaticResource BoolToVis}}"/>
-        </StackPanel>
+        <DockPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock DockPanel.Dock="Right"
+                       Text="{Binding StatusSummary}"
+                       Foreground="{StaticResource MutedBrush}"
+                       VerticalAlignment="Center"
+                       Margin="8,0,0,0"/>
+            <TextBox Text="{Binding FileFilter, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="Show files whose path contains this text."/>
+        </DockPanel>
 
         <ScrollViewer Grid.Row="1">
             <StackPanel>
-                <Expander Header="Staged Changes"
-                        IsExpanded="True">
+                <Expander Header="Conflicts — Git cannot merge these files by itself"
+                          IsExpanded="True"
+                          Visibility="{Binding HasConflicts, Converter={StaticResource BoolToVis}}">
+                    <TreeView ItemsSource="{Binding ConflictedGroups}"
+                              ItemTemplate="{StaticResource StatusNodeTemplate}"
+                              ItemContainerStyle="{StaticResource ChangeTreeItemStyle}"
+                              BorderThickness="0"
+                              SelectedItemChanged="OnSelectionChanged"
+                              MouseDoubleClick="OnDoubleClick"/>
+                </Expander>
+
+                <Expander Header="Staged Changes" IsExpanded="True" Margin="0,8,0,0">
                     <TreeView ItemsSource="{Binding StagedGroups}"
                               ItemTemplate="{StaticResource StatusNodeTemplate}"
                               ItemContainerStyle="{StaticResource ChangeTreeItemStyle}"
                               BorderThickness="0"
-                              VirtualizingPanel.IsVirtualizing="False"
-                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                              ScrollViewer.VerticalScrollBarVisibility="Disabled"/>
+                              SelectedItemChanged="OnSelectionChanged"
+                              MouseDoubleClick="OnDoubleClick"/>
                 </Expander>
 
-                <Expander Header="Unstaged Changes"
-                        IsExpanded="True"
-                        Margin="0,10,0,0">
+                <Expander Header="Unstaged Changes" IsExpanded="True" Margin="0,8,0,0">
                     <TreeView ItemsSource="{Binding UnstagedGroups}"
                               ItemTemplate="{StaticResource StatusNodeTemplate}"
                               ItemContainerStyle="{StaticResource ChangeTreeItemStyle}"
                               BorderThickness="0"
-                              VirtualizingPanel.IsVirtualizing="False"
-                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                              ScrollViewer.VerticalScrollBarVisibility="Disabled"/>
+                              SelectedItemChanged="OnSelectionChanged"
+                              MouseDoubleClick="OnDoubleClick"/>
                 </Expander>
 
-                <Expander Header="Untracked Files"
-                        IsExpanded="True"
-                        Margin="0,10,0,0">
+                <Expander Header="Untracked Files" IsExpanded="True" Margin="0,8,0,0">
                     <TreeView ItemsSource="{Binding UntrackedGroups}"
                               ItemTemplate="{StaticResource StatusNodeTemplate}"
                               ItemContainerStyle="{StaticResource ChangeTreeItemStyle}"
                               BorderThickness="0"
-                              VirtualizingPanel.IsVirtualizing="False"
-                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                              ScrollViewer.VerticalScrollBarVisibility="Disabled"/>
+                              SelectedItemChanged="OnSelectionChanged"
+                              MouseDoubleClick="OnDoubleClick"/>
                 </Expander>
             </StackPanel>
         </ScrollViewer>
 
         <StatusBar Grid.Row="2"
-                Background="Transparent"
-                BorderThickness="0,1,0,0"
-                BorderBrush="#DDD">
+                   Background="Transparent"
+                   BorderThickness="0,1,0,0"
+                   BorderBrush="{StaticResource LineBrush}">
             <StatusBarItem>
-                <TextBlock Text="{Binding StatusSummary}"/>
+                <TextBlock Text="{Binding LastOperationMessage}" Foreground="{StaticResource MutedBrush}"/>
             </StatusBarItem>
-            <Separator/>
             <StatusBarItem HorizontalAlignment="Right">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="{Binding LastOperationMessage}"
-                            Margin="0,0,10,0"
-                            Foreground="DimGray"/>
+                    <Button Content="Stage" Command="{Binding StageSelectedCommand}" Padding="10,2" ToolTip="Stage the selected file."/>
+                    <Button Content="Unstage" Command="{Binding UnstageSelectedCommand}" Margin="5,0,0,0" Padding="10,2"/>
+                    <Button Content="Discard"
+                            Command="{Binding DiscardSelectedCommand}"
+                            Margin="5,0,0,0"
+                            Padding="10,2"
+                            Style="{StaticResource DangerButtonStyle}"
+                            ToolTip="Put the selected file back to the last commit."/>
                     <Button Content="Show changes"
                             Command="{Binding ShowChangesCommand}"
-                            Padding="10,0"
+                            Margin="12,0,0,0"
+                            Padding="10,2"
                             ToolTip="Compare the current workspace files with the last commit."/>
-                    <Button Content="Stage All"
-                            Command="{Binding StageAllCommand}"
-                            Margin="5,0,0,0"
-                            Padding="10,0"/>
-                    <Button Content="Refresh"
-                            Command="{Binding RefreshCommand}"
-                            Margin="5,0,0,0"
-                            Padding="10,0"/>
+                    <Button Content="Stage All" Command="{Binding StageAllCommand}" Margin="5,0,0,0" Padding="10,2"/>
+                    <Button Content="Refresh" Command="{Binding RefreshCommand}" Margin="5,0,0,0" Padding="10,2"/>
                 </StackPanel>
             </StatusBarItem>
         </StatusBar>

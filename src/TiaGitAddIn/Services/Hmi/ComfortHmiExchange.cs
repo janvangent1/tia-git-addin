@@ -25,11 +25,18 @@ namespace TiaGitAddIn.Services
     {
         private static Action<string>? progressReport;
 
-        public static int Export(HmiTarget target, string deviceFolder, CancellationToken ct, Action<string> report)
+        public static int Export(
+            HmiTarget target,
+            string deviceFolder,
+            CancellationToken ct,
+            Action<string> report,
+            ExportCategorySet? categories = null)
         {
             Action<string>? previousReport = progressReport;
             string previousKind = progressKind;
+            ExportCategorySet previousCategories = enabledCategories;
             progressReport = report;
+            enabledCategories = categories ?? ExportCategorySet.All;
             try
             {
                 return ExportCore(target, deviceFolder, ct);
@@ -38,6 +45,7 @@ namespace TiaGitAddIn.Services
             {
                 progressReport = previousReport;
                 progressKind = previousKind;
+                enabledCategories = previousCategories;
             }
         }
 
@@ -72,6 +80,8 @@ namespace TiaGitAddIn.Services
             return count;
         }
 
+        private static ExportCategorySet enabledCategories = ExportCategorySet.All;
+
         private static string progressKind = "item";
 
         private static string progressDevice = string.Empty;
@@ -82,6 +92,12 @@ namespace TiaGitAddIn.Services
 
         private static int Run(string category, string kind, Func<int> export)
         {
+            if (!enabledCategories.AllowsHmi(category))
+            {
+                Emit(category, "skipped", 0, "Turned off in Settings.");
+                return 0;
+            }
+
             progressKind = kind;
             progressCategory = category;
             progressCount = 0;

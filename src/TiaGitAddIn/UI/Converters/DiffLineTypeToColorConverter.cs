@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Windows.Data;
 using System.Windows.Media;
 using TiaGitAddIn.Models;
+using TiaGitAddIn.UI;
 
 namespace TiaGitAddIn.UI.Converters
 {
@@ -14,9 +15,9 @@ namespace TiaGitAddIn.UI.Converters
 
             switch (type)
             {
-                case DiffLineType.Added: return new SolidColorBrush(Color.FromRgb(230, 255, 230)); // Light Green
-                case DiffLineType.Deleted: return new SolidColorBrush(Color.FromRgb(255, 230, 230)); // Light Red
-                case DiffLineType.Header: return new SolidColorBrush(Color.FromRgb(240, 240, 255)); // Light Blue
+                case DiffLineType.Added: return new SolidColorBrush(PanelTheme.Added);
+                case DiffLineType.Deleted: return new SolidColorBrush(PanelTheme.Removed);
+                case DiffLineType.Header: return new SolidColorBrush(PanelTheme.Changed);
                 case DiffLineType.Context:
                 default: return Brushes.Transparent;
             }

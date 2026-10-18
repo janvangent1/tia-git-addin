@@ -53,6 +53,15 @@ namespace TiaGitAddIn.Tests.Configuration
                 });
 
                 Assert.False(service.Load(root).CompareXmlByElement);
+                service.Save(root, new GitConfiguration
+                {
+                    RepositoryPath = root,
+                    DisabledHmiCategories = new System.Collections.Generic.List<string> { "Screens", "Tags" },
+                    DisabledHardwareCategories = new System.Collections.Generic.List<string> { "Drives" }
+                });
+                GitConfiguration categories = service.Load(root);
+                Assert.Equal(new[] { "Screens", "Tags" }, categories.DisabledHmiCategories);
+                Assert.Equal(new[] { "Drives" }, categories.DisabledHardwareCategories);
             }
             finally
             {
