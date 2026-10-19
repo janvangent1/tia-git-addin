@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <RootNamespace>TiaGitAddIn.Preview</RootNamespace>
+    <AssemblyName>TiaGitAddIn.Preview</AssemblyName>
+    <StartupObject>TiaGitAddIn.Preview.Program</StartupObject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TiaGitAddIn\TiaGitAddIn.csproj" AdditionalProperties="AllowMissingStartdrive=true;EnableTiaAddInPackaging=false" />
+  </ItemGroup>
+
+</Project>

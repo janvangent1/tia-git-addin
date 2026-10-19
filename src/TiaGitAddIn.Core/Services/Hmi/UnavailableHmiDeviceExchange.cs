@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using TiaGitAddIn.Models;
@@ -22,6 +23,9 @@ namespace TiaGitAddIn.Services.Hmi
 
         public Task<OperationResult> ImportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default) =>
             Task.FromResult(OperationResult.Fail(Message));
+
+        public Task<IReadOnlyList<string>> ListImportDifferencesAsync(string repositoryPath, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<string>>(new string[0]);
 
         public Task<OperationResult> ImportHardwareAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default) =>
             Task.FromResult(OperationResult.Fail(Message));

@@ -99,6 +99,33 @@ namespace TiaGitAddIn.Services
                 message => ReportProgress(progress, string.Empty, message)), blockDispatcher: false);
         }
 
+        public Task<IReadOnlyList<string>> ListImportDifferencesAsync(string repositoryPath, CancellationToken ct = default)
+        {
+            Dispatcher dispatcher;
+            lock (callerGate)
+            {
+                dispatcher = callerDispatcher;
+            }
+
+            if (dispatcher == null)
+            {
+                return Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+            }
+
+            if (dispatcher.CheckAccess())
+            {
+                return Task.FromResult(ListImportDifferencesCore(repositoryPath, ct));
+            }
+
+            return Task.Run(() => dispatcher.Invoke(() =>
+            {
+                using (Dispatcher.CurrentDispatcher.DisableProcessing())
+                {
+                    return ListImportDifferencesCore(repositoryPath, ct);
+                }
+            }), ct);
+        }
+
         private Task<OperationResult> RunOnCallerAsync(IProgress<string> progress, CancellationToken ct, Func<OperationResult> action, bool blockDispatcher)
         {
             Dispatcher? dispatcher;
@@ -168,6 +195,70 @@ namespace TiaGitAddIn.Services
 
         private OperationResult ExportCore(string repositoryPath, IProgress<string> progress, CancellationToken ct)
         {
+            return ExportCore(repositoryPath, progress, ct, null, true);
+        }
+
+        private IReadOnlyList<string> ListImportDifferencesCore(string repositoryPath, CancellationToken ct)
+        {
+            string temp = Path.Combine(Path.GetTempPath(), "TiaGitAddIn", "import-preview-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(temp);
+                OperationResult exported = ExportCore(temp, null, ct, ScreensAndTags(), false);
+                if (!exported.Success)
+                {
+                    return new[] { "The open project could not be read (" + exported.Message + "). Import can still continue." };
+                }
+
+                return HmiImportDifference.List(repositoryPath, temp);
+            }
+            finally
+            {
+                try
+                {
+                    if (Directory.Exists(temp))
+                    {
+                        Directory.Delete(temp, true);
+                    }
+                }
+                catch (Exception)
+                {
+                }
+            }
+        }
+
+        private static ExportCategorySet ScreensAndTags()
+        {
+            var disabled = new List<string>();
+            foreach (string category in HmiExportProgress.UnifiedCategories)
+            {
+                if (!category.Equals("Screens", StringComparison.OrdinalIgnoreCase)
+                    && !category.Equals("Tags", StringComparison.OrdinalIgnoreCase))
+                {
+                    disabled.Add(category);
+                }
+            }
+
+            foreach (string category in HmiExportProgress.ComfortCategories)
+            {
+                if (!category.Equals("Screens", StringComparison.OrdinalIgnoreCase)
+                    && !category.Equals("Tags", StringComparison.OrdinalIgnoreCase))
+                {
+                    disabled.Add(category);
+                }
+            }
+
+            return new ExportCategorySet(disabled, HmiExportProgress.HardwareCategories);
+        }
+
+        private OperationResult ExportCore(
+            string repositoryPath,
+            IProgress<string> progress,
+            CancellationToken ct,
+            ExportCategorySet categories,
+            bool includeProjectContent)
+        {
+            ExportCategorySet selected = categories ?? ExportCategorySet.CurrentOr(ExportCategorySet.All);
             progress = new LoggingProgress(progress);
             try
             {
@@ -187,9 +278,8 @@ namespace TiaGitAddIn.Services
                     ct.ThrowIfCancellationRequested();
                     UnifiedDevice device = unified[index];
                     progress?.Report("Unified panel " + (index + 1).ToString(CultureInfo.InvariantCulture) + " of " + unified.Count.ToString(CultureInfo.InvariantCulture) + ": " + device.Name);
-                    ExportCategorySet categories = ExportCategorySet.CurrentOr(ExportCategorySet.All);
                     Announce(progress, device.Name, HmiExportProgress.UnifiedCategories);
-                    HmiDeviceExport export = ReadDevice(device, progress, ct, categories);
+                    HmiDeviceExport export = ReadDevice(device, progress, ct, selected);
                     screenCount += export.Screens.Count;
                     progress?.Report("Writing " + device.Name + "…");
                     string folder = HmiExportStore.DeviceFolder(repositoryPath, device.Name);
@@ -201,7 +291,7 @@ namespace TiaGitAddIn.Services
                         folder,
                         ct,
                         message => ReportProgress(progress, device.Name + ": ", message),
-                        categories);
+                        selected);
                     HmiExportNormalizer.StabilizeCreationTimestamps(folder, previousTimestamps);
                 }
 
@@ -220,22 +310,31 @@ namespace TiaGitAddIn.Services
                         folder,
                         ct,
                         message => ReportProgress(progress, prefix + " — ", message),
-                        ExportCategorySet.CurrentOr(ExportCategorySet.All)) + 1;
+                        selected) + 1;
                     HmiExportNormalizer.StabilizeCreationTimestamps(folder, previousTimestamps);
                     comfortFiles += written;
                     fileCount += written;
                 }
 
                 int projectFiles = 0;
-                foreach (Project project in portal.Projects)
+                if (includeProjectContent)
                 {
-                    ct.ThrowIfCancellationRequested();
-                    Announce(progress, project.Name, new[] { "Pictures", "Library" });
-                    projectFiles += ProjectContentExchange.Export(
-                        project,
-                        repositoryPath,
-                        ct,
-                        message => ReportProgress(progress, string.Empty, message));
+                    foreach (ProjectBase openProject in HardwareExchange.OpenProjects(portal))
+                    {
+                        Project project = openProject as Project;
+                        if (project == null)
+                        {
+                            continue;
+                        }
+
+                        ct.ThrowIfCancellationRequested();
+                        Announce(progress, project.Name, new[] { "Pictures", "Library" });
+                        projectFiles += ProjectContentExchange.Export(
+                            project,
+                            repositoryPath,
+                            ct,
+                            message => ReportProgress(progress, string.Empty, message));
+                    }
                 }
 
                 fileCount += projectFiles;
@@ -275,8 +374,14 @@ namespace TiaGitAddIn.Services
                 }
 
                 int projectItems = 0;
-                foreach (Project project in portal.Projects)
+                foreach (ProjectBase openProject in HardwareExchange.OpenProjects(portal))
                 {
+                    Project project = openProject as Project;
+                    if (project == null)
+                    {
+                        continue;
+                    }
+
                     ct.ThrowIfCancellationRequested();
                     progress?.Report("Importing project pictures and library types for " + project.Name + "…");
                     projectItems += ProjectContentExchange.Import(project, repositoryPath, ct);
@@ -361,30 +466,12 @@ namespace TiaGitAddIn.Services
 
         private void FindDevices(List<UnifiedDevice> unified, List<ComfortDevice> comfort)
         {
-            foreach (Project project in portal.Projects)
+            foreach (ProjectBase project in HardwareExchange.OpenProjects(portal))
             {
-                foreach (Device device in project.Devices)
+                foreach (Device device in HardwareExchange.ListDevices(project, CancellationToken.None))
                 {
                     CollectDevice(device, unified, comfort);
                 }
-
-                foreach (DeviceUserGroup group in project.DeviceGroups)
-                {
-                    CollectGroup(group, unified, comfort);
-                }
-            }
-        }
-
-        private static void CollectGroup(DeviceUserGroup group, List<UnifiedDevice> unified, List<ComfortDevice> comfort)
-        {
-            foreach (Device device in group.Devices)
-            {
-                CollectDevice(device, unified, comfort);
-            }
-
-            foreach (DeviceUserGroup child in group.Groups)
-            {
-                CollectGroup(child, unified, comfort);
             }
         }
 

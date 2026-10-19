@@ -69,17 +69,30 @@ namespace TiaGitAddIn.UI
 
         public GitPanelLaunchResult CreateViewModel(object projectContext)
         {
+            string? workspacePath = workspaceLocator.TryGetWorkspacePath(projectContext);
+            if (workspacePath == null || workspacePath.Trim().Length == 0)
+            {
+                return GitPanelLaunchResult.Fail(
+                    "Unable to resolve a VCI workspace path from the selected TIA item.");
+            }
+
+            return CreateViewModelForFolder(workspacePath);
+        }
+
+        /// <summary>
+        /// Opens the panel for a folder on disk. Used by the preview host, which has no TIA project.
+        /// </summary>
+        public GitPanelLaunchResult CreateViewModelForFolder(string folderPath)
+        {
+            if (string.IsNullOrWhiteSpace(folderPath))
+            {
+                return GitPanelLaunchResult.Fail("Choose a folder that contains the Git workspace.");
+            }
+
             try
             {
-                string? workspacePath = workspaceLocator.TryGetWorkspacePath(projectContext);
-                if (workspacePath == null || workspacePath.Trim().Length == 0)
-                {
-                    return GitPanelLaunchResult.Fail(
-                        "Unable to resolve a VCI workspace path from the selected TIA item.");
-                }
-
                 (bool found, string repositoryRoot, string? createdWithGit, string failure) =
-                    EnsureRepository(workspacePath);
+                    EnsureRepository(folderPath);
                 if (!found)
                 {
                     return GitPanelLaunchResult.Fail(failure);
@@ -126,7 +139,7 @@ namespace TiaGitAddIn.UI
                     var mapper = new ComparisonPresentationMapper(new IComparisonPresentationViewModelFactory[]
                     {
                         new InterfacePresentationViewModelFactory(),
-                        new TextPresentationViewModelFactory(),
+                        new TextPresentationViewModelFactory(() => configurationService.Load(repositoryRoot).ShowScreenPreview),
                         new UnsupportedPresentationViewModelFactory(),
                         new ErrorPresentationViewModelFactory(),
                         new LadPresentationViewModelFactory(logger, dispatcher),

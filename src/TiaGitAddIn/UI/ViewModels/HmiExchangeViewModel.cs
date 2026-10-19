@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Threading;
@@ -26,6 +27,7 @@ namespace TiaGitAddIn.UI.ViewModels
         private Timer? elapsedTimer;
         private int elapsedGeneration;
         private string elapsedText = string.Empty;
+        private bool lastOperationFailed;
 
         public HmiExchangeViewModel(
             string repositoryPath,
@@ -160,6 +162,14 @@ namespace TiaGitAddIn.UI.ViewModels
 
         public Func<string, bool>? Confirm { get; set; }
 
+        public Action<string>? ShowError { get; set; }
+
+        public bool LastOperationFailed
+        {
+            get => lastOperationFailed;
+            private set => SetProperty(ref lastOperationFailed, value);
+        }
+
         public Func<ExportCategorySet>? Categories { get; set; }
 
         public Task ExportAsync()
@@ -178,37 +188,32 @@ namespace TiaGitAddIn.UI.ViewModels
                 StartElapsed();
             });
             string busyMessage = includeHmi && includeHardware
-                ? "Exporting…"
+                ? "Transferring to Git…"
                 : includeHardware
-                    ? "Exporting hardware…"
-                    : "Exporting HMI…";
+                    ? "Transferring hardware to Git…"
+                    : "Transferring HMI to Git…";
             return RunBusyAsync(busyMessage, async ct =>
             {
                 IProgress<string> progress = new ChecklistProgress(ReportChecklist);
                 var messages = new System.Collections.Generic.List<string>();
+                var failures = new System.Collections.Generic.List<string>();
                 bool succeeded = false;
                 try
                 {
                     if (includeHmi)
                     {
                         OperationResult hmi = await exchange.ExportAsync(repositoryPath, progress, ct).ConfigureAwait(false);
-                        messages.Add(GitUserMessages.Describe(hmi));
-                        succeeded |= hmi.Success;
+                        RecordOutcome(hmi, messages, failures, ref succeeded);
                         ct.ThrowIfCancellationRequested();
                     }
 
                     if (includeHardware)
                     {
                         OperationResult hardware = await exchange.ExportHardwareAsync(repositoryPath, progress, ct).ConfigureAwait(false);
-                        messages.Add(GitUserMessages.Describe(hardware));
-                        succeeded |= hardware.Success;
+                        RecordOutcome(hardware, messages, failures, ref succeeded);
                     }
 
-                    InvokeOnUI(() =>
-                    {
-                        FinishElapsed(false);
-                        LastOperationMessage = string.Join(" ", messages) + " " + ElapsedText + ".";
-                    });
+                    InvokeOnUI(() => PublishOutcome(messages, failures));
                     if (succeeded)
                     {
                         await refreshStatusAsync().ConfigureAwait(false);
@@ -228,24 +233,59 @@ namespace TiaGitAddIn.UI.ViewModels
             });
         }
 
-        private static string ImportPrompt(bool hmi, bool hardware)
+        private static string ImportPrompt(bool hmi, bool hardware, IReadOnlyList<string> differences)
         {
             string target = hmi && hardware ? "HMI and hardware files" : hardware ? "hardware files" : "HMI files";
-            return "Import writes the checked " + target + " onto the open project. A checkout only puts files on disk. Continue?";
+            string prompt = "Import writes the checked " + target + " onto the open project. A checkout only puts files on disk. Continue?";
+            if (differences == null || differences.Count == 0)
+            {
+                return prompt;
+            }
+
+            var lines = new System.Text.StringBuilder();
+            lines.AppendLine("Import replaces objects in the open project. It does not merge two edits.");
+            lines.AppendLine("These screens and tag tables differ:");
+            int shown = Math.Min(differences.Count, 30);
+            for (int index = 0; index < shown; index++)
+            {
+                lines.AppendLine("- " + differences[index]);
+            }
+
+            if (differences.Count > shown)
+            {
+                lines.AppendLine("and " + (differences.Count - shown).ToString(System.Globalization.CultureInfo.InvariantCulture) + " more.");
+            }
+
+            lines.Append("Continue?");
+            return lines.ToString();
         }
 
-        public Task ImportAsync()
+        public async Task ImportAsync()
         {
             bool includeHmi = ImportHmi;
             bool includeHardware = ImportHardware;
             if (!includeHmi && !includeHardware)
             {
-                return Task.CompletedTask;
+                return;
             }
 
-            if (Confirm != null && !Confirm(ImportPrompt(includeHmi, includeHardware)))
+            IReadOnlyList<string> differences = null;
+            if (includeHmi)
             {
-                return Task.CompletedTask;
+                InvokeOnUI(() => LastOperationMessage = "Comparing screens and tag tables with the open project…");
+                try
+                {
+                    differences = await exchange.ListImportDifferencesAsync(repositoryPath).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                    differences = null;
+                }
+            }
+
+            if (Confirm != null && !Confirm(ImportPrompt(includeHmi, includeHardware, differences)))
+            {
+                return;
             }
 
             InvokeOnUI(() =>
@@ -254,37 +294,32 @@ namespace TiaGitAddIn.UI.ViewModels
                 StartElapsed();
             });
             string busyMessage = includeHmi && includeHardware
-                ? "Importing…"
+                ? "Transferring to the project…"
                 : includeHardware
-                    ? "Importing hardware…"
-                    : "Importing HMI…";
-            return RunBusyAsync(busyMessage, async ct =>
+                    ? "Transferring hardware to the project…"
+                    : "Transferring HMI to the project…";
+            await RunBusyAsync(busyMessage, async ct =>
             {
                 IProgress<string> progress = new ChecklistProgress(ReportChecklist);
                 var messages = new System.Collections.Generic.List<string>();
+                var failures = new System.Collections.Generic.List<string>();
                 bool succeeded = false;
                 try
                 {
                     if (includeHmi)
                     {
                         OperationResult hmi = await exchange.ImportAsync(repositoryPath, progress, ct).ConfigureAwait(false);
-                        messages.Add(GitUserMessages.Describe(hmi));
-                        succeeded |= hmi.Success;
+                        RecordOutcome(hmi, messages, failures, ref succeeded);
                         ct.ThrowIfCancellationRequested();
                     }
 
                     if (includeHardware)
                     {
                         OperationResult hardware = await exchange.ImportHardwareAsync(repositoryPath, progress, ct).ConfigureAwait(false);
-                        messages.Add(GitUserMessages.Describe(hardware));
-                        succeeded |= hardware.Success;
+                        RecordOutcome(hardware, messages, failures, ref succeeded);
                     }
 
-                    InvokeOnUI(() =>
-                    {
-                        FinishElapsed(false);
-                        LastOperationMessage = string.Join(" ", messages) + " " + ElapsedText + ".";
-                    });
+                    InvokeOnUI(() => PublishOutcome(messages, failures));
                     if (succeeded)
                     {
                         await refreshStatusAsync().ConfigureAwait(false);
@@ -434,7 +469,49 @@ namespace TiaGitAddIn.UI.ViewModels
             return created;
         }
 
-        protected override void ReportStatus(string message) => LastOperationMessage = message;
+        private static void RecordOutcome(
+            OperationResult result,
+            ICollection<string> messages,
+            ICollection<string> failures,
+            ref bool succeeded)
+        {
+            string described = GitUserMessages.Describe(result);
+            messages.Add(described);
+            if (result.Success)
+            {
+                succeeded = true;
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(described))
+            {
+                failures.Add(described);
+            }
+        }
+
+        private void PublishOutcome(IReadOnlyList<string> messages, IReadOnlyList<string> failures)
+        {
+            FinishElapsed(false);
+            LastOperationFailed = failures.Count > 0;
+            LastOperationMessage = string.Join(" ", messages) + " " + ElapsedText + ".";
+            if (failures.Count == 0)
+            {
+                return;
+            }
+
+            ShowError?.Invoke(string.Join(Environment.NewLine + Environment.NewLine, failures));
+        }
+
+        protected override void ReportStatus(string message)
+        {
+            bool cancelled = string.Equals(message, "Cancelled.", StringComparison.Ordinal);
+            LastOperationFailed = !cancelled;
+            LastOperationMessage = message ?? string.Empty;
+            if (!cancelled && !string.IsNullOrWhiteSpace(message))
+            {
+                ShowError?.Invoke(message);
+            }
+        }
 
         protected override void OnBusyChanged()
         {

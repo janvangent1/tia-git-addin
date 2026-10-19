@@ -25,6 +25,7 @@ namespace TiaGitAddIn.UI.ViewModels
         private bool remoteUrlEdited;
         private int maxLogEntries = 200;
         private bool compareXmlByElement = true;
+        private bool showScreenPreview = true;
         private string validationMessage = string.Empty;
         private bool canSaveSettings = true;
 
@@ -158,6 +159,38 @@ namespace TiaGitAddIn.UI.ViewModels
             }
         }
 
+        public IReadOnlyList<ScreenDiffChoice> ScreenDiffChoices { get; } = new[]
+        {
+            new ScreenDiffChoice("Screen preview", true),
+            new ScreenDiffChoice("XML text", false)
+        };
+
+        public ScreenDiffChoice SelectedScreenDiff
+        {
+            get
+            {
+                foreach (ScreenDiffChoice choice in ScreenDiffChoices)
+                {
+                    if (choice.ShowPreview == showScreenPreview)
+                    {
+                        return choice;
+                    }
+                }
+
+                return ScreenDiffChoices[0];
+            }
+            set
+            {
+                if (value == null || value.ShowPreview == showScreenPreview)
+                {
+                    return;
+                }
+
+                showScreenPreview = value.ShowPreview;
+                OnPropertyChanged();
+            }
+        }
+
         public string ValidationMessage
         {
             get => validationMessage;
@@ -178,6 +211,7 @@ namespace TiaGitAddIn.UI.ViewModels
             remoteUrl = config.RemoteUrl ?? string.Empty;
             maxLogEntries = config.MaxLogEntries;
             compareXmlByElement = config.CompareXmlByElement;
+            showScreenPreview = config.ShowScreenPreview;
             ApplyDisabled(HmiCategories, config.DisabledHmiCategories);
             ApplyDisabled(HardwareCategories, config.DisabledHardwareCategories);
 
@@ -223,6 +257,7 @@ namespace TiaGitAddIn.UI.ViewModels
                 CommitAuthorName = CommitAuthorName.Trim(),
                 CommitAuthorEmail = CommitAuthorEmail.Trim(),
                 CompareXmlByElement = compareXmlByElement,
+                ShowScreenPreview = showScreenPreview,
                 DisabledHmiCategories = DisabledNames(HmiCategories).ToList(),
                 DisabledHardwareCategories = DisabledNames(HardwareCategories).ToList(),
                 Version = 1
@@ -432,6 +467,19 @@ namespace TiaGitAddIn.UI.ViewModels
             public string Caption { get; }
 
             public bool ByElement { get; }
+        }
+
+        public sealed class ScreenDiffChoice
+        {
+            public ScreenDiffChoice(string caption, bool showPreview)
+            {
+                Caption = caption;
+                ShowPreview = showPreview;
+            }
+
+            public string Caption { get; }
+
+            public bool ShowPreview { get; }
         }
 
         public sealed class ExportCategoryOption : ViewModelBase

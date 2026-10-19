@@ -38,12 +38,14 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0"
                     Orientation="Horizontal"
-                    Margin="4,4,4,2">
+                    Margin="4,4,4,2"
+                    Visibility="{Binding ShowTextLines, Converter={StaticResource BoolToVis}}">
             <Button Content="Previous change"
                     Command="{Binding PreviousChangeCommand}"
                     Padding="8,2"
@@ -64,14 +66,103 @@
                 BorderBrush="#FFEEBA"
                 BorderThickness="0,0,0,1"
                 Padding="6,3"
-                Visibility="{Binding IsTruncated, Converter={StaticResource BoolToVis}}">
+                Visibility="{Binding ShowTruncationBanner, Converter={StaticResource BoolToVis}}">
             <TextBlock Text="Diff truncated: this comparison exceeded the configured size limits."
                        FontSize="11"
                        Foreground="#856404"/>
         </Border>
 
+        <ScrollViewer Grid.Row="2"
+                      MaxHeight="280"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto"
+                      Visibility="{Binding HasScreenPreview, Converter={StaticResource BoolToVis}}">
+            <ItemsControl ItemsSource="{Binding ScreenPanes}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="8,4">
+                            <TextBlock Text="{Binding Title}" FontWeight="Bold" Margin="0,0,0,4"/>
+                            <TextBlock Text="This side has no screen."
+                                       FontStyle="Italic"
+                                       Foreground="#666666"
+                                       Visibility="{Binding IsMissing, Converter={StaticResource BoolToVis}}"/>
+                            <Border BorderBrush="#CCCCCC" BorderThickness="1" Background="#F7F7F7"
+                                    Width="{Binding CanvasWidth}" Height="{Binding CanvasHeight}">
+                                <ItemsControl ItemsSource="{Binding Boxes}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <Canvas/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemContainerStyle>
+                                        <Style TargetType="ContentPresenter">
+                                            <Setter Property="Canvas.Left" Value="{Binding ScaledLeft}"/>
+                                            <Setter Property="Canvas.Top" Value="{Binding ScaledTop}"/>
+                                        </Style>
+                                    </ItemsControl.ItemContainerStyle>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Width="{Binding ScaledWidth}"
+                                                    Height="{Binding ScaledHeight}"
+                                                    BorderThickness="1"
+                                                    BorderBrush="#666666"
+                                                    ToolTip="{Binding Label}">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="White"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Change}" Value="Added">
+                                                                <Setter Property="Background" Value="#C8E6C9"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Change}" Value="Removed">
+                                                                <Setter Property="Background" Value="#FFCDD2"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Change}" Value="Changed">
+                                                                <Setter Property="Background" Value="#FFF3B0"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding Label}"
+                                                           Margin="2"
+                                                           FontSize="10"
+                                                           TextWrapping="Wrap"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
         <ListView Grid.Row="2"
+                  MaxHeight="160"
+                  BorderThickness="0"
+                  ItemsSource="{Binding TagRows}"
+                  Visibility="{Binding HasTagPreview, Converter={StaticResource BoolToVis}}">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Change" DisplayMemberBinding="{Binding Change}" Width="90"/>
+                    <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" Width="140"/>
+                    <GridViewColumn Header="Address" DisplayMemberBinding="{Binding Address}" Width="140"/>
+                    <GridViewColumn Header="Type" DisplayMemberBinding="{Binding DataType}" Width="120"/>
+                    <GridViewColumn Header="Comment" DisplayMemberBinding="{Binding Comment}" Width="220"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <ListView Grid.Row="3"
                   x:Name="LinesListView"
+                  Visibility="{Binding ShowTextLines, Converter={StaticResource BoolToVis}}"
                   BorderThickness="0"
                   ItemsSource="{Binding Lines}"
                   ScrollViewer.HorizontalScrollBarVisibility="Auto"

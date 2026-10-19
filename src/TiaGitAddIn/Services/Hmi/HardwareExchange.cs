@@ -14,6 +14,7 @@ using Siemens.Engineering.HW;
 using Siemens.Engineering.HW.Features;
 using Siemens.Engineering.MC.Drives;
 using Siemens.Engineering.MC.Drives.DFI;
+using Siemens.Engineering.Multiuser;
 using TiaGitAddIn.Models;
 using TiaGitAddIn.Services.Hmi;
 
@@ -96,17 +97,12 @@ namespace TiaGitAddIn.Services
             }
 
             DispatcherPump.Yield();
-            foreach (Project project in portal.Projects)
+            foreach (ProjectBase project in OpenProjects(portal))
             {
                 ct.ThrowIfCancellationRequested();
-                foreach (Device device in project.Devices)
+                foreach (Device device in ListDevices(project, ct))
                 {
                     CollectDevice(device, root, usedFolders, deviceFolders, ct, report, ref devices, ref modules, ref seenDevices);
-                }
-
-                foreach (DeviceUserGroup group in project.DeviceGroups)
-                {
-                    CollectGroup(group, root, usedFolders, deviceFolders, ct, report, ref devices, ref modules, ref seenDevices);
                 }
             }
 
@@ -128,7 +124,7 @@ namespace TiaGitAddIn.Services
             {
                 Step(report, "Networks", 0, string.Empty);
                 DispatcherPump.Yield();
-                foreach (Project project in portal.Projects)
+                foreach (ProjectBase project in OpenProjects(portal))
                 {
                     ct.ThrowIfCancellationRequested();
                     networks += WriteSubnets(project, root, ct, report);
@@ -179,18 +175,13 @@ namespace TiaGitAddIn.Services
                 DispatcherPump.Yield();
                 var seenDrives = new List<DriveObject>();
                 int folderIndex = 0;
-                foreach (Project project in portal.Projects)
+                foreach (ProjectBase project in OpenProjects(portal))
                 {
                     ct.ThrowIfCancellationRequested();
-                    foreach (Device device in project.Devices)
+                    foreach (Device device in ListDevices(project, ct))
                     {
                         ExportDrives(device, deviceFolders[folderIndex], seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
                         folderIndex++;
-                    }
-
-                    foreach (DeviceUserGroup group in project.DeviceGroups)
-                    {
-                        ExportDriveGroup(group, deviceFolders, ref folderIndex, seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
                     }
                 }
 
@@ -212,7 +203,22 @@ namespace TiaGitAddIn.Services
 
             if (seenDevices == 0)
             {
-                return OperationResult.Fail("No hardware device is open in TIA Portal.");
+                int projectCount = 0;
+                foreach (ProjectBase project in OpenProjects(portal))
+                {
+                    projectCount++;
+                }
+
+                HmiExportTrace.Info(
+                    "Hardware export found " + seenDevices.ToString(CultureInfo.InvariantCulture) +
+                    " device(s) in " + projectCount.ToString(CultureInfo.InvariantCulture) +
+                    " open project(s). " + DescribePortal(portal));
+                if (projectCount == 0)
+                {
+                    return OperationResult.Fail("No project is open in this TIA Portal session. " + DescribePortal(portal));
+                }
+
+                return OperationResult.Fail("No hardware device was found in the open project. The search includes devices, device groups, and Ungrouped devices.");
             }
 
             return OperationResult.Ok(
@@ -275,18 +281,13 @@ namespace TiaGitAddIn.Services
                 var portDevices = new List<string>();
                 var portModules = new List<string>();
                 var ports = new List<NetworkPort>();
-                foreach (Project project in portal.Projects)
+                foreach (ProjectBase project in OpenProjects(portal))
                 {
                     ct.ThrowIfCancellationRequested();
-                    foreach (Device device in project.Devices)
+                    foreach (Device device in ListDevices(project, ct))
                     {
                         CollectProjectNodes(device.DeviceItems, projectNodes, ct);
                         CollectPorts(device.Name ?? string.Empty, device.DeviceItems, portDevices, portModules, ports, ct);
-                    }
-
-                    foreach (DeviceUserGroup group in project.DeviceGroups)
-                    {
-                        CollectGroupNodes(group, projectNodes, portDevices, portModules, ports, ct);
                     }
                 }
 
@@ -423,26 +424,135 @@ namespace TiaGitAddIn.Services
             return OperationResult.Ok(message);
         }
 
-        private static void CollectGroup(
-            DeviceUserGroup group,
-            string root,
-            ISet<string> usedFolders,
-            List<string> deviceFolders,
-            CancellationToken ct,
-            Action<string> report,
-            ref int devices,
-            ref int modules,
-            ref int seenDevices)
+        internal static IReadOnlyList<ProjectBase> OpenProjects(TiaPortal portal)
         {
+            var found = new List<ProjectBase>();
+            ProjectComposition projects = portal.Projects;
+            if (projects != null)
+            {
+                int count = projects.Count;
+                for (int index = 0; index < count; index++)
+                {
+                    Project project = projects[index];
+                    if (project != null)
+                    {
+                        found.Add(project);
+                    }
+                }
+            }
+
+            try
+            {
+                LocalSessionComposition sessions = portal.LocalSessions;
+                if (sessions != null)
+                {
+                    int count = sessions.Count;
+                    for (int index = 0; index < count; index++)
+                    {
+                        MultiuserProject project = sessions[index] == null ? null : sessions[index].Project;
+                        if (project != null)
+                        {
+                            found.Add(project);
+                        }
+                    }
+                }
+            }
+            catch (EngineeringException ex)
+            {
+                HmiExportTrace.Info("Local sessions were not read. " + ex.Message);
+            }
+
+            return found;
+        }
+
+        private static string DescribePortal(TiaPortal portal)
+        {
+            try
+            {
+                TiaPortalProcess process = portal.GetCurrentProcess();
+                string path = process == null || process.ProjectPath == null
+                    ? string.Empty
+                    : process.ProjectPath.FullName;
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    return "TIA Portal did not report an open project path.";
+                }
+
+                return "TIA Portal reports this project: " + path + ".";
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
+        }
+
+        internal static IReadOnlyList<Device> ListDevices(ProjectBase project, CancellationToken ct)
+        {
+            var devices = new List<Device>();
+            if (project == null)
+            {
+                return devices;
+            }
+
+            foreach (Device device in project.Devices)
+            {
+                ct.ThrowIfCancellationRequested();
+                RememberDevice(devices, device);
+            }
+
+            DeviceSystemGroup ungrouped = project.UngroupedDevicesGroup;
+            if (ungrouped?.Devices != null)
+            {
+                foreach (Device device in ungrouped.Devices)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    RememberDevice(devices, device);
+                }
+            }
+
+            foreach (DeviceUserGroup group in project.DeviceGroups)
+            {
+                ListGroupDevices(group, devices, ct);
+            }
+
+            return devices;
+        }
+
+        private static void ListGroupDevices(DeviceUserGroup group, List<Device> devices, CancellationToken ct)
+        {
+            if (group == null)
+            {
+                return;
+            }
+
             foreach (Device device in group.Devices)
             {
-                CollectDevice(device, root, usedFolders, deviceFolders, ct, report, ref devices, ref modules, ref seenDevices);
+                ct.ThrowIfCancellationRequested();
+                RememberDevice(devices, device);
             }
 
             foreach (DeviceUserGroup child in group.Groups)
             {
-                CollectGroup(child, root, usedFolders, deviceFolders, ct, report, ref devices, ref modules, ref seenDevices);
+                ListGroupDevices(child, devices, ct);
             }
+        }
+
+        private static void RememberDevice(List<Device> devices, Device device)
+        {
+            if (device == null)
+            {
+                return;
+            }
+
+            foreach (Device existing in devices)
+            {
+                if (existing.Equals(device))
+                {
+                    return;
+                }
+            }
+
+            devices.Add(device);
         }
 
         private static void CollectDevice(
@@ -491,29 +601,6 @@ namespace TiaGitAddIn.Services
             }
 
             DispatcherPump.Yield();
-        }
-
-        private static void ExportDriveGroup(
-            DeviceUserGroup group,
-            IReadOnlyList<string> deviceFolders,
-            ref int folderIndex,
-            List<DriveObject> seenDrives,
-            CancellationToken ct,
-            Action<string> report,
-            ref int drives,
-            ref int parameters,
-            ref int telegrams)
-        {
-            foreach (Device device in group.Devices)
-            {
-                ExportDrives(device, deviceFolders[folderIndex], seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
-                folderIndex++;
-            }
-
-            foreach (DeviceUserGroup child in group.Groups)
-            {
-                ExportDriveGroup(child, deviceFolders, ref folderIndex, seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
-            }
         }
 
         private static void ExportDrives(
@@ -1013,7 +1100,7 @@ namespace TiaGitAddIn.Services
             }
         }
 
-        private static int WriteSubnets(Project project, string root, CancellationToken ct, Action<string> report)
+        private static int WriteSubnets(ProjectBase project, string root, CancellationToken ct, Action<string> report)
         {
             if (project.Subnets == null)
             {
@@ -1086,7 +1173,7 @@ namespace TiaGitAddIn.Services
             }
         }
 
-        private static void AppendUnassignedNodes(XElement document, Project project, CancellationToken ct)
+        private static void AppendUnassignedNodes(XElement document, ProjectBase project, CancellationToken ct)
         {
             var assigned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (XElement node in document.Descendants("Node"))
@@ -1227,20 +1314,14 @@ namespace TiaGitAddIn.Services
             }
         }
 
-        private static void AppendPortLinks(XElement document, Project project, CancellationToken ct)
+        private static void AppendPortLinks(XElement document, ProjectBase project, CancellationToken ct)
         {
             var devices = new List<string>();
             var modules = new List<string>();
             var ports = new List<NetworkPort>();
-            foreach (Device device in project.Devices)
+            foreach (Device device in ListDevices(project, ct))
             {
-                ct.ThrowIfCancellationRequested();
                 CollectPorts(device.Name ?? string.Empty, device.DeviceItems, devices, modules, ports, ct);
-            }
-
-            foreach (DeviceUserGroup group in project.DeviceGroups)
-            {
-                CollectGroupPorts(group, devices, modules, ports, ct);
             }
 
             var links = new XElement("PortLinks");
@@ -1294,25 +1375,6 @@ namespace TiaGitAddIn.Services
             if (links.HasElements)
             {
                 document.Add(links);
-            }
-        }
-
-        private static void CollectGroupPorts(
-            DeviceUserGroup group,
-            List<string> devices,
-            List<string> modules,
-            List<NetworkPort> ports,
-            CancellationToken ct)
-        {
-            foreach (Device device in group.Devices)
-            {
-                ct.ThrowIfCancellationRequested();
-                CollectPorts(device.Name ?? string.Empty, device.DeviceItems, devices, modules, ports, ct);
-            }
-
-            foreach (DeviceUserGroup child in group.Groups)
-            {
-                CollectGroupPorts(child, devices, modules, ports, ct);
             }
         }
 
@@ -1714,27 +1776,6 @@ namespace TiaGitAddIn.Services
             DispatcherPump.Yield();
         }
 
-        private static void CollectGroupNodes(
-            DeviceUserGroup group,
-            List<Node> nodes,
-            List<string> portDevices,
-            List<string> portModules,
-            List<NetworkPort> ports,
-            CancellationToken ct)
-        {
-            foreach (Device device in group.Devices)
-            {
-                ct.ThrowIfCancellationRequested();
-                CollectProjectNodes(device.DeviceItems, nodes, ct);
-                CollectPorts(device.Name ?? string.Empty, device.DeviceItems, portDevices, portModules, ports, ct);
-            }
-
-            foreach (DeviceUserGroup child in group.Groups)
-            {
-                CollectGroupNodes(child, nodes, portDevices, portModules, ports, ct);
-            }
-        }
-
         private static void CollectProjectNodes(IEnumerable<DeviceItem> items, List<Node> nodes, CancellationToken ct)
         {
             if (items == null)
@@ -1896,10 +1937,10 @@ namespace TiaGitAddIn.Services
 
         private static DriveObject? FindDrive(TiaPortal portal, string deviceName, string moduleName, string number, CancellationToken ct)
         {
-            foreach (Project project in portal.Projects)
+            foreach (ProjectBase project in OpenProjects(portal))
             {
                 ct.ThrowIfCancellationRequested();
-                foreach (Device device in project.Devices)
+                foreach (Device device in ListDevices(project, ct))
                 {
                     if (!string.Equals(device.Name ?? string.Empty, deviceName, StringComparison.OrdinalIgnoreCase))
                     {
@@ -1911,44 +1952,6 @@ namespace TiaGitAddIn.Services
                     {
                         return found;
                     }
-                }
-
-                foreach (DeviceUserGroup group in project.DeviceGroups)
-                {
-                    DriveObject found = FindDriveInGroup(group, deviceName, moduleName, number, ct);
-                    if (found != null)
-                    {
-                        return found;
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        private static DriveObject? FindDriveInGroup(DeviceUserGroup group, string deviceName, string moduleName, string number, CancellationToken ct)
-        {
-            foreach (Device device in group.Devices)
-            {
-                ct.ThrowIfCancellationRequested();
-                if (!string.Equals(device.Name ?? string.Empty, deviceName, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                DriveObject found = FindDriveOnItems(device.DeviceItems, moduleName, number, ct);
-                if (found != null)
-                {
-                    return found;
-                }
-            }
-
-            foreach (DeviceUserGroup child in group.Groups)
-            {
-                DriveObject found = FindDriveInGroup(child, deviceName, moduleName, number, ct);
-                if (found != null)
-                {
-                    return found;
                 }
             }
 
@@ -2136,7 +2139,7 @@ namespace TiaGitAddIn.Services
                 try
                 {
                     XDocument document = XDocument.Load(subnetFile);
-                    foreach (Project project in portal.Projects)
+                    foreach (ProjectBase project in OpenProjects(portal))
                     {
                         ct.ThrowIfCancellationRequested();
                         if (project.Subnets == null || document.Root == null)
@@ -2312,52 +2315,15 @@ namespace TiaGitAddIn.Services
 
         private static Device FindNamedDevice(TiaPortal portal, string name, CancellationToken ct)
         {
-            foreach (Project project in portal.Projects)
+            foreach (ProjectBase project in OpenProjects(portal))
             {
                 ct.ThrowIfCancellationRequested();
-                foreach (Device device in project.Devices)
+                foreach (Device device in ListDevices(project, ct))
                 {
                     if (device != null && string.Equals(device.Name ?? string.Empty, name, StringComparison.OrdinalIgnoreCase))
                     {
                         return device;
                     }
-                }
-
-                foreach (DeviceUserGroup group in project.DeviceGroups)
-                {
-                    Device found = FindNamedDevice(group, name, ct);
-                    if (found != null)
-                    {
-                        return found;
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        private static Device FindNamedDevice(DeviceUserGroup group, string name, CancellationToken ct)
-        {
-            if (group == null)
-            {
-                return null;
-            }
-
-            foreach (Device device in group.Devices)
-            {
-                ct.ThrowIfCancellationRequested();
-                if (device != null && string.Equals(device.Name ?? string.Empty, name, StringComparison.OrdinalIgnoreCase))
-                {
-                    return device;
-                }
-            }
-
-            foreach (DeviceUserGroup child in group.Groups)
-            {
-                Device found = FindNamedDevice(child, name, ct);
-                if (found != null)
-                {
-                    return found;
                 }
             }
 

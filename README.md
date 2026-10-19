@@ -29,7 +29,7 @@ Parsed PLC blocks include a structured interface comparison beside the LAD view.
 
 ### HMI and hardware in Git
 
-TIA Portal VCI cannot contain an HMI device. The Git panel has **HMI** and **Hardware** checkboxes for export and the same pair for import, with one **Export** button and one **Import** button. Export writes `HmiExport/<device>/` and `HardwareExport/`. Import applies the checked folders back onto the matching devices in the open project. A checkout only puts the files on disk; **Import** is a separate step.
+TIA Portal VCI cannot contain an HMI device. The Git panel has **HMI** and **Hardware** checkboxes for each direction, with one **Transfer to Git** button and one **Transfer to project** button. Export writes `HmiExport/<device>/` and `HardwareExport/`. Import applies the checked folders back onto the matching devices in the open project. It replaces those objects; it does not merge two edits. Before it writes HMI files, it lists screens and tag tables that differ from the open project and asks you to continue. A checkout only puts the files on disk; **Import** is a separate step.
 
 While an export runs, a checklist stays open. It is grouped by device and shows each category, the item being written, and the count when that category finishes. Export keeps a creation time that is already stored in a file, and leaves a new one out when the file had none, so an unchanged device does not rewrite every file.
 
@@ -99,10 +99,10 @@ Git revision review therefore continues to use the project-owned native SimaticM
 - **Restore**: Restoring a commit creates a branch named `restore-<short hash>` and checks it out. The original branch is left unchanged.
 - **Commit identity**: In Settings, **Your Name** and **Your Email** are saved into the repository so commits made from TIA Portal have an author. When those boxes are empty, Settings fills them from the name and email already stored for this repository.
 - **Transparent Execution**: Uses your local `git.exe`. It is found on `PATH`, or at `C:\Program Files\Git\cmd\git.exe`.
-- **Remote repository**: In Settings, set **Default Remote** (usually `origin`) and **Remote URL**, then save. The URL can be a GitHub address (`https://github.com/org/repo.git` or `git@github.com:org/repo.git`) or an Azure DevOps address (`https://dev.azure.com/org/project/_git/repo`, a `visualstudio.com` URL, an Azure DevOps Server URL containing `/_git/`, or `git@ssh.dev.azure.com:v3/org/project/repo`). Fetch, Pull, and Push use that remote name. Leave the password out of the URL. Sign in once with `git fetch` from a command prompt in the workspace folder so Git Credential Manager can store the credentials.
+- **Remote repository**: In Settings, set **Default Remote** (usually `origin`) and **Remote URL**, then save. The URL can be a GitHub address (`https://github.com/org/repo.git` or `git@github.com:org/repo.git`) or an Azure DevOps address (`https://dev.azure.com/org/project/_git/repo`, a `visualstudio.com` URL, an Azure DevOps Server URL containing `/_git/`, or `git@ssh.dev.azure.com:v3/org/project/repo`). Fetch, Pull, and Push use that remote name. Leave the password out of the URL. Sign in once with `git fetch` from a command prompt in the workspace folder so Git Credential Manager can store the credentials. If a push is rejected because those credentials are missing, the panel says to run that same command.
 - **PDF export**: History exports the loaded commits and, when a commit is selected, its changed files. Diff exports the changed-file list and the open text or interface comparison. Ladder diagrams are left out of the PDF.
 
-Exported XML, including HMI and hardware files, is compared by element and attribute. A changed value is shown on its own line, such as `Item[@name="Start"]/@text`. Line breaks and the order of attributes are ignored. In Settings, **XML changes** can switch that view back to plain text, which shows the file line by line. SCL and other plain text files still show added lines in green and removed lines in red. The note that semantic comparison is unavailable means that file is being compared as text. LAD blocks that can be parsed use the graphical comparison instead.
+Exported XML, including HMI and hardware files, is compared by element and attribute. A changed value is shown on its own line, such as `Item[@name="Start"]/@text`. Line breaks and the order of attributes are ignored. A screen file draws buttons and I/O fields as boxes, with added, removed, and moved items marked. In Settings, **Screen** can switch that drawing back to the XML text. A tag table shows name, address, data type, and comment above the line diff. In Settings, **XML changes** can switch that view back to plain text, which shows the file line by line. SCL and other plain text files still show added lines in green and removed lines in red. The note that semantic comparison is unavailable means that file is being compared as text. LAD blocks that can be parsed use the graphical comparison instead.
 
 ## Prerequisites
 
@@ -122,9 +122,11 @@ dotnet build TiaGitAddIn.sln --no-restore
 The build process automatically packages the result into a `.addin` file using the Siemens Add-In Publisher:
 `src/TiaGitAddIn/bin/Debug/net48/TiaGitAddIn.addin`
 
+To look at the panel without starting TIA Portal, run `python open_panel.py` from this folder. Pass another folder to open that Git workspace instead. Commit, fetch, and the other Git buttons act on that folder. HMI and hardware import and export still need the panel opened from TIA Portal.
+
 ### Installation
 
-The repository includes `installer/out/plugin_installer.exe`. That file embeds a Release add-in from when it was last built, so it can be run without compiling. It checks that the destination is the TIA Portal V21 `UserAddIns` folder. If that folder is missing or is not the right one, you can browse to `Portal V21\UserAddIns`. It then copies the package there, tells you which add-in version was installed, and lists the steps to enable it in the Add-ins task card. If Git for Windows is not installed, it offers to open the download page. Close TIA Portal first if the add-in file is already in use.
+The repository includes `installer/out/plugin_installer.exe`. That file embeds a Release add-in from when it was last built, so it can be run without compiling. It checks that the destination is the TIA Portal V21 `UserAddIns` folder. If that folder is missing or is not the right one, you can browse to `Portal V21\UserAddIns`. It then copies the package there, tells you which add-in version was installed, and lists the steps to enable it in the Add-ins task card. It also runs `git.exe` and shows the path when Git works. If Git is missing or that file does not run, it offers to open the download page. Close TIA Portal first if the add-in file is already in use.
 
 To install the current source, build a Release package and rebuild the installer. The HMI export added after that exe was published is only in a freshly built package.
 
@@ -147,7 +149,7 @@ To install the package yourself:
 
 The table under **HMI and hardware in Git** is the list of what export and import cover. The items below are still open and are not already stated there.
 
-1. **Screen review.** There is no visual diff of screens or tag tables. Git shows those files as text.
+1. **Screen review.** The Diff tab draws buttons and I/O fields from an exported screen. Settings can show the XML text instead. A tag table shows name, address, data type, and comment. Other widgets, faceplates, and graphics stay in the text diff.
 2. **PLC comparison.** Visual diff for **FBD**. Structured **SCL** diff with block-aware syntax highlighting. Block metadata such as Optimized Access. Compare more than one block from the same commit in one view.
 3. **Diagram viewer.** Cleaner orthogonal wire routing. The LAD view can zoom, jump to a network, and fit the width. Panning is the scroll bars. The panel follows the Windows app theme. It does not read TIA Portal's own theme.
 
@@ -155,6 +157,11 @@ The table under **HMI and hardware in Git** is the list of what export and impor
 
 The add-in version is `AddInVersion` in `src/TiaGitAddIn/AddInPublisherConfiguration.xml`. Newest first.
 
+- **1.2.43** — Transfer to Git also reads a project opened as a multiuser local session, and the error names the project path TIA reports.
+- **1.2.42** — Hardware transfer also reads devices in Ungrouped devices and in device groups, not only devices at the project root.
+- **1.2.41** — A failed Transfer to Git or Transfer to project opens an error dialog, and the same text stays under the buttons.
+- **1.2.40** — The Changes page buttons are Transfer to Git and Transfer to project.
+- **1.2.39** — The Diff tab draws buttons and I/O fields and lists tag-table rows. Settings can show a screen as that drawing or as XML text. Import lists screens and tag tables that differ from the open project before it replaces them. A push that cannot sign in says to run `git fetch` once in the workspace folder.
 - **1.2.38** — The Changes page holds commit, export, and import. A file opens in the diff, and Settings can leave HMI and hardware categories out of an export.
 - **1.2.37** — Export and import show a running timer, and the finished time stays on the checklist.
 - **1.2.36** — Export and import cover project pictures, project-library faceplate types and styles, and Comfort system cycles.

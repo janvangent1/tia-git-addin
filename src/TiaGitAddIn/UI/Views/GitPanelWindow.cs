@@ -18,6 +18,7 @@ namespace TiaGitAddIn.UI.Views
             PanelTheme.Apply(this);
             viewModel.Status.Confirm = Confirm;
             viewModel.Hmi.Confirm = Confirm;
+            viewModel.Hmi.ShowError = ShowError;
             DataContext = viewModel;
             Title = "TIA Git";
             FontSize = 14;
@@ -82,6 +83,16 @@ namespace TiaGitAddIn.UI.Views
                 "TIA Git",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning) == MessageBoxResult.Yes;
+        }
+
+        private void ShowError(string message)
+        {
+            MessageBox.Show(
+                this,
+                message,
+                "TIA Git",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
 
         private static FrameworkElement BuildHeader()
@@ -174,7 +185,7 @@ namespace TiaGitAddIn.UI.Views
                 Padding = new Thickness(10, 2, 10, 2),
                 Margin = new Thickness(0, 0, 12, 0),
                 ToolTip = toolTip,
-                Style = content == "Import"
+                Style = content == "Transfer to project"
                     ? (Style)theme["DangerButtonStyle"]
                     : (Style)theme["PrimaryButtonStyle"]
             };
@@ -252,10 +263,28 @@ namespace TiaGitAddIn.UI.Views
             panel.Children.Add(ActionRow(
                 ExportChoice("HMI", "Hmi.ExportHmi", "Include the open Unified or WinCC Comfort device. Writes HmiExport/<device>/."),
                 ExportChoice("Hardware", "Hmi.ExportHardware", "Include devices, modules, networks, and drive parameters that differ from the factory default. Writes HardwareExport/."),
-                HmiButton("Export", "Hmi.ExportCommand", "Export the checked items. HMI and hardware can run together."),
+                HmiButton("Transfer to Git", "Hmi.ExportCommand", "Write the checked items into the Git folder. HMI and hardware can run together."),
                 ExportChoice("HMI", "Hmi.ImportHmi", "Apply HmiExport/<device>/ back onto the open device after a checkout."),
                 ExportChoice("Hardware", "Hmi.ImportHardware", "Apply addresses, port links, and changed drive parameters onto the matching devices. Modules are not created or deleted."),
-                HmiButton("Import", "Hmi.ImportCommand", "Import the checked items onto the open project.")));
+                HmiButton("Transfer to project", "Hmi.ImportCommand", "Write the checked items onto the open project.")));
+
+            TextBlock transferStatus = new()
+            {
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            Style statusStyle = new(typeof(TextBlock));
+            statusStyle.Setters.Add(new Setter(TextBlock.ForegroundProperty, PanelTheme.InkBrush()));
+            DataTrigger failed = new()
+            {
+                Binding = new Binding("Hmi.LastOperationFailed"),
+                Value = true
+            };
+            failed.Setters.Add(new Setter(TextBlock.ForegroundProperty, PanelTheme.DangerBrush()));
+            statusStyle.Triggers.Add(failed);
+            transferStatus.Style = statusStyle;
+            transferStatus.SetBinding(TextBlock.TextProperty, new Binding("Hmi.LastOperationMessage"));
+            panel.Children.Add(transferStatus);
 
             TextBox message = new()
             {

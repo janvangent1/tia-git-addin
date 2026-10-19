@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using TiaGitAddIn.Models.Comparison;
+using TiaGitAddIn.Models.Hmi;
 using TiaGitAddIn.UI.ViewModels;
 
 namespace TiaGitAddIn.UI.ViewModels.Comparison
@@ -47,7 +48,10 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
         private int currentChangeIndex = -1;
         private TextDiffLineViewModel? currentChangeLine;
 
-        public TextComparisonViewModel(TextPresentation presentation, ComparisonViewModelMetadata metadata)
+        public TextComparisonViewModel(
+            TextPresentation presentation,
+            ComparisonViewModelMetadata metadata,
+            HmiFilePreview? preview = null)
             : base(ComparisonPresentationKind.Text, metadata)
         {
             if (presentation == null) throw new ArgumentNullException(nameof(presentation));
@@ -55,6 +59,8 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
             Lines = presentation.Lines.Select(l => new TextDiffLineViewModel(l)).ToArray();
             IsTruncated = presentation.IsTruncated;
             UsedLinearFallback = presentation.UsedLinearFallback;
+            ScreenPanes = HmiPreviewBuilder.Screens(preview);
+            TagRows = preview != null && preview.IsTagTable ? preview.Tags : Array.Empty<HmiTagPreviewRow>();
             changeStarts = FindChangeStarts(Lines);
             PreviousChangeCommand = new RelayCommand(_ => GoToPreviousChange(), _ => CanGoToPreviousChange);
             NextChangeCommand = new RelayCommand(_ => GoToNextChange(), _ => CanGoToNextChange);
@@ -65,6 +71,12 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
         public IReadOnlyList<TextDiffLineViewModel> Lines { get; }
         public bool IsTruncated { get; }
         public bool UsedLinearFallback { get; }
+        public IReadOnlyList<HmiScreenPaneViewModel> ScreenPanes { get; }
+        public IReadOnlyList<HmiTagPreviewRow> TagRows { get; }
+        public bool HasScreenPreview => ScreenPanes.Count > 0;
+        public bool HasTagPreview => TagRows.Count > 0;
+        public bool ShowTextLines => !HasScreenPreview;
+        public bool ShowTruncationBanner => IsTruncated && ShowTextLines;
 
         /// <summary>The first line of the changed block last jumped to, or null before any jump.</summary>
         public TextDiffLineViewModel? CurrentChangeLine => currentChangeLine;

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using TiaGitAddIn.Models;
@@ -22,6 +23,12 @@ namespace TiaGitAddIn.Services.Hmi
         Task<OperationResult> ExportHardwareAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default);
 
         Task<OperationResult> ImportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default);
+
+        /// <summary>
+        /// Screens and tag tables in the working tree that differ from the open project.
+        /// An empty list means those files match. Other HMI and hardware files are not included.
+        /// </summary>
+        Task<IReadOnlyList<string>> ListImportDifferencesAsync(string repositoryPath, CancellationToken ct = default);
 
         Task<OperationResult> ImportHardwareAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default);
     }

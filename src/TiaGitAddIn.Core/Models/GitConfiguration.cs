@@ -22,6 +22,12 @@ namespace TiaGitAddIn.Models
 
         public bool CompareXmlByElement { get; set; } = true;
 
+        /// <summary>
+        /// When true, a screen file is drawn as buttons and I/O fields.
+        /// When false, that file stays as XML text.
+        /// </summary>
+        public bool ShowScreenPreview { get; set; } = true;
+
         public List<string> DisabledHmiCategories { get; set; } = new List<string>();
 
         public List<string> DisabledHardwareCategories { get; set; } = new List<string>();

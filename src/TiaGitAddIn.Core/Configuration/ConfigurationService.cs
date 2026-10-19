@@ -94,6 +94,7 @@ namespace TiaGitAddIn.Configuration
                 CommitAuthorName = configuration.CommitAuthorName ?? string.Empty,
                 CommitAuthorEmail = configuration.CommitAuthorEmail ?? string.Empty,
                 CompareXmlByElement = configuration.CompareXmlByElement,
+                ShowScreenPreview = configuration.ShowScreenPreview,
                 MaxLogEntries = configuration.MaxLogEntries > 0 ? configuration.MaxLogEntries : 200,
                 DisabledHmiCategories = CopyNames(configuration.DisabledHmiCategories),
                 DisabledHardwareCategories = CopyNames(configuration.DisabledHardwareCategories)

@@ -20,7 +20,15 @@
     <TiaAddInPublisherExe>$(TiaPortalPublicApiRoot)\Siemens.Engineering.AddIn.Publisher.exe</TiaAddInPublisherExe>
 
     <EnableTiaAddInPackaging Condition="'$(EnableTiaAddInPackaging)' == ''">true</EnableTiaAddInPackaging>
+    <HasStartdrive Condition="Exists('$(TiaPortalPublicApiNet48)\Siemens.Engineering.Startdrive.dll')">true</HasStartdrive>
+    <HasStartdrive Condition="'$(HasStartdrive)' == ''">false</HasStartdrive>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Services\Hmi\HardwareExchange.MissingStartdrive.cs" />
+    <Compile Include="Services\Hmi\HardwareExchange.MissingStartdrive.cs" Condition="'$(AllowMissingStartdrive)' == 'true' AND '$(HasStartdrive)' != 'true'" />
+    <Compile Remove="Services\Hmi\HardwareExchange.cs" Condition="'$(AllowMissingStartdrive)' == 'true' AND '$(HasStartdrive)' != 'true'" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Update="AddInPublisherConfiguration.xml">
@@ -61,7 +69,7 @@
       <Private>false</Private>
     </Reference>
 
-    <Reference Include="Siemens.Engineering.Startdrive">
+    <Reference Include="Siemens.Engineering.Startdrive" Condition="Exists('$(TiaPortalPublicApiNet48)\Siemens.Engineering.Startdrive.dll')">
       <HintPath>$(TiaPortalPublicApiNet48)\Siemens.Engineering.Startdrive.dll</HintPath>
       <Private>false</Private>
     </Reference>

@@ -31,6 +31,7 @@ namespace TiaGitAddIn.Tests.Configuration
                 Assert.Equal(config.DefaultRemote, loaded.DefaultRemote);
                 Assert.Equal(config.CommitAuthorName, loaded.CommitAuthorName);
                 Assert.True(loaded.CompareXmlByElement);
+                Assert.True(loaded.ShowScreenPreview);
             }
             finally
             {
@@ -53,6 +54,12 @@ namespace TiaGitAddIn.Tests.Configuration
                 });
 
                 Assert.False(service.Load(root).CompareXmlByElement);
+                service.Save(root, new GitConfiguration
+                {
+                    RepositoryPath = root,
+                    ShowScreenPreview = false
+                });
+                Assert.False(service.Load(root).ShowScreenPreview);
                 service.Save(root, new GitConfiguration
                 {
                     RepositoryPath = root,
@@ -107,6 +114,7 @@ namespace TiaGitAddIn.Tests.Configuration
                 Assert.Equal(root, loaded.RepositoryPath);
                 Assert.Equal("git.exe", loaded.GitExecutablePath);
                 Assert.True(loaded.CompareXmlByElement);
+                Assert.True(loaded.ShowScreenPreview);
             }
             finally
             {

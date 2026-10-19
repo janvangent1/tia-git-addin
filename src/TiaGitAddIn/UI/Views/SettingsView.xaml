@@ -19,6 +19,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -128,7 +129,23 @@
                 MinWidth="220"
                 ToolTip="By element and attribute ignores formatting and attribute order. Plain text shows the file line by line."/>
 
-        <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="3" Margin="5,12,5,0">
+        <Label Content="Screen:"
+                Grid.Row="8"
+                Grid.Column="0"
+                VerticalAlignment="Center"
+                ToolTip="Choose how an exported screen is shown in a diff."/>
+        <ComboBox ItemsSource="{Binding ScreenDiffChoices}"
+                SelectedItem="{Binding SelectedScreenDiff}"
+                DisplayMemberPath="Caption"
+                Grid.Row="8"
+                Grid.Column="1"
+                Margin="5"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Left"
+                MinWidth="220"
+                ToolTip="Screen preview draws buttons and I/O fields. XML text shows the exported file."/>
+
+        <StackPanel Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="3" Margin="5,12,5,0">
             <TextBlock Text="Export these HMI items" FontWeight="Bold"/>
             <TextBlock Text="Unchecked items are left out of the next export. Comfort items with the same name follow these boxes. Save before you export."
                        TextWrapping="Wrap"
@@ -166,7 +183,7 @@
         </StackPanel>
 
         <TextBlock Text="{Binding ValidationMessage}"
-                Grid.Row="9"
+                Grid.Row="10"
                 Grid.Column="0"
                 Grid.ColumnSpan="3"
                 Foreground="Red"
@@ -175,7 +192,7 @@
 
         <Button Content="Save Settings"
                 Command="{Binding SaveCommand}"
-                Grid.Row="10"
+                Grid.Row="11"
                 Grid.Column="1"
                 Grid.ColumnSpan="2"
                 HorizontalAlignment="Right"
