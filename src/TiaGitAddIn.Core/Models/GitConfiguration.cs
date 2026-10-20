@@ -38,6 +38,12 @@ namespace TiaGitAddIn.Models
         public bool IgnoreBlankLines { get; set; }
 
         /// <summary>
+        /// When true, a // line comment or a (* *) / *( *) block comment is not a change.
+        /// Off until the user turns it on.
+        /// </summary>
+        public bool IgnoreComments { get; set; }
+
+        /// <summary>
         /// When true, a screen file is drawn as buttons and I/O fields.
         /// When false, that file stays as XML text.
         /// </summary>

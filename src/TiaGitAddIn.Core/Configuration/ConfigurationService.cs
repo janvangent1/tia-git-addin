@@ -100,9 +100,13 @@ namespace TiaGitAddIn.Configuration
                 IgnoreSpaceChange = configuration.IgnoreSpaceChange,
                 IgnoreAllSpace = configuration.IgnoreAllSpace,
                 IgnoreBlankLines = configuration.IgnoreBlankLines,
+                IgnoreComments = configuration.IgnoreComments,
                 MaxLogEntries = configuration.MaxLogEntries > 0 ? configuration.MaxLogEntries : 200,
                 DisabledHmiCategories = CopyNames(configuration.DisabledHmiCategories),
-                DisabledHardwareCategories = CopyNames(configuration.DisabledHardwareCategories)
+                DisabledHardwareCategories = CopyNames(configuration.DisabledHardwareCategories),
+                SiemensCompareToolPath = configuration.SiemensCompareToolPath,
+                NodeExecutablePath = configuration.NodeExecutablePath,
+                Version = configuration.Version > 0 ? configuration.Version : 1
             };
         }
 

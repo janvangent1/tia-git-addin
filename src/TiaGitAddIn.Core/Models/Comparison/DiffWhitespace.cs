@@ -15,13 +15,15 @@ namespace TiaGitAddIn.Models.Comparison
             bool ignoreTrailingSpace,
             bool ignoreSpaceChange,
             bool ignoreAllSpace,
-            bool ignoreBlankLines)
+            bool ignoreBlankLines,
+            bool ignoreComments = false)
         {
             IgnoreTabExpansion = ignoreTabExpansion;
             IgnoreTrailingSpace = ignoreTrailingSpace;
             IgnoreSpaceChange = ignoreSpaceChange;
             IgnoreAllSpace = ignoreAllSpace;
             IgnoreBlankLines = ignoreBlankLines;
+            IgnoreComments = ignoreComments;
         }
 
         /// <summary>No whitespace rule. Tests use this so a space still counts as a change.</summary>
@@ -37,6 +39,8 @@ namespace TiaGitAddIn.Models.Comparison
 
         public bool IgnoreBlankLines { get; }
 
+        public bool IgnoreComments { get; }
+
         public static DiffWhitespace From(GitConfiguration configuration)
         {
             return new DiffWhitespace(
@@ -44,7 +48,8 @@ namespace TiaGitAddIn.Models.Comparison
                 configuration.IgnoreTrailingSpace,
                 configuration.IgnoreSpaceChange,
                 configuration.IgnoreAllSpace,
-                configuration.IgnoreBlankLines);
+                configuration.IgnoreBlankLines,
+                configuration.IgnoreComments);
         }
 
         public bool LinesMatch(string left, string right)

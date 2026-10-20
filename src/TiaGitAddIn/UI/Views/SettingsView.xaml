@@ -149,7 +149,7 @@
 
         <StackPanel Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="3" Margin="5,12,5,0">
             <TextBlock Text="Whitespace" FontWeight="Bold"/>
-            <TextBlock Text="These follow Git's diff options. If several are checked, the strongest one is used. Ignore all white space covers the others, except blank lines. Save, then open the diff again."
+            <TextBlock Text="These follow Git's diff options. If several are checked, the strongest one is used. Ignore all white space covers the others, except blank lines. Save stores every setting in this workspace. Then open the diff again."
                        TextWrapping="Wrap"
                        Foreground="Gray"
                        Margin="0,2,0,6"/>
@@ -169,6 +169,10 @@
             <CheckBox Content="-B, --ignore-blank-lines    ignore changes whose lines are all blank"
                       IsChecked="{Binding IgnoreBlankLines}"
                       Margin="0,2,0,2"/>
+            <CheckBox Content="Ignore comments    // and (* *) or *( *)"
+                      IsChecked="{Binding IgnoreComments}"
+                      Margin="0,8,0,2"
+                      ToolTip="A comment starts with //, or sits between (* and *) or *( and *). Off until you check it. Save, then open the diff again."/>
         </StackPanel>
 
         <StackPanel Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="3" Margin="5,12,5,0">

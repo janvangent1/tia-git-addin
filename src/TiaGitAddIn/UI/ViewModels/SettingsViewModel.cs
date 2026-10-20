@@ -31,6 +31,7 @@ namespace TiaGitAddIn.UI.ViewModels
         private bool ignoreSpaceChange;
         private bool ignoreAllSpace = true;
         private bool ignoreBlankLines;
+        private bool ignoreComments;
         private string validationMessage = string.Empty;
         private bool canSaveSettings = true;
 
@@ -226,6 +227,12 @@ namespace TiaGitAddIn.UI.ViewModels
             set => SetProperty(ref ignoreBlankLines, value);
         }
 
+        public bool IgnoreComments
+        {
+            get => ignoreComments;
+            set => SetProperty(ref ignoreComments, value);
+        }
+
         public string ValidationMessage
         {
             get => validationMessage;
@@ -252,6 +259,7 @@ namespace TiaGitAddIn.UI.ViewModels
             ignoreSpaceChange = config.IgnoreSpaceChange;
             ignoreAllSpace = config.IgnoreAllSpace;
             ignoreBlankLines = config.IgnoreBlankLines;
+            ignoreComments = config.IgnoreComments;
             ApplyDisabled(HmiCategories, config.DisabledHmiCategories);
             ApplyDisabled(HardwareCategories, config.DisabledHardwareCategories);
 
@@ -287,6 +295,7 @@ namespace TiaGitAddIn.UI.ViewModels
 
         private Task SaveAsync()
         {
+            GitConfiguration existing = configurationService.Load(repositoryRoot);
             GitConfiguration config = new()
             {
                 GitExecutablePath = string.IsNullOrWhiteSpace(GitExecutablePath) ? null : GitExecutablePath,
@@ -303,9 +312,12 @@ namespace TiaGitAddIn.UI.ViewModels
                 IgnoreSpaceChange = ignoreSpaceChange,
                 IgnoreAllSpace = ignoreAllSpace,
                 IgnoreBlankLines = ignoreBlankLines,
+                IgnoreComments = ignoreComments,
                 DisabledHmiCategories = DisabledNames(HmiCategories).ToList(),
                 DisabledHardwareCategories = DisabledNames(HardwareCategories).ToList(),
-                Version = 1
+                SiemensCompareToolPath = existing.SiemensCompareToolPath,
+                NodeExecutablePath = existing.NodeExecutablePath,
+                Version = existing.Version > 0 ? existing.Version : 1
             };
 
             try

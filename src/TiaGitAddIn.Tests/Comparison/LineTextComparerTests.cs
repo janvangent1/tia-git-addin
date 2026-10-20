@@ -249,6 +249,62 @@ namespace TiaGitAddIn.Tests.Comparison
                 line => Assert.Equal(TextDiffLineKind.Unchanged, line.Kind));
         }
 
+        [Fact]
+        public void CommentsStayVisibleUntilTheSettingIsOn()
+        {
+            var shown = new LineTextComparer(TextComparisonLimits.Default);
+            TextPresentation visible = shown.Compare(new ComparisonRawText("x := 1; // old", "x := 1; // new", false, false));
+            Assert.Contains(visible.Lines, line => line.Kind == TextDiffLineKind.Removed && line.Text.Contains("old"));
+
+            LineTextComparer ignored = With(new DiffWhitespace(false, false, false, false, false, ignoreComments: true));
+            TextPresentation hidden = ignored.Compare(new ComparisonRawText("x := 1; // old", "x := 1; // new", false, false));
+            Assert.Equal(TextDiffLineKind.Unchanged, Assert.Single(hidden.Lines).Kind);
+            Assert.Contains("x := 1;", Assert.Single(hidden.Lines).Text);
+        }
+
+        [Fact]
+        public void IgnoreCommentsDropsLineAndBlockCommentsButKeepsCodeAndUrls()
+        {
+            LineTextComparer comparer = With(new DiffWhitespace(false, false, false, false, false, ignoreComments: true));
+            TextPresentation added = comparer.Compare(new ComparisonRawText(
+                "x := 1;",
+                "// only a note\nx := 1;",
+                false,
+                false));
+            Assert.Equal("x := 1;", Assert.Single(added.Lines).Text);
+            Assert.Equal(TextDiffLineKind.Unchanged, added.Lines[0].Kind);
+
+            TextPresentation block = comparer.Compare(new ComparisonRawText(
+                "(*\nold\n*)\nx := 1;",
+                "(*\nnew\n*)\nx := 1;",
+                false,
+                false));
+            Assert.DoesNotContain(block.Lines, line => line.Kind == TextDiffLineKind.Added || line.Kind == TextDiffLineKind.Removed);
+            Assert.Contains(block.Lines, line => line.Text == "x := 1;");
+
+            TextPresentation starParen = comparer.Compare(new ComparisonRawText(
+                "*( old *)\ny := 2;",
+                "*( new *)\ny := 2;",
+                false,
+                false));
+            Assert.DoesNotContain(starParen.Lines, line => line.Kind == TextDiffLineKind.Added || line.Kind == TextDiffLineKind.Removed);
+
+            TextPresentation code = comparer.Compare(new ComparisonRawText(
+                "x := 1; // same",
+                "x := 2; // same",
+                false,
+                false));
+            Assert.Contains(code.Lines, line => line.Kind == TextDiffLineKind.Removed && line.Text.Contains("x := 1;"));
+            Assert.Contains(code.Lines, line => line.Kind == TextDiffLineKind.Added && line.Text.Contains("x := 2;"));
+
+            TextPresentation url = comparer.Compare(new ComparisonRawText(
+                "host := \"http://old\";",
+                "host := \"http://new\";",
+                false,
+                false));
+            Assert.Contains(url.Lines, line => line.Kind == TextDiffLineKind.Added && line.Text.Contains("http://new"));
+        }
+
         private static LineTextComparer With(DiffWhitespace whitespace) =>
             new LineTextComparer(TextComparisonLimits.Default, () => whitespace);
     }

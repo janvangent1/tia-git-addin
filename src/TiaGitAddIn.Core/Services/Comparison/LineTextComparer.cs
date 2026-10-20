@@ -38,9 +38,24 @@ namespace TiaGitAddIn.Services.Comparison
             (string[] boundedRight, bool rightLinesCut) = BoundLineCount(rightLines);
 
             bool usedLinearFallback = (long)boundedLeft.Length * boundedRight.Length > _limits.MaximumMatrixCells;
+            string[] leftKey = boundedLeft;
+            string[] rightKey = boundedRight;
+            bool[] leftCommentOnly = Array.Empty<bool>();
+            bool[] rightCommentOnly = Array.Empty<bool>();
+            if (whitespace.IgnoreComments)
+            {
+                CommentFilter.Strip(boundedLeft, out leftKey, out leftCommentOnly);
+                CommentFilter.Strip(boundedRight, out rightKey, out rightCommentOnly);
+            }
+
             List<TextDiffLine> rawDiff = usedLinearFallback
-                ? BuildMyersOrLinear(boundedLeft, boundedRight, whitespace)
-                : BuildBoundedDiff(boundedLeft, boundedRight, whitespace);
+                ? BuildMyersOrLinear(leftKey, rightKey, boundedLeft, boundedRight, whitespace)
+                : BuildBoundedDiff(leftKey, rightKey, boundedLeft, boundedRight, whitespace);
+            if (whitespace.IgnoreComments)
+            {
+                rawDiff = DropCommentChanges(rawDiff, leftCommentOnly, rightCommentOnly);
+            }
+
             if (whitespace.IgnoreBlankLines)
             {
                 rawDiff = DropBlankChanges(rawDiff, whitespace);
@@ -106,27 +121,32 @@ namespace TiaGitAddIn.Services.Comparison
         }
 
         /// <summary>Compares by position only, in O(n+m); an unequal position emits removal then addition.</summary>
-        private static List<TextDiffLine> BuildLinearDiff(string[] left, string[] right, DiffWhitespace whitespace)
+        private static List<TextDiffLine> BuildLinearDiff(
+            string[] leftKey,
+            string[] rightKey,
+            string[] leftDisplay,
+            string[] rightDisplay,
+            DiffWhitespace whitespace)
         {
             var result = new List<TextDiffLine>();
-            int max = Math.Max(left.Length, right.Length);
+            int max = Math.Max(leftKey.Length, rightKey.Length);
 
             for (int k = 0; k < max; k++)
             {
-                bool hasLeft = k < left.Length;
-                bool hasRight = k < right.Length;
+                bool hasLeft = k < leftKey.Length;
+                bool hasRight = k < rightKey.Length;
 
                 if (hasLeft && hasRight)
                 {
-                    AppendAlignedPair(result, left[k], k + 1, right[k], k + 1, whitespace);
+                    AppendAlignedPair(result, leftKey[k], leftDisplay[k], k + 1, rightKey[k], rightDisplay[k], k + 1, whitespace);
                 }
                 else if (hasLeft)
                 {
-                    result.Add(new TextDiffLine(TextDiffLineKind.Removed, k + 1, null, left[k]));
+                    result.Add(new TextDiffLine(TextDiffLineKind.Removed, k + 1, null, leftDisplay[k]));
                 }
                 else
                 {
-                    result.Add(new TextDiffLine(TextDiffLineKind.Added, null, k + 1, right[k]));
+                    result.Add(new TextDiffLine(TextDiffLineKind.Added, null, k + 1, rightDisplay[k]));
                 }
             }
 
@@ -135,20 +155,22 @@ namespace TiaGitAddIn.Services.Comparison
 
         private static void AppendAlignedPair(
             List<TextDiffLine> result,
-            string leftText,
+            string leftKey,
+            string leftDisplay,
             int leftLineNumber,
-            string rightText,
+            string rightKey,
+            string rightDisplay,
             int rightLineNumber,
             DiffWhitespace whitespace)
         {
-            if (whitespace.LinesMatch(leftText, rightText))
+            if (whitespace.LinesMatch(leftKey, rightKey))
             {
-                result.Add(new TextDiffLine(TextDiffLineKind.Unchanged, leftLineNumber, rightLineNumber, leftText));
+                result.Add(new TextDiffLine(TextDiffLineKind.Unchanged, leftLineNumber, rightLineNumber, leftDisplay));
             }
             else
             {
-                result.Add(new TextDiffLine(TextDiffLineKind.Removed, leftLineNumber, null, leftText));
-                result.Add(new TextDiffLine(TextDiffLineKind.Added, null, rightLineNumber, rightText));
+                result.Add(new TextDiffLine(TextDiffLineKind.Removed, leftLineNumber, null, leftDisplay));
+                result.Add(new TextDiffLine(TextDiffLineKind.Added, null, rightLineNumber, rightDisplay));
             }
         }
 
@@ -168,27 +190,69 @@ namespace TiaGitAddIn.Services.Comparison
             return kept;
         }
 
-        private static List<TextDiffLine> BuildBoundedDiff(string[] left, string[] right, DiffWhitespace whitespace)
+        private static List<TextDiffLine> DropCommentChanges(
+            List<TextDiffLine> lines,
+            bool[] leftCommentOnly,
+            bool[] rightCommentOnly)
         {
-            int[,] dp = BuildAlignmentMatrix(left, right, whitespace);
-            List<DiffOp> ops = Backtrack(left, right, dp, whitespace);
+            var kept = new List<TextDiffLine>(lines.Count);
+            foreach (TextDiffLine line in lines)
+            {
+                if (line.Kind == TextDiffLineKind.Removed
+                    && line.LeftLineNumber is int left
+                    && left > 0
+                    && left <= leftCommentOnly.Length
+                    && leftCommentOnly[left - 1])
+                {
+                    continue;
+                }
+
+                if (line.Kind == TextDiffLineKind.Added
+                    && line.RightLineNumber is int right
+                    && right > 0
+                    && right <= rightCommentOnly.Length
+                    && rightCommentOnly[right - 1])
+                {
+                    continue;
+                }
+
+                kept.Add(line);
+            }
+
+            return kept;
+        }
+
+        private static List<TextDiffLine> BuildBoundedDiff(
+            string[] leftKey,
+            string[] rightKey,
+            string[] leftDisplay,
+            string[] rightDisplay,
+            DiffWhitespace whitespace)
+        {
+            int[,] dp = BuildAlignmentMatrix(leftKey, rightKey, whitespace);
+            List<DiffOp> ops = Backtrack(leftKey, rightKey, dp, whitespace);
             ops.Reverse();
-            return ExpandOps(ops, left, right);
+            return ExpandOps(ops, leftDisplay, rightDisplay);
         }
 
         /// <summary>
         /// Aligns a large file when the edit is small. A one-line insertion then stays one added line.
         /// Past <see cref="MaximumAlignedEdits"/> it uses the positional comparison.
         /// </summary>
-        private static List<TextDiffLine> BuildMyersOrLinear(string[] left, string[] right, DiffWhitespace whitespace)
+        private static List<TextDiffLine> BuildMyersOrLinear(
+            string[] leftKey,
+            string[] rightKey,
+            string[] leftDisplay,
+            string[] rightDisplay,
+            DiffWhitespace whitespace)
         {
-            List<DiffOp>? ops = TryMyers(left, right, whitespace);
+            List<DiffOp>? ops = TryMyers(leftKey, rightKey, whitespace);
             if (ops == null)
             {
-                return BuildLinearDiff(left, right, whitespace);
+                return BuildLinearDiff(leftKey, rightKey, leftDisplay, rightDisplay, whitespace);
             }
 
-            return ExpandOps(ops, left, right);
+            return ExpandOps(ops, leftDisplay, rightDisplay);
         }
 
         private static List<DiffOp>? TryMyers(string[] left, string[] right, DiffWhitespace whitespace)
