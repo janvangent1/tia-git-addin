@@ -160,5 +160,96 @@ namespace TiaGitAddIn.Tests.Comparison
             Assert.Equal(32_768, TextComparisonLimits.Default.MaximumLineLength);
             Assert.Equal(4_000_000, TextComparisonLimits.Default.MaximumMatrixCells);
         }
+
+        [Fact]
+        public void IgnoreAllSpaceTreatsASpaceOnlyDifferenceAsUnchanged()
+        {
+            LineTextComparer comparer = With(new DiffWhitespace(false, false, false, ignoreAllSpace: true, false));
+            TextPresentation result = comparer.Compare(new ComparisonRawText("a b\nkeep", "ab\nkeep", false, false));
+
+            Assert.Collection(result.Lines,
+                line => Assert.Equal(TextDiffLineKind.Unchanged, line.Kind),
+                line => Assert.Equal(TextDiffLineKind.Unchanged, line.Kind));
+        }
+
+        [Fact]
+        public void ExactComparisonStillShowsASpaceOnlyDifference()
+        {
+            var comparer = new LineTextComparer(TextComparisonLimits.Default);
+            TextPresentation result = comparer.Compare(new ComparisonRawText("a ", "a", false, false));
+
+            Assert.Contains(result.Lines, line => line.Kind == TextDiffLineKind.Removed && line.Text == "a ");
+            Assert.Contains(result.Lines, line => line.Kind == TextDiffLineKind.Added && line.Text == "a");
+        }
+
+        [Fact]
+        public void IgnoreSpaceChangeKeepsAMissingSpaceVisible()
+        {
+            LineTextComparer comparer = With(new DiffWhitespace(false, false, ignoreSpaceChange: true, false, false));
+            TextPresentation amount = comparer.Compare(new ComparisonRawText("a  b", "a\tb", false, false));
+            TextPresentation missing = comparer.Compare(new ComparisonRawText("ab", "a b", false, false));
+
+            Assert.Equal(TextDiffLineKind.Unchanged, Assert.Single(amount.Lines).Kind);
+            Assert.Contains(missing.Lines, line => line.Kind == TextDiffLineKind.Added);
+        }
+
+        [Fact]
+        public void TrailingSpaceAndTabExpansionMatchOnlyTheirOwnRule()
+        {
+            LineTextComparer trailing = With(new DiffWhitespace(false, ignoreTrailingSpace: true, false, false, false));
+            TextPresentation trimmed = trailing.Compare(new ComparisonRawText("a \t", "a", false, false));
+            TextPresentation leading = trailing.Compare(new ComparisonRawText(" a", "a", false, false));
+            Assert.Equal(TextDiffLineKind.Unchanged, Assert.Single(trimmed.Lines).Kind);
+            Assert.Contains(leading.Lines, line => line.Kind == TextDiffLineKind.Removed);
+
+            LineTextComparer tabs = With(new DiffWhitespace(ignoreTabExpansion: true, false, false, false, false));
+            string expanded = "a" + new string(' ', 7) + "b";
+            TextPresentation tab = tabs.Compare(new ComparisonRawText("a\tb", expanded, false, false));
+            TextPresentation notATab = tabs.Compare(new ComparisonRawText("a\tb", "a b", false, false));
+            Assert.Equal(TextDiffLineKind.Unchanged, Assert.Single(tab.Lines).Kind);
+            Assert.Contains(notATab.Lines, line => line.Kind == TextDiffLineKind.Added);
+        }
+
+        [Fact]
+        public void IgnoreBlankLinesDropsABlankLineChange()
+        {
+            LineTextComparer comparer = With(new DiffWhitespace(false, false, false, false, ignoreBlankLines: true));
+            TextPresentation result = comparer.Compare(new ComparisonRawText("a\n\nb", "a\nb", false, false));
+
+            Assert.Collection(result.Lines,
+                line => { Assert.Equal(TextDiffLineKind.Unchanged, line.Kind); Assert.Equal("a", line.Text); },
+                line => { Assert.Equal(TextDiffLineKind.Unchanged, line.Kind); Assert.Equal("b", line.Text); });
+        }
+
+        [Fact]
+        public void InsertedLineAboveTheMatrixLimitDoesNotMarkTheLinesBelow()
+        {
+            var comparer = new LineTextComparer(new TextComparisonLimits(100, 100, maximumMatrixCells: 4));
+            TextPresentation result = comparer.Compare(new ComparisonRawText("a\nb\nc", "a\nNEW\nb\nc", false, false));
+
+            Assert.True(result.UsedLinearFallback);
+            Assert.Collection(result.Lines,
+                line => { Assert.Equal(TextDiffLineKind.Unchanged, line.Kind); Assert.Equal("a", line.Text); },
+                line => { Assert.Equal(TextDiffLineKind.Added, line.Kind); Assert.Equal("NEW", line.Text); },
+                line => { Assert.Equal(TextDiffLineKind.Unchanged, line.Kind); Assert.Equal("b", line.Text); },
+                line => { Assert.Equal(TextDiffLineKind.Unchanged, line.Kind); Assert.Equal("c", line.Text); });
+        }
+
+        [Fact]
+        public void IgnoreAllSpaceAlignsAShiftedLineThatAlsoDiffersBySpaces()
+        {
+            var comparer = new LineTextComparer(
+                new TextComparisonLimits(100, 100, maximumMatrixCells: 4),
+                () => new DiffWhitespace(false, false, false, ignoreAllSpace: true, false));
+            TextPresentation result = comparer.Compare(new ComparisonRawText("a \nb ", "a\nNEW\nb", false, false));
+
+            Assert.Collection(result.Lines,
+                line => Assert.Equal(TextDiffLineKind.Unchanged, line.Kind),
+                line => { Assert.Equal(TextDiffLineKind.Added, line.Kind); Assert.Equal("NEW", line.Text); },
+                line => Assert.Equal(TextDiffLineKind.Unchanged, line.Kind));
+        }
+
+        private static LineTextComparer With(DiffWhitespace whitespace) =>
+            new LineTextComparer(TextComparisonLimits.Default, () => whitespace);
     }
 }

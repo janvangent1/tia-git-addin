@@ -71,7 +71,6 @@ namespace TiaGitAddIn.Services
             int parameters = 0;
             int telegrams = 0;
             var usedFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var deviceFolders = new List<string>();
             try
             {
             bool writeDevices = scope.AllowsHardware("Devices");
@@ -94,44 +93,6 @@ namespace TiaGitAddIn.Services
             if (writeModules)
             {
                 Step(report, "Modules", 0, string.Empty);
-            }
-
-            DispatcherPump.Yield();
-            foreach (ProjectBase project in OpenProjects(portal))
-            {
-                ct.ThrowIfCancellationRequested();
-                foreach (Device device in ListDevices(project, ct))
-                {
-                    CollectDevice(device, root, usedFolders, deviceFolders, ct, report, ref devices, ref modules, ref seenDevices);
-                }
-            }
-
-            if (writeDevices)
-            {
-                Finish(report, "Devices", devices);
-            }
-
-            if (writeModules)
-            {
-                Finish(report, "Modules", modules);
-            }
-
-            if (!scope.AllowsHardware("Networks"))
-            {
-                Skip(report, "Networks");
-            }
-            else
-            {
-                Step(report, "Networks", 0, string.Empty);
-                DispatcherPump.Yield();
-                foreach (ProjectBase project in OpenProjects(portal))
-                {
-                    ct.ThrowIfCancellationRequested();
-                    networks += WriteSubnets(project, root, ct, report);
-                    DispatcherPump.Yield();
-                }
-
-                Finish(report, "Networks", networks);
             }
 
             bool writeDrives = scope.AllowsHardware("Drives");
@@ -171,34 +132,72 @@ namespace TiaGitAddIn.Services
                 {
                     Skip(report, "Telegrams");
                 }
+            }
 
+            DispatcherPump.Yield();
+            var seenDrives = new List<DriveObject>();
+            foreach (ProjectBase project in OpenProjects(portal))
+            {
+                ct.ThrowIfCancellationRequested();
+                foreach (Device device in ListDevices(project, ct))
+                {
+                    CollectDevice(
+                        device,
+                        root,
+                        usedFolders,
+                        seenDrives,
+                        ct,
+                        report,
+                        ref devices,
+                        ref modules,
+                        ref seenDevices,
+                        ref drives,
+                        ref parameters,
+                        ref telegrams);
+                }
+            }
+
+            if (writeDevices)
+            {
+                Finish(report, "Devices", devices);
+            }
+
+            if (writeModules)
+            {
+                Finish(report, "Modules", modules);
+            }
+
+            if (writeDrives)
+            {
+                Finish(report, "Drives", drives);
+            }
+
+            if (writeParameters)
+            {
+                Finish(report, "Parameters", parameters);
+            }
+
+            if (writeTelegrams)
+            {
+                Finish(report, "Telegrams", telegrams);
+            }
+
+            if (!scope.AllowsHardware("Networks"))
+            {
+                Skip(report, "Networks");
+            }
+            else
+            {
+                Step(report, "Networks", 0, string.Empty);
                 DispatcherPump.Yield();
-                var seenDrives = new List<DriveObject>();
-                int folderIndex = 0;
                 foreach (ProjectBase project in OpenProjects(portal))
                 {
                     ct.ThrowIfCancellationRequested();
-                    foreach (Device device in ListDevices(project, ct))
-                    {
-                        ExportDrives(device, deviceFolders[folderIndex], seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
-                        folderIndex++;
-                    }
+                    networks += WriteSubnets(project, root, ct, report);
+                    DispatcherPump.Yield();
                 }
 
-                if (writeDrives)
-                {
-                    Finish(report, "Drives", drives);
-                }
-
-                if (writeParameters)
-                {
-                    Finish(report, "Parameters", parameters);
-                }
-
-                if (writeTelegrams)
-                {
-                    Finish(report, "Telegrams", telegrams);
-                }
+                Finish(report, "Networks", networks);
             }
 
             if (seenDevices == 0)
@@ -559,103 +558,93 @@ namespace TiaGitAddIn.Services
             Device device,
             string root,
             ISet<string> usedFolders,
-            List<string> deviceFolders,
+            List<DriveObject> seenDrives,
             CancellationToken ct,
             Action<string> report,
             ref int devices,
             ref int modules,
-            ref int seenDevices)
+            ref int seenDevices,
+            ref int drives,
+            ref int parameters,
+            ref int telegrams)
         {
             ct.ThrowIfCancellationRequested();
             seenDevices++;
             bool writeDevices = scope.AllowsHardware("Devices");
             bool writeModules = scope.AllowsHardware("Modules");
+            bool wantDrives = scope.AllowsHardware("Drives") || scope.AllowsHardware("Parameters") || scope.AllowsHardware("Telegrams");
             string folderName = HmiExportStore.UniqueName(HmiExportStore.FolderName(device.Name), usedFolders);
             string folder = Path.Combine(root, folderName);
             Directory.CreateDirectory(folder);
-            deviceFolders.Add(folder);
+
+            var module = new XElement(
+                "Device",
+                new XAttribute("name", device.Name ?? string.Empty),
+                new XAttribute("type", device.TypeIdentifier ?? string.Empty));
+            if (writeDevices)
+            {
+                devices++;
+                Step(report, "Devices", devices, device.Name);
+                AppendAttributes(module, device);
+            }
+
+            if (writeModules || wantDrives)
+            {
+                var usedSettings = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var usedDrives = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                string deviceName = device.Name ?? string.Empty;
+                foreach (DeviceItem item in device.DeviceItems)
+                {
+                    XElement child = WriteItem(
+                        item,
+                        deviceName,
+                        folder,
+                        usedSettings,
+                        usedDrives,
+                        seenDrives,
+                        ct,
+                        report,
+                        ref modules,
+                        ref drives,
+                        ref parameters,
+                        ref telegrams);
+                    if (writeModules)
+                    {
+                        module.Add(child);
+                    }
+                }
+            }
 
             if (writeDevices || writeModules)
             {
-                var module = new XElement(
-                    "Device",
-                    new XAttribute("name", device.Name ?? string.Empty),
-                    new XAttribute("type", device.TypeIdentifier ?? string.Empty));
-                if (writeDevices)
-                {
-                    devices++;
-                    Step(report, "Devices", devices, device.Name);
-                    AppendAttributes(module, device);
-                }
-
-                if (writeModules)
-                {
-                    var usedSettings = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    foreach (DeviceItem item in device.DeviceItems)
-                    {
-                        module.Add(WriteItem(item, folder, usedSettings, ct, report, ref modules));
-                    }
-                }
-
                 new XDocument(module).Save(Path.Combine(folder, "Hardware.xml"));
             }
 
             DispatcherPump.Yield();
         }
 
-        private static void ExportDrives(
-            Device device,
-            string folder,
-            List<DriveObject> seenDrives,
-            CancellationToken ct,
-            Action<string> report,
-            ref int drives,
-            ref int parameters,
-            ref int telegrams)
-        {
-            var usedDrives = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            string deviceName = device.Name ?? string.Empty;
-            foreach (DeviceItem item in device.DeviceItems)
-            {
-                VisitDrives(item, deviceName, folder, usedDrives, seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
-            }
-
-            DispatcherPump.Yield();
-        }
-
-        private static void VisitDrives(
+        private static XElement WriteItem(
             DeviceItem item,
             string deviceName,
             string folder,
+            ISet<string> usedSettings,
             ISet<string> usedDrives,
             List<DriveObject> seenDrives,
             CancellationToken ct,
             Action<string> report,
+            ref int modules,
             ref int drives,
             ref int parameters,
             ref int telegrams)
         {
             ct.ThrowIfCancellationRequested();
-            WriteItemDrives(item, deviceName, folder, usedDrives, seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
-            foreach (DeviceItem child in item.DeviceItems)
+            if (scope.AllowsHardware("Modules"))
             {
-                VisitDrives(child, deviceName, folder, usedDrives, seenDrives, ct, report, ref drives, ref parameters, ref telegrams);
-            }
-        }
-
-        private static XElement WriteItem(
-            DeviceItem item,
-            string folder,
-            ISet<string> usedSettings,
-            CancellationToken ct,
-            Action<string> report,
-            ref int modules)
-        {
-            ct.ThrowIfCancellationRequested();
-            modules++;
-            if (modules == 1 || modules % 25 == 0)
-            {
-                Step(report, "Modules", modules, item.Name ?? string.Empty);
+                modules++;
+                if (modules == 1 || modules % 25 == 0)
+                {
+                    Step(report, "Modules", modules, item.Name ?? string.Empty);
+                }
             }
 
             var element = new XElement(
@@ -664,14 +653,33 @@ namespace TiaGitAddIn.Services
                 new XAttribute("type", item.TypeIdentifier ?? string.Empty),
                 new XAttribute("position", item.PositionNumber.ToString(CultureInfo.InvariantCulture)),
                 new XAttribute("classification", item.Classification.ToString()));
-            AppendAttributes(element, item);
-            WriteAddresses(element, item);
-            NoteSoftware(element, item);
-            CollectSettings(item, folder, usedSettings);
+            if (scope.AllowsHardware("Modules"))
+            {
+                AppendAttributes(element, item);
+                WriteAddresses(element, item);
+                NoteSoftware(element, item);
+            }
+
+            if (WriteItemDrives(item, deviceName, folder, usedDrives, seenDrives, ct, report, ref drives, ref parameters, ref telegrams))
+            {
+                CollectSettings(item, folder, usedSettings);
+            }
 
             foreach (DeviceItem child in item.DeviceItems)
             {
-                element.Add(WriteItem(child, folder, usedSettings, ct, report, ref modules));
+                element.Add(WriteItem(
+                    child,
+                    deviceName,
+                    folder,
+                    usedSettings,
+                    usedDrives,
+                    seenDrives,
+                    ct,
+                    report,
+                    ref modules,
+                    ref drives,
+                    ref parameters,
+                    ref telegrams));
             }
 
             return element;
@@ -692,7 +700,7 @@ namespace TiaGitAddIn.Services
             }
         }
 
-        private static void WriteItemDrives(
+        private static bool WriteItemDrives(
             DeviceItem item,
             string deviceName,
             string folder,
@@ -711,14 +719,15 @@ namespace TiaGitAddIn.Services
             }
             catch (Exception ex) when (!IsSessionDead(ex))
             {
-                return;
+                return false;
             }
 
             if (container?.DriveObjects == null)
             {
-                return;
+                return false;
             }
 
+            bool found = false;
             foreach (DriveObject drive in container.DriveObjects)
             {
                 ct.ThrowIfCancellationRequested();
@@ -728,6 +737,7 @@ namespace TiaGitAddIn.Services
                 }
 
                 seenDrives.Add(drive);
+                found = true;
                 string label = DriveLabel(drive);
                 if (scope.AllowsHardware("Drives"))
                 {
@@ -753,6 +763,8 @@ namespace TiaGitAddIn.Services
                     ref parameters,
                     ref telegrams);
             }
+
+            return found;
         }
 
         private static void CollectSettings(DeviceItem item, string folder, ISet<string> usedSettings)
@@ -835,6 +847,12 @@ namespace TiaGitAddIn.Services
                 {
                     telegrams += WriteTelegrams(writer, drive, report, telegrams);
                 }
+
+                if (scope.AllowsHardware("Parameters"))
+                {
+                    Step(report, "Parameters", parameters, "safety");
+                }
+
                 WriteSecurity(writer, drive);
                 writer.WriteEndElement();
                 writer.WriteEndDocument();
@@ -850,49 +868,82 @@ namespace TiaGitAddIn.Services
             "DefaultSetting"
         };
 
+        private struct ParameterColumns
+        {
+            public string[] Names;
+            public int Number;
+            public int Name;
+            public int Index;
+            public int Length;
+            public int Value;
+            public int Unit;
+            public int Min;
+            public int Max;
+            public int Text;
+            public int Factory;
+            public string FactoryName;
+        }
+
+        private struct ExportedParameter
+        {
+            public string Number;
+            public string Name;
+            public string Index;
+            public string Length;
+            public string Value;
+            public string Unit;
+            public string Min;
+            public string Max;
+            public string Text;
+        }
+
         private static int WriteParameters(XmlWriter writer, DriveObject drive, CancellationToken ct, Action<string> report, int already)
         {
             writer.WriteStartElement("Parameters");
             writer.WriteAttributeString("source", "Parameters");
-            var kept = new List<DriveParameter>();
+            var kept = new List<ExportedParameter>();
             int omitted = 0;
-            string? defaultAttribute = null;
-            bool filterKnown = false;
+            int read = 0;
+            ParameterColumns columns = default;
+            bool columnsKnown = false;
             try
             {
-                if (drive.Parameters != null)
+                DriveParameterComposition parameters = drive.Parameters;
+                int count = parameters == null ? 0 : parameters.Count;
+                for (int index = 0; index < count; index++)
                 {
-                    foreach (DriveParameter parameter in drive.Parameters)
+                    ct.ThrowIfCancellationRequested();
+                    DriveParameter parameter = parameters[index];
+                    if (parameter == null)
                     {
-                        ct.ThrowIfCancellationRequested();
-                        if (parameter == null)
-                        {
-                            continue;
-                        }
+                        continue;
+                    }
 
-                        if (!filterKnown)
-                        {
-                            defaultAttribute = FindDefaultAttribute(parameter);
-                            filterKnown = true;
-                        }
+                    if (!columnsKnown)
+                    {
+                        columns = InspectParameter(parameter);
+                        columnsKnown = true;
+                    }
 
-                        if (MatchesDefault(parameter, defaultAttribute))
-                        {
-                            omitted++;
-                            if (omitted == 1 || omitted % 200 == 0)
-                            {
-                                Step(report, "Parameters", already + kept.Count, omitted.ToString(CultureInfo.InvariantCulture) + " at default");
-                            }
+                    if (!TryReadParameter(parameter, columns, out ExportedParameter exported, out bool atDefault))
+                    {
+                        continue;
+                    }
 
-                            continue;
-                        }
+                    read++;
+                    if (atDefault)
+                    {
+                        omitted++;
+                    }
+                    else
+                    {
+                        kept.Add(exported);
+                    }
 
-                        kept.Add(parameter);
-                        int total = already + kept.Count;
-                        if (kept.Count == 1 || total % 25 == 0)
-                        {
-                            Step(report, "Parameters", total, parameter.Name);
-                        }
+                    if (read == 1 || read % 100 == 0)
+                    {
+                        string label = exported.Name.Length > 0 ? exported.Name : exported.Number;
+                        Step(report, "Parameters", already + kept.Count, "read " + read.ToString(CultureInfo.InvariantCulture) + " " + label);
                     }
                 }
             }
@@ -900,50 +951,32 @@ namespace TiaGitAddIn.Services
             {
             }
 
-            writer.WriteAttributeString("filter", defaultAttribute == null ? "accessible" : "differs-from-default");
-            if (defaultAttribute != null)
+            writer.WriteAttributeString("filter", columns.FactoryName == null ? "accessible" : "differs-from-default");
+            if (columns.FactoryName != null)
             {
-                writer.WriteAttributeString("defaultAttribute", defaultAttribute);
+                writer.WriteAttributeString("defaultAttribute", columns.FactoryName);
                 writer.WriteAttributeString("omitted", omitted.ToString(CultureInfo.InvariantCulture));
             }
 
-            foreach (DriveParameter parameter in kept)
+            foreach (ExportedParameter parameter in kept)
             {
-                WriteParameter(
-                    writer,
-                    parameter.Number,
-                    parameter.Name,
-                    parameter.ArrayIndex,
-                    parameter.ArrayLength,
-                    parameter.Value,
-                    parameter.Unit,
-                    parameter.MinValue,
-                    parameter.MaxValue,
-                    parameter.ParameterText,
-                    parameter.Bits);
+                WriteParameter(writer, parameter);
             }
 
             writer.WriteEndElement();
             return kept.Count;
         }
 
-        private static string? FindDefaultAttribute(DriveParameter parameter)
+        private static ParameterColumns InspectParameter(DriveParameter parameter)
         {
+            var present = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             try
             {
                 foreach (EngineeringAttributeInfo info in parameter.GetAttributeInfos())
                 {
-                    if (info == null || string.IsNullOrEmpty(info.Name))
+                    if (info != null && !string.IsNullOrEmpty(info.Name))
                     {
-                        continue;
-                    }
-
-                    foreach (string candidate in DefaultAttributeNames)
-                    {
-                        if (info.Name.Equals(candidate, StringComparison.OrdinalIgnoreCase))
-                        {
-                            return info.Name;
-                        }
+                        present.Add(info.Name);
                     }
                 }
             }
@@ -951,105 +984,176 @@ namespace TiaGitAddIn.Services
             {
             }
 
-            return null;
+            var names = new List<string>();
+            var columns = new ParameterColumns
+            {
+                Number = -1,
+                Name = -1,
+                Index = -1,
+                Length = -1,
+                Value = -1,
+                Unit = -1,
+                Min = -1,
+                Max = -1,
+                Text = -1,
+                Factory = -1
+            };
+            AddColumn(names, present, "Number", ref columns.Number);
+            AddColumn(names, present, "Name", ref columns.Name);
+            AddColumn(names, present, "ArrayIndex", ref columns.Index);
+            AddColumn(names, present, "ArrayLength", ref columns.Length);
+            AddColumn(names, present, "Value", ref columns.Value);
+            AddColumn(names, present, "Unit", ref columns.Unit);
+            AddColumn(names, present, "MinValue", ref columns.Min);
+            AddColumn(names, present, "MaxValue", ref columns.Max);
+            AddColumn(names, present, "ParameterText", ref columns.Text);
+            foreach (string candidate in DefaultAttributeNames)
+            {
+                if (present.Contains(candidate))
+                {
+                    columns.FactoryName = candidate;
+                    columns.Factory = names.Count;
+                    names.Add(candidate);
+                    break;
+                }
+            }
+
+            columns.Names = names.ToArray();
+            return columns;
         }
 
-        private static bool MatchesDefault(DriveParameter parameter, string? defaultAttribute)
+        private static void AddColumn(List<string> names, ISet<string> present, string name, ref int index)
         {
-            if (string.IsNullOrEmpty(defaultAttribute))
-            {
-                return false;
-            }
-
-            try
-            {
-                string current = Text(parameter.Value);
-                string factory = Text(parameter.GetAttribute(defaultAttribute));
-                return string.Equals(current, factory, StringComparison.Ordinal);
-            }
-            catch (Exception ex) when (!IsSessionDead(ex))
-            {
-                return false;
-            }
-        }
-
-        private static void WriteParameter(
-            XmlWriter writer,
-            object number,
-            object name,
-            object arrayIndex,
-            object arrayLength,
-            object value,
-            object unit,
-            object min,
-            object max,
-            object text,
-            object bits)
-        {
-            writer.WriteStartElement("Parameter");
-            writer.WriteAttributeString("number", Text(number));
-            writer.WriteAttributeString("name", Text(name));
-            string index = Text(arrayIndex);
-            string length = Text(arrayLength);
-            if (index.Length > 0 && index != "0")
-            {
-                writer.WriteAttributeString("index", index);
-            }
-
-            if (length.Length > 0 && length != "0" && length != "1")
-            {
-                writer.WriteAttributeString("length", length);
-            }
-
-            writer.WriteAttributeString("value", Text(value));
-            string unitText = Text(unit);
-            if (unitText.Length > 0)
-            {
-                writer.WriteAttributeString("unit", unitText);
-            }
-
-            string minText = Text(min);
-            string maxText = Text(max);
-            if (minText.Length > 0)
-            {
-                writer.WriteAttributeString("min", minText);
-            }
-
-            if (maxText.Length > 0)
-            {
-                writer.WriteAttributeString("max", maxText);
-            }
-
-            string description = Text(text);
-            if (description.Length > 0)
-            {
-                writer.WriteAttributeString("text", description);
-            }
-
-            WriteBits(writer, bits);
-            writer.WriteEndElement();
-        }
-
-        private static void WriteBits(XmlWriter writer, object bits)
-        {
-            if (!(bits is IEnumerable items) || bits is string)
+            if (!present.Contains(name))
             {
                 return;
             }
 
-            foreach (object bit in items)
-            {
-                if (!(bit is IEngineeringObject engineering))
-                {
-                    continue;
-                }
-
-                writer.WriteStartElement("Bit");
-                writer.WriteAttributeString("name", TryGet(engineering, "Name"));
-                writer.WriteAttributeString("value", TryGet(engineering, "Value"));
-                writer.WriteEndElement();
-            }
+            index = names.Count;
+            names.Add(name);
         }
+
+        private static bool TryReadParameter(DriveParameter parameter, ParameterColumns columns, out ExportedParameter exported, out bool atDefault)
+        {
+            exported = default;
+            atDefault = false;
+            object[] values = null;
+            if (columns.Names != null && columns.Names.Length > 0)
+            {
+                try
+                {
+                    IList<object> read = parameter.GetAttributes(columns.Names);
+                    if (read != null)
+                    {
+                        values = new object[columns.Names.Length];
+                        for (int index = 0; index < values.Length && index < read.Count; index++)
+                        {
+                            values[index] = read[index];
+                        }
+                    }
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                }
+            }
+
+            if (values == null)
+            {
+                exported = ReadParameterProperties(parameter);
+            }
+            else
+            {
+                exported.Number = Text(At(values, columns.Number));
+                exported.Name = Text(At(values, columns.Name));
+                exported.Index = Text(At(values, columns.Index));
+                exported.Length = Text(At(values, columns.Length));
+                exported.Value = Text(At(values, columns.Value));
+                exported.Unit = Text(At(values, columns.Unit));
+                exported.Min = Text(At(values, columns.Min));
+                exported.Max = Text(At(values, columns.Max));
+                exported.Text = Text(At(values, columns.Text));
+                if (columns.Factory >= 0)
+                {
+                    atDefault = string.Equals(exported.Value, Text(At(values, columns.Factory)), StringComparison.Ordinal);
+                }
+            }
+
+            exported.Number = exported.Number ?? string.Empty;
+            exported.Name = exported.Name ?? string.Empty;
+            return exported.Number.Length > 0 || exported.Name.Length > 0;
+        }
+
+        private static object At(object[] values, int index)
+        {
+            if (values == null || index < 0 || index >= values.Length)
+            {
+                return null;
+            }
+
+            return values[index];
+        }
+
+        private static ExportedParameter ReadParameterProperties(DriveParameter parameter)
+        {
+            var exported = new ExportedParameter();
+            try
+            {
+                exported.Number = Text(parameter.Number);
+                exported.Name = Text(parameter.Name);
+                exported.Index = Text(parameter.ArrayIndex);
+                exported.Length = Text(parameter.ArrayLength);
+                exported.Value = Text(parameter.Value);
+                exported.Unit = Text(parameter.Unit);
+                exported.Min = Text(parameter.MinValue);
+                exported.Max = Text(parameter.MaxValue);
+                exported.Text = Text(parameter.ParameterText);
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+            }
+
+            return exported;
+        }
+
+        private static void WriteParameter(XmlWriter writer, ExportedParameter parameter)
+        {
+            writer.WriteStartElement("Parameter");
+            writer.WriteAttributeString("number", parameter.Number ?? string.Empty);
+            writer.WriteAttributeString("name", parameter.Name ?? string.Empty);
+            if (!string.IsNullOrEmpty(parameter.Index) && parameter.Index != "0")
+            {
+                writer.WriteAttributeString("index", parameter.Index);
+            }
+
+            if (!string.IsNullOrEmpty(parameter.Length) && parameter.Length != "0" && parameter.Length != "1")
+            {
+                writer.WriteAttributeString("length", parameter.Length);
+            }
+
+            writer.WriteAttributeString("value", parameter.Value ?? string.Empty);
+            if (!string.IsNullOrEmpty(parameter.Unit))
+            {
+                writer.WriteAttributeString("unit", parameter.Unit);
+            }
+
+            if (!string.IsNullOrEmpty(parameter.Min))
+            {
+                writer.WriteAttributeString("min", parameter.Min);
+            }
+
+            if (!string.IsNullOrEmpty(parameter.Max))
+            {
+                writer.WriteAttributeString("max", parameter.Max);
+            }
+
+            if (!string.IsNullOrEmpty(parameter.Text))
+            {
+                writer.WriteAttributeString("text", parameter.Text);
+            }
+
+            writer.WriteEndElement();
+        }
+
 
         private static int WriteTelegrams(XmlWriter writer, DriveObject drive, Action<string> report, int already)
         {

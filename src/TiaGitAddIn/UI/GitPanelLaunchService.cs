@@ -118,7 +118,9 @@ namespace TiaGitAddIn.UI
                 IPlcRevisionProvider revisionProvider = new PlcRevisionProvider(blobReader, PlcRevisionProviderOptions.Default);
 
                 IPlcArtifactClassifier classifier = new PlcArtifactClassifier();
-                var textComparer = new LineTextComparer(TextComparisonLimits.Default);
+                var textComparer = new LineTextComparer(
+                    TextComparisonLimits.Default,
+                    () => DiffWhitespace.From(configurationService.Load(repositoryRoot)));
                 var resultFactory = new PlcComparisonResultFactory(textComparer);
                 var sanitizer = new ComparisonDiagnosticSanitizer();
                 var strategies = new IPlcComparisonStrategy[]

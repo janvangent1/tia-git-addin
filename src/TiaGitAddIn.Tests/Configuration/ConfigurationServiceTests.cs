@@ -32,6 +32,43 @@ namespace TiaGitAddIn.Tests.Configuration
                 Assert.Equal(config.CommitAuthorName, loaded.CommitAuthorName);
                 Assert.True(loaded.CompareXmlByElement);
                 Assert.True(loaded.ShowScreenPreview);
+                Assert.True(loaded.IgnoreAllSpace);
+                Assert.False(loaded.IgnoreBlankLines);
+            }
+            finally
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+
+        [Fact]
+        public void WhitespaceDiffOptionsRoundTripAndDefaultToIgnoreAllSpace()
+        {
+            string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            Directory.CreateDirectory(root);
+            try
+            {
+                ConfigurationService service = new ConfigurationService();
+                Assert.True(service.Load(root).IgnoreAllSpace);
+
+                service.Save(root, new GitConfiguration
+                {
+                    RepositoryPath = root,
+                    IgnoreTabExpansion = true,
+                    IgnoreTrailingSpace = true,
+                    IgnoreSpaceChange = true,
+                    IgnoreAllSpace = false,
+                    IgnoreBlankLines = true
+                });
+                GitConfiguration loaded = service.Load(root);
+                Assert.True(loaded.IgnoreTabExpansion);
+                Assert.True(loaded.IgnoreTrailingSpace);
+                Assert.True(loaded.IgnoreSpaceChange);
+                Assert.False(loaded.IgnoreAllSpace);
+                Assert.True(loaded.IgnoreBlankLines);
+
+                File.WriteAllText(Path.Combine(root, ConfigurationService.FileName), "{}");
+                Assert.True(service.Load(root).IgnoreAllSpace);
             }
             finally
             {

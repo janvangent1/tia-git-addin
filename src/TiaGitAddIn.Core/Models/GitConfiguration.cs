@@ -22,6 +22,21 @@ namespace TiaGitAddIn.Models
 
         public bool CompareXmlByElement { get; set; } = true;
 
+        /// <summary>Git -E. Ignore a change that only expands a tab into spaces.</summary>
+        public bool IgnoreTabExpansion { get; set; }
+
+        /// <summary>Git -Z. Ignore white space at the end of a line.</summary>
+        public bool IgnoreTrailingSpace { get; set; }
+
+        /// <summary>Git -b. Ignore a change in the amount of white space.</summary>
+        public bool IgnoreSpaceChange { get; set; }
+
+        /// <summary>Git -w. Ignore every white space character. On until the user turns it off.</summary>
+        public bool IgnoreAllSpace { get; set; } = true;
+
+        /// <summary>Git -B. Leave a change out when its lines are all blank.</summary>
+        public bool IgnoreBlankLines { get; set; }
+
         /// <summary>
         /// When true, a screen file is drawn as buttons and I/O fields.
         /// When false, that file stays as XML text.

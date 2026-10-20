@@ -26,6 +26,11 @@ namespace TiaGitAddIn.UI.ViewModels
         private int maxLogEntries = 200;
         private bool compareXmlByElement = true;
         private bool showScreenPreview = true;
+        private bool ignoreTabExpansion;
+        private bool ignoreTrailingSpace;
+        private bool ignoreSpaceChange;
+        private bool ignoreAllSpace = true;
+        private bool ignoreBlankLines;
         private string validationMessage = string.Empty;
         private bool canSaveSettings = true;
 
@@ -191,6 +196,36 @@ namespace TiaGitAddIn.UI.ViewModels
             }
         }
 
+        public bool IgnoreTabExpansion
+        {
+            get => ignoreTabExpansion;
+            set => SetProperty(ref ignoreTabExpansion, value);
+        }
+
+        public bool IgnoreTrailingSpace
+        {
+            get => ignoreTrailingSpace;
+            set => SetProperty(ref ignoreTrailingSpace, value);
+        }
+
+        public bool IgnoreSpaceChange
+        {
+            get => ignoreSpaceChange;
+            set => SetProperty(ref ignoreSpaceChange, value);
+        }
+
+        public bool IgnoreAllSpace
+        {
+            get => ignoreAllSpace;
+            set => SetProperty(ref ignoreAllSpace, value);
+        }
+
+        public bool IgnoreBlankLines
+        {
+            get => ignoreBlankLines;
+            set => SetProperty(ref ignoreBlankLines, value);
+        }
+
         public string ValidationMessage
         {
             get => validationMessage;
@@ -212,6 +247,11 @@ namespace TiaGitAddIn.UI.ViewModels
             maxLogEntries = config.MaxLogEntries;
             compareXmlByElement = config.CompareXmlByElement;
             showScreenPreview = config.ShowScreenPreview;
+            ignoreTabExpansion = config.IgnoreTabExpansion;
+            ignoreTrailingSpace = config.IgnoreTrailingSpace;
+            ignoreSpaceChange = config.IgnoreSpaceChange;
+            ignoreAllSpace = config.IgnoreAllSpace;
+            ignoreBlankLines = config.IgnoreBlankLines;
             ApplyDisabled(HmiCategories, config.DisabledHmiCategories);
             ApplyDisabled(HardwareCategories, config.DisabledHardwareCategories);
 
@@ -258,6 +298,11 @@ namespace TiaGitAddIn.UI.ViewModels
                 CommitAuthorEmail = CommitAuthorEmail.Trim(),
                 CompareXmlByElement = compareXmlByElement,
                 ShowScreenPreview = showScreenPreview,
+                IgnoreTabExpansion = ignoreTabExpansion,
+                IgnoreTrailingSpace = ignoreTrailingSpace,
+                IgnoreSpaceChange = ignoreSpaceChange,
+                IgnoreAllSpace = ignoreAllSpace,
+                IgnoreBlankLines = ignoreBlankLines,
                 DisabledHmiCategories = DisabledNames(HmiCategories).ToList(),
                 DisabledHardwareCategories = DisabledNames(HardwareCategories).ToList(),
                 Version = 1
