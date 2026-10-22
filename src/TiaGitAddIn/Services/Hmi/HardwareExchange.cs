@@ -1661,24 +1661,9 @@ namespace TiaGitAddIn.Services
 
         private static void AddAttributes(XElement parent, ISet<string> seen, IEngineeringObject engineering, AttributeAccessOptions access)
         {
-            IEnumerable attributes;
-            try
+            foreach (KeyValuePair<string, object> attribute in ReadAttributes(engineering, access))
             {
-                attributes = engineering.GetAttributes(access);
-            }
-            catch (Exception ex) when (!IsSessionDead(ex))
-            {
-                return;
-            }
-
-            if (attributes == null)
-            {
-                return;
-            }
-
-            foreach (object entry in attributes)
-            {
-                if (!(entry is KeyValuePair<string, object> attribute) || string.IsNullOrWhiteSpace(attribute.Key) || !seen.Add(attribute.Key))
+                if (string.IsNullOrWhiteSpace(attribute.Key) || !seen.Add(attribute.Key))
                 {
                     continue;
                 }
@@ -1704,24 +1689,9 @@ namespace TiaGitAddIn.Services
 
         private static void WriteAccess(XmlWriter writer, ISet<string> seen, IEngineeringObject engineering, AttributeAccessOptions access)
         {
-            IEnumerable attributes;
-            try
+            foreach (KeyValuePair<string, object> attribute in ReadAttributes(engineering, access))
             {
-                attributes = engineering.GetAttributes(access);
-            }
-            catch (Exception ex) when (!IsSessionDead(ex))
-            {
-                return;
-            }
-
-            if (attributes == null)
-            {
-                return;
-            }
-
-            foreach (object entry in attributes)
-            {
-                if (!(entry is KeyValuePair<string, object> attribute) || string.IsNullOrWhiteSpace(attribute.Key) || !seen.Add(attribute.Key))
+                if (string.IsNullOrWhiteSpace(attribute.Key) || !seen.Add(attribute.Key))
                 {
                     continue;
                 }
@@ -1736,6 +1706,81 @@ namespace TiaGitAddIn.Services
                 writer.WriteAttributeString("value", Text(attribute.Value));
                 writer.WriteEndElement();
             }
+        }
+
+        // GetAttributes(access) asks Openness to convert every attribute. A null number or enum
+        // throws NotSupportedException on Portal's thread and TIA exits before this method can catch it.
+        private static List<KeyValuePair<string, object>> ReadAttributes(IEngineeringObject engineering, AttributeAccessOptions access)
+        {
+            if (access == AttributeAccessOptions.ReadWrite)
+            {
+                HmiExportTrace.Info("Hardware attributes " + engineering.GetType().Name + " " + TryGet(engineering, "Name"));
+            }
+
+            var result = new List<KeyValuePair<string, object>>();
+            IEnumerable<EngineeringAttributeInfo> infos;
+            try
+            {
+                infos = engineering.GetAttributeInfos();
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+                return result;
+            }
+
+            if (infos == null)
+            {
+                return result;
+            }
+
+            foreach (EngineeringAttributeInfo info in infos)
+            {
+                if (info == null || string.IsNullOrWhiteSpace(info.Name) || !MatchesAccess(info.AccessMode, access) || !SurvivesNull(info))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    result.Add(new KeyValuePair<string, object>(info.Name, engineering.GetAttribute(info.Name)));
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                }
+            }
+
+            return result;
+        }
+
+        private static bool MatchesAccess(EngineeringAttributeAccessMode mode, AttributeAccessOptions access)
+        {
+            if (access == AttributeAccessOptions.ReadWrite)
+            {
+                return mode == EngineeringAttributeAccessMode.ReadWrite;
+            }
+
+            return access == AttributeAccessOptions.ReadOnly && mode == EngineeringAttributeAccessMode.Read;
+        }
+
+        private static bool SurvivesNull(EngineeringAttributeInfo info)
+        {
+            if (info.SupportedTypes == null)
+            {
+                return false;
+            }
+
+            bool any = false;
+            foreach (Type type in info.SupportedTypes)
+            {
+                if (type == null || type.IsValueType)
+                {
+                    return false;
+                }
+
+                any = true;
+            }
+
+            return any;
         }
 
         private static bool SkipAttribute(string name, object value)

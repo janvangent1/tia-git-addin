@@ -43,7 +43,7 @@ namespace TiaGitAddIn.UI.ViewModels
 
     public static class AddInVersion
     {
-        public const string Current = "1.2.47";
+        public const string Current = "1.2.48";
     }
 
     /// <summary>
@@ -97,13 +97,13 @@ namespace TiaGitAddIn.UI.ViewModels
             }),
             new AboutSection("Hardware", new[]
             {
-                Row("Device and module tree, type, rack position, PLC I/O addresses", "Full, in Hardware.xml.", "Attributes on the matching device and modules. Devices and modules are not created, deleted, or moved."),
+                Row("Device and module tree, type, rack position, PLC I/O addresses", "Type, rack position, and I/O addresses, in Hardware.xml. Number and enum attributes are left out, because a null number closes TIA Portal.", "Attributes on the matching device and modules. Devices and modules are not created, deleted, or moved."),
                 Row("Subnet name, type, and IO system", "Full.", "Attributes on the matching subnet."),
                 Row("Node IP address, subnet mask, router, PROFINET device name", "Full when Openness provides the value.", "Full, on the matching node."),
                 Row("Port-to-port links", "Full.", "Full, on the matching ports."),
                 Row("SINAMICS parameters whose value differs from the factory default", "Full.", "Full. The value is written onto the matching drive."),
-                Row("SINAMICS telegrams and security settings", "Full.", "Security settings on the matching drive. The telegram type is written when Openness accepts the change."),
-                Row("Drive function settings under Settings/", "Full.", "Function settings and technology extensions on the matching module.")
+                Row("SINAMICS telegrams and security settings", "Telegram type, and text security attributes. Number and enum attributes are left out.", "Security settings on the matching drive. The telegram type is written when Openness accepts the change."),
+                Row("Drive function settings under Settings/", "Text attributes of function settings and technology extensions. Number and enum attributes are left out.", "Function settings and technology extensions on the matching module.")
             }),
             new AboutSection("PLC blocks", new[]
             {

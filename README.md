@@ -70,14 +70,14 @@ While an export runs, a checklist stays open. It is grouped by device and shows 
 | Project | Project pictures | Yes | Yes | Image files are included. Pictures missing from the folder are removed |
 | Project | Faceplate types in the project library | Yes | Partly | The in-work version is used when one exists. A missing type is created. Types missing from the folder stay. Global libraries are left out |
 | Project | Styles and style sheets in the project library | Yes | Partly | Same limits as faceplate types |
-| Hardware | Device and module tree, type, rack position, PLC I/O addresses | Yes | Partly | Attributes on the matching device and modules. Devices and modules are not created, deleted, or moved |
+| Hardware | Device and module tree, type, rack position, PLC I/O addresses | Yes | Partly | Type, rack position, and I/O addresses are written. Other number and enum attributes are left out, because a null number closes TIA Portal. Devices and modules are not created, deleted, or moved |
 | Hardware | Subnet name, type, and IO system | Yes | Yes | |
 | Hardware | Node IP address, subnet mask, router, PROFINET name | Yes | Yes | Written when Openness provides the value |
 | Hardware | Port-to-port links | Yes | Yes | |
 | Hardware | SINAMICS parameters that differ from the factory default | Yes | Yes | |
-| Hardware | SINAMICS security settings | Yes | Yes | |
+| Hardware | SINAMICS security settings | Yes | Yes | Text attributes. Number and enum attributes are left out |
 | Hardware | SINAMICS telegram type | Yes | Partly | Written when Openness accepts the change |
-| Hardware | Drive function settings | Yes | Yes | Function settings and technology extensions on the matching module |
+| Hardware | Drive function settings | Yes | Yes | Function settings and technology extensions on the matching module. Number and enum attributes are left out |
 | PLC | PLC blocks | Yes | No | TIA Portal VCI writes the files. There is no PLC import button. **Restore** checks the commit out on a `restore-<short hash>` branch |
 
 Pictures, faceplate types, styles, and style sheets are written to `HmiExport/_Project/<project>/` and imported before the HMI devices, so a screen can find its faceplate type. A faceplate placed on a screen is part of that screen's widget snapshot. `HardwareExport/` includes devices that are not in a group. PLC blocks stay on the VCI path.
@@ -157,6 +157,7 @@ The table under **HMI and hardware in Git** is the list of what export and impor
 
 The add-in version is `AddInVersion` in `src/TiaGitAddIn/AddInPublisherConfiguration.xml`. Newest first.
 
+- **1.2.48** — Hardware export no longer reads number and enum attributes in one bulk call. A null number makes TIA Portal exit, and the add-in cannot catch that. Text attributes are still written. Addresses, telegrams, and drive parameters keep their own numbers.
 - **1.2.47** — Settings can ignore `//` comments and comments between `(*` and `*)` or `*(` and `*)`. That box starts unchecked. Save keeps every setting, including the whitespace boxes.
 - **1.2.46** — Settings lists Git's whitespace options for a text diff, with ignore-all-space (-w) on by default. A line that was inserted no longer marks every line below it.
 - **1.2.45** — Hardware export walks the module tree once, and drive function settings are read only on modules that have a drive. Unified screens are read in one pass.
