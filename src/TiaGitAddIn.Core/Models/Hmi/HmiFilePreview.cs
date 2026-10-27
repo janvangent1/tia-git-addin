@@ -8,7 +8,17 @@ namespace TiaGitAddIn.Models.Hmi
 {
     public sealed class HmiScreenItemPreview
     {
-        public HmiScreenItemPreview(string kind, string name, string label, int left, int top, int width, int height, string change)
+        public HmiScreenItemPreview(
+            string kind,
+            string name,
+            string label,
+            int left,
+            int top,
+            int width,
+            int height,
+            string change,
+            string links = "",
+            string detail = "")
         {
             Kind = kind ?? string.Empty;
             Name = name ?? string.Empty;
@@ -18,6 +28,8 @@ namespace TiaGitAddIn.Models.Hmi
             Width = width;
             Height = height;
             Change = change ?? "Unchanged";
+            Links = links ?? string.Empty;
+            Detail = detail ?? string.Empty;
         }
 
         public string Kind { get; }
@@ -28,6 +40,12 @@ namespace TiaGitAddIn.Models.Hmi
         public int Width { get; }
         public int Height { get; }
         public string Change { get; }
+
+        /// <summary>Tag names and screen links used by this button or I/O field, one per line.</summary>
+        public string Links { get; }
+
+        /// <summary>Why a changed item was marked, when the visible text and position stayed the same.</summary>
+        public string Detail { get; }
     }
 
     public sealed class HmiScreenSidePreview
@@ -215,15 +233,18 @@ namespace TiaGitAddIn.Models.Hmi
         private static HmiScreenItemPreview ReadUnifiedItem(XElement item)
         {
             string label = FirstText(item);
+            string name = Attribute(item, "name");
+            string shown = label.Length == 0 ? Attribute(item, "processValue") : label;
             return new HmiScreenItemPreview(
                 Attribute(item, "kind"),
-                Attribute(item, "name"),
-                label.Length == 0 ? Attribute(item, "processValue") : label,
+                name,
+                shown,
                 Number(item, "left"),
                 Number(item, "top"),
                 Number(item, "width"),
                 Number(item, "height"),
-                "Unchanged");
+                "Unchanged",
+                CollectLinks(item, name, shown));
         }
 
         private static HmiScreenItemPreview ReadWidget(XElement element, string localName)
@@ -235,15 +256,90 @@ namespace TiaGitAddIn.Models.Hmi
                 name = TextOf(element, "Name");
             }
 
+            string label = TextOf(element, "Text");
             return new HmiScreenItemPreview(
                 kind,
                 name,
-                TextOf(element, "Text"),
+                label,
                 Number(element, "Left"),
                 Number(element, "Top"),
                 Number(element, "Width"),
                 Number(element, "Height"),
-                "Unchanged");
+                "Unchanged",
+                CollectLinks(element, name, label));
+        }
+
+        // Names stored on a link (the tag a button sets, the screen it opens) are not the button text.
+        // A change there still belongs to that button.
+        private static string CollectLinks(XElement element, string ownName, string ownLabel)
+        {
+            var links = new List<string>();
+            foreach (XElement node in element.DescendantsAndSelf())
+            {
+                foreach (XAttribute attribute in node.Attributes())
+                {
+                    TryAddLink(links, attribute.Name.LocalName, attribute.Value, ownName, ownLabel);
+                }
+
+                if (node.HasElements)
+                {
+                    continue;
+                }
+
+                string local = node.Name.LocalName;
+                bool linkedName = local.Equals("Name", StringComparison.OrdinalIgnoreCase)
+                    && node.Parent != null
+                    && IsLinkParent(node.Parent.Name.LocalName);
+                if (linkedName)
+                {
+                    TryAddLink(links, "Name", node.Value, ownName, ownLabel);
+                    continue;
+                }
+
+                TryAddLink(links, local, node.Value, ownName, ownLabel);
+            }
+
+            links.Sort(StringComparer.Ordinal);
+            return string.Join("\n", links);
+        }
+
+        private static bool IsLinkParent(string localName)
+        {
+            return localName.Equals("Value", StringComparison.OrdinalIgnoreCase)
+                || localName.IndexOf("Link", StringComparison.OrdinalIgnoreCase) >= 0
+                || localName.IndexOf("Process", StringComparison.OrdinalIgnoreCase) >= 0
+                || localName.IndexOf("Tag", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static void TryAddLink(List<string> links, string localName, string value, string ownName, string ownLabel)
+        {
+            if (!IsLinkField(localName))
+            {
+                return;
+            }
+
+            string text = (value ?? string.Empty).Trim();
+            if (text.Length == 0
+                || text.Equals(ownName, StringComparison.Ordinal)
+                || text.Equals(ownLabel, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            string line = text;
+            if (!links.Contains(line))
+            {
+                links.Add(line);
+            }
+        }
+
+        private static bool IsLinkField(string localName)
+        {
+            return localName.Equals("Name", StringComparison.OrdinalIgnoreCase)
+                || localName.IndexOf("Tag", StringComparison.OrdinalIgnoreCase) >= 0
+                || localName.IndexOf("Process", StringComparison.OrdinalIgnoreCase) >= 0
+                || localName.IndexOf("Variable", StringComparison.OrdinalIgnoreCase) >= 0
+                || localName.Equals("ScreenName", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool IsButtonOrIoField(string localName)
@@ -448,20 +544,40 @@ namespace TiaGitAddIn.Models.Hmi
                 string key = ItemKey(item);
                 Dictionary<string, HmiScreenItemPreview> other = markRight ? leftByKey : rightByKey;
                 string change;
+                string detail = string.Empty;
                 if (!other.TryGetValue(key, out HmiScreenItemPreview? match) || match == null)
                 {
                     change = markRight ? "Added" : "Removed";
                 }
-                else if (item.Left != match.Left || item.Top != match.Top || item.Width != match.Width || item.Height != match.Height || item.Label != match.Label)
-                {
-                    change = "Changed";
-                }
                 else
                 {
-                    change = "Unchanged";
+                    bool shapeChanged = item.Left != match.Left || item.Top != match.Top || item.Width != match.Width || item.Height != match.Height || item.Label != match.Label;
+                    bool linkChanged = !string.Equals(item.Links, match.Links, StringComparison.Ordinal);
+                    if (shapeChanged || linkChanged)
+                    {
+                        change = "Changed";
+                        if (linkChanged)
+                        {
+                            detail = "the tag or link it uses";
+                        }
+                    }
+                    else
+                    {
+                        change = "Unchanged";
+                    }
                 }
 
-                result.Add(new HmiScreenItemPreview(item.Kind, item.Name, item.Label, item.Left, item.Top, item.Width, item.Height, change));
+                result.Add(new HmiScreenItemPreview(
+                    item.Kind,
+                    item.Name,
+                    item.Label,
+                    item.Left,
+                    item.Top,
+                    item.Width,
+                    item.Height,
+                    change,
+                    item.Links,
+                    detail));
             }
 
             return result;

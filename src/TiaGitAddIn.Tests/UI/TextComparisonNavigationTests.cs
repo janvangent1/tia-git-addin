@@ -59,6 +59,54 @@ namespace TiaGitAddIn.Tests.UI
         }
 
         [Fact]
+        public void ScreenZoomGrowsAndReturnsToFit()
+        {
+            TextComparisonViewModel viewModel = Create(TextDiffLineKind.Unchanged);
+
+            Assert.Equal(1, viewModel.ScreenZoom);
+            Assert.Equal("100%", viewModel.ScreenZoomText);
+
+            viewModel.ScreenZoomInCommand.Execute(null);
+            Assert.Equal(1.25, viewModel.ScreenZoom);
+
+            viewModel.ScreenZoomResetCommand.Execute(null);
+            Assert.Equal(1, viewModel.ScreenZoom);
+
+            viewModel.ScreenZoomOutCommand.Execute(null);
+            Assert.Equal(0.75, viewModel.ScreenZoom);
+        }
+
+        [Fact]
+        public void RawTextNextAndPreviousWalkChangedBlocks()
+        {
+            WpfTestHost.Run(_ =>
+            {
+                var rawText = new ComparisonRawText(
+                    "one\ntwo\nthree",
+                    "one\nTWO\nthree\nfour",
+                    false,
+                    false);
+                var viewModel = new ComparisonRawTextViewModel(rawText);
+
+                Assert.Equal("2 changes", viewModel.ChangePositionText);
+                Assert.False(viewModel.PreviousChangeCommand.CanExecute(null));
+                Assert.True(viewModel.NextChangeCommand.CanExecute(null));
+
+                viewModel.NextChangeCommand.Execute(null);
+                Assert.Equal("two", viewModel.CurrentChangeLine!.LeftText);
+                Assert.Equal("Change 1 of 2", viewModel.ChangePositionText);
+
+                viewModel.NextChangeCommand.Execute(null);
+                Assert.Equal("four", viewModel.CurrentChangeLine.RightText);
+                Assert.Equal("Change 2 of 2", viewModel.ChangePositionText);
+                Assert.False(viewModel.NextChangeCommand.CanExecute(null));
+
+                viewModel.PreviousChangeCommand.Execute(null);
+                Assert.Equal("two", viewModel.CurrentChangeLine.LeftText);
+            });
+        }
+
+        [Fact]
         public void NextChangeSelectsTheFirstChangedLineInTheList()
         {
             TextDiffLineKind[] kinds = new TextDiffLineKind[31];

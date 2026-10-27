@@ -227,6 +227,16 @@ namespace TiaGitAddIn.Services
                 parameters.ToString(CultureInfo.InvariantCulture) + " drive parameter(s) to HardwareExport. " +
                 "PLC blocks stay on the existing Git path. Stage that folder to keep it in Git.");
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                ExportIssues.Remember("Hardware", ex);
+                return OperationResult.Ok(
+                    "Hardware export finished with issues. Files written so far are in HardwareExport.");
+            }
             finally
             {
                 scope = previousScope;
@@ -517,6 +527,29 @@ namespace TiaGitAddIn.Services
             return devices;
         }
 
+        internal static bool IsDriveDevice(Device device)
+        {
+            if (device == null)
+            {
+                return false;
+            }
+
+            return ContainsDriveMarker(device.Name) || ContainsDriveMarker(device.TypeIdentifier);
+        }
+
+        private static bool ContainsDriveMarker(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return false;
+            }
+
+            return value.IndexOf("SINAMICS", StringComparison.OrdinalIgnoreCase) >= 0
+                || value.IndexOf("S120", StringComparison.OrdinalIgnoreCase) >= 0
+                || value.IndexOf("G120", StringComparison.OrdinalIgnoreCase) >= 0
+                || value.IndexOf("G220", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         private static void ListGroupDevices(DeviceUserGroup group, List<Device> devices, CancellationToken ct)
         {
             if (group == null)
@@ -585,7 +618,17 @@ namespace TiaGitAddIn.Services
             {
                 devices++;
                 Step(report, "Devices", devices, device.Name);
-                AppendAttributes(module, device);
+                try
+                {
+                    using (ExportIssues.Push(device.Name ?? "Device"))
+                    {
+                        AppendAttributes(module, device);
+                    }
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                    ExportIssues.Remember(device.Name ?? "Device", ex);
+                }
             }
 
             if (writeModules || wantDrives)
@@ -595,19 +638,29 @@ namespace TiaGitAddIn.Services
                 string deviceName = device.Name ?? string.Empty;
                 foreach (DeviceItem item in device.DeviceItems)
                 {
-                    XElement child = WriteItem(
-                        item,
-                        deviceName,
-                        folder,
-                        usedSettings,
-                        usedDrives,
-                        seenDrives,
-                        ct,
-                        report,
-                        ref modules,
-                        ref drives,
-                        ref parameters,
-                        ref telegrams);
+                    XElement child;
+                    try
+                    {
+                        child = WriteItem(
+                            item,
+                            deviceName,
+                            folder,
+                            usedSettings,
+                            usedDrives,
+                            seenDrives,
+                            ct,
+                            report,
+                            ref modules,
+                            ref drives,
+                            ref parameters,
+                            ref telegrams);
+                    }
+                    catch (Exception ex) when (!IsSessionDead(ex))
+                    {
+                        ExportIssues.Remember(deviceName, ex);
+                        child = new XElement("Module", new XAttribute("name", deviceName ?? string.Empty));
+                    }
+
                     if (writeModules)
                     {
                         module.Add(child);
@@ -650,19 +703,29 @@ namespace TiaGitAddIn.Services
             var element = new XElement(
                 "Module",
                 new XAttribute("name", item.Name ?? string.Empty),
-                new XAttribute("type", item.TypeIdentifier ?? string.Empty),
-                new XAttribute("position", item.PositionNumber.ToString(CultureInfo.InvariantCulture)),
-                new XAttribute("classification", item.Classification.ToString()));
-            if (scope.AllowsHardware("Modules"))
+                new XAttribute("type", item.TypeIdentifier ?? string.Empty));
+            try
             {
-                AppendAttributes(element, item);
-                WriteAddresses(element, item);
-                NoteSoftware(element, item);
-            }
+                element.SetAttributeValue("position", item.PositionNumber.ToString(CultureInfo.InvariantCulture));
+                element.SetAttributeValue("classification", item.Classification.ToString());
+                if (scope.AllowsHardware("Modules"))
+                {
+                    using (ExportIssues.Push(item.Name ?? "Module"))
+                    {
+                        AppendAttributes(element, item);
+                        WriteAddresses(element, item);
+                        NoteSoftware(element, item);
+                    }
+                }
 
-            if (WriteItemDrives(item, deviceName, folder, usedDrives, seenDrives, ct, report, ref drives, ref parameters, ref telegrams))
+                if (WriteItemDrives(item, deviceName, folder, usedDrives, seenDrives, ct, report, ref drives, ref parameters, ref telegrams))
+                {
+                    CollectSettings(item, folder, usedSettings);
+                }
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
             {
-                CollectSettings(item, folder, usedSettings);
+                ExportIssues.Remember(item.Name ?? "Module", ex);
             }
 
             foreach (DeviceItem child in item.DeviceItems)
@@ -728,9 +791,14 @@ namespace TiaGitAddIn.Services
             }
 
             bool found = false;
+            try
+            {
             foreach (DriveObject drive in container.DriveObjects)
             {
                 ct.ThrowIfCancellationRequested();
+                string moduleName = item.Name ?? "Module";
+                try
+                {
                 if (drive == null || AlreadySeen(seenDrives, drive))
                 {
                     continue;
@@ -738,7 +806,7 @@ namespace TiaGitAddIn.Services
 
                 seenDrives.Add(drive);
                 found = true;
-                string label = DriveLabel(drive);
+                string label = DriveLabel(drive, moduleName, null);
                 if (scope.AllowsHardware("Drives"))
                 {
                     drives++;
@@ -752,16 +820,26 @@ namespace TiaGitAddIn.Services
 
                 string driveFolder = Path.Combine(folder, "Drives");
                 Directory.CreateDirectory(driveFolder);
-                string fileName = HmiExportStore.UniqueName((item.Name ?? "Module") + "_" + label, usedDrives);
+                string fileName = HmiExportStore.UniqueName(moduleName + "_" + label, usedDrives);
                 WriteDriveFile(
                     Path.Combine(driveFolder, fileName + ".xml"),
-                    item.Name ?? string.Empty,
+                    moduleName,
                     deviceName,
                     drive,
                     ct,
                     report,
                     ref parameters,
                     ref telegrams);
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                    ExportIssues.Remember(moduleName, ex);
+                }
+            }
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+                ExportIssues.Remember(item.Name ?? "Module", ex);
             }
 
             return found;
@@ -831,8 +909,9 @@ namespace TiaGitAddIn.Services
                 writer.WriteStartElement("DriveObject");
                 writer.WriteAttributeString("module", module ?? string.Empty);
                 writer.WriteAttributeString("device", deviceName ?? string.Empty);
-                writer.WriteAttributeString("number", drive.DriveObjectNumber.ToString(CultureInfo.InvariantCulture));
-                writer.WriteAttributeString("name", DriveLabel(drive));
+                string number = DriveNumber(drive, module);
+                writer.WriteAttributeString("number", number);
+                writer.WriteAttributeString("name", DriveLabel(drive, module, number));
                 if (scope.AllowsHardware("Drives"))
                 {
                     WriteAttributeElements(writer, drive);
@@ -1037,6 +1116,20 @@ namespace TiaGitAddIn.Services
         {
             exported = default;
             atDefault = false;
+            if (columns.Factory >= 0 && columns.Value >= 0 && columns.Names != null)
+            {
+                try
+                {
+                    if (TryReadFactoryMatch(parameter, columns, out atDefault) && atDefault)
+                    {
+                        return true;
+                    }
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                }
+            }
+
             object[] values = null;
             if (columns.Names != null && columns.Names.Length > 0)
             {
@@ -1080,7 +1173,24 @@ namespace TiaGitAddIn.Services
 
             exported.Number = exported.Number ?? string.Empty;
             exported.Name = exported.Name ?? string.Empty;
-            return exported.Number.Length > 0 || exported.Name.Length > 0;
+            return atDefault || exported.Number.Length > 0 || exported.Name.Length > 0;
+        }
+
+        private static bool TryReadFactoryMatch(DriveParameter parameter, ParameterColumns columns, out bool atDefault)
+        {
+            atDefault = false;
+            IList<object> probe = parameter.GetAttributes(new[]
+            {
+                columns.Names[columns.Value],
+                columns.Names[columns.Factory]
+            });
+            if (probe == null || probe.Count < 2)
+            {
+                return false;
+            }
+
+            atDefault = string.Equals(Text(probe[0]), Text(probe[1]), StringComparison.Ordinal);
+            return true;
         }
 
         private static object At(object[] values, int index)
@@ -1223,6 +1333,8 @@ namespace TiaGitAddIn.Services
 
                 count++;
                 Step(report, "Networks", count, subnet.Name ?? string.Empty);
+                try
+                {
                 var element = new XElement(
                     "Subnet",
                     new XAttribute("name", subnet.Name ?? string.Empty),
@@ -1231,6 +1343,11 @@ namespace TiaGitAddIn.Services
                 AppendNodes(element, subnet.Nodes);
                 AppendNamed(element, "IoSystem", subnet.IoSystems);
                 document.Add(element);
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                    ExportIssues.Remember(subnet.Name ?? "Subnet", ex);
+                }
             }
 
             AppendUnassignedNodes(document, project, ct);
@@ -1655,13 +1772,12 @@ namespace TiaGitAddIn.Services
         private static void AppendAttributes(XElement parent, IEngineeringObject engineering)
         {
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            AddAttributes(parent, seen, engineering, AttributeAccessOptions.ReadWrite);
-            AddAttributes(parent, seen, engineering, AttributeAccessOptions.ReadOnly);
+            AddAttributes(parent, seen, engineering);
         }
 
-        private static void AddAttributes(XElement parent, ISet<string> seen, IEngineeringObject engineering, AttributeAccessOptions access)
+        private static void AddAttributes(XElement parent, ISet<string> seen, IEngineeringObject engineering)
         {
-            foreach (KeyValuePair<string, object> attribute in ReadAttributes(engineering, access))
+            foreach (KeyValuePair<string, object> attribute in ReadAttributes(engineering))
             {
                 if (string.IsNullOrWhiteSpace(attribute.Key) || !seen.Add(attribute.Key))
                 {
@@ -1683,13 +1799,12 @@ namespace TiaGitAddIn.Services
         private static void WriteAttributeElements(XmlWriter writer, IEngineeringObject engineering)
         {
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            WriteAccess(writer, seen, engineering, AttributeAccessOptions.ReadWrite);
-            WriteAccess(writer, seen, engineering, AttributeAccessOptions.ReadOnly);
+            WriteAccess(writer, seen, engineering);
         }
 
-        private static void WriteAccess(XmlWriter writer, ISet<string> seen, IEngineeringObject engineering, AttributeAccessOptions access)
+        private static void WriteAccess(XmlWriter writer, ISet<string> seen, IEngineeringObject engineering)
         {
-            foreach (KeyValuePair<string, object> attribute in ReadAttributes(engineering, access))
+            foreach (KeyValuePair<string, object> attribute in ReadAttributes(engineering))
             {
                 if (string.IsNullOrWhiteSpace(attribute.Key) || !seen.Add(attribute.Key))
                 {
@@ -1710,21 +1825,24 @@ namespace TiaGitAddIn.Services
 
         // GetAttributes(access) asks Openness to convert every attribute. A null number or enum
         // throws NotSupportedException on Portal's thread and TIA exits before this method can catch it.
-        private static List<KeyValuePair<string, object>> ReadAttributes(IEngineeringObject engineering, AttributeAccessOptions access)
+        // Named GetAttributes is limited to reference types, which can be null without closing TIA.
+        private static List<KeyValuePair<string, object>> ReadAttributes(IEngineeringObject engineering)
         {
-            if (access == AttributeAccessOptions.ReadWrite)
-            {
-                HmiExportTrace.Info("Hardware attributes " + engineering.GetType().Name + " " + TryGet(engineering, "Name"));
-            }
-
             var result = new List<KeyValuePair<string, object>>();
+            bool noted = false;
             IEnumerable<EngineeringAttributeInfo> infos;
             try
             {
                 infos = engineering.GetAttributeInfos();
             }
-            catch (Exception ex) when (!IsSessionDead(ex))
+            catch (Exception ex)
             {
+                if (IsSessionDead(ex))
+                {
+                    throw;
+                }
+
+                NoteSkippedAttributes(engineering, ex, ref noted);
                 return result;
             }
 
@@ -1733,23 +1851,126 @@ namespace TiaGitAddIn.Services
                 return result;
             }
 
-            foreach (EngineeringAttributeInfo info in infos)
+            var names = new List<string>();
+            try
             {
-                if (info == null || string.IsNullOrWhiteSpace(info.Name) || !MatchesAccess(info.AccessMode, access) || !SurvivesNull(info))
+                foreach (EngineeringAttributeInfo info in infos)
                 {
-                    continue;
+                    if (info == null || string.IsNullOrWhiteSpace(info.Name) || SkipName(info.Name) || !SurvivesNull(info) || IsCollectionOnly(info))
+                    {
+                        continue;
+                    }
+
+                    if (!MatchesAccess(info.AccessMode, AttributeAccessOptions.ReadWrite)
+                        && !MatchesAccess(info.AccessMode, AttributeAccessOptions.ReadOnly))
+                    {
+                        continue;
+                    }
+
+                    names.Add(info.Name);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (IsSessionDead(ex))
+                {
+                    throw;
                 }
 
+                NoteSkippedAttributes(engineering, ex, ref noted);
+                return result;
+            }
+
+            if (names.Count == 0)
+            {
+                return result;
+            }
+
+            try
+            {
+                IList<object> values = engineering.GetAttributes(names.ToArray());
+                if (values != null)
+                {
+                    int count = Math.Min(names.Count, values.Count);
+                    for (int index = 0; index < count; index++)
+                    {
+                        result.Add(new KeyValuePair<string, object>(names[index], values[index]));
+                    }
+
+                    return result;
+                }
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+            }
+
+            foreach (string name in names)
+            {
                 try
                 {
-                    result.Add(new KeyValuePair<string, object>(info.Name, engineering.GetAttribute(info.Name)));
+                    result.Add(new KeyValuePair<string, object>(name, engineering.GetAttribute(name)));
                 }
-                catch (Exception ex) when (!IsSessionDead(ex))
+                catch (Exception ex)
                 {
+                    if (IsSessionDead(ex))
+                    {
+                        throw;
+                    }
+
+                    NoteSkippedAttributes(engineering, ex, ref noted);
                 }
             }
 
             return result;
+        }
+
+        private static void NoteSkippedAttributes(IEngineeringObject engineering, Exception ex, ref bool noted)
+        {
+            ExportIssues.Remember(ex);
+            if (noted)
+            {
+                return;
+            }
+
+            noted = true;
+            Exception root = ex.GetBaseException();
+            HmiExportTrace.Info(
+                "Skipped attributes on " + engineering.GetType().Name + ". " + (root.Message ?? ex.Message));
+        }
+
+        private static bool SkipName(string name)
+        {
+            return name.Equals("Parent", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("Items", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("DeviceItems", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("Parameters", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("ReadParameters", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("Telegrams", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsCollectionOnly(EngineeringAttributeInfo info)
+        {
+            if (info.SupportedTypes == null)
+            {
+                return false;
+            }
+
+            bool any = false;
+            foreach (Type type in info.SupportedTypes)
+            {
+                if (type == null)
+                {
+                    continue;
+                }
+
+                any = true;
+                if (type == typeof(string) || !typeof(IEnumerable).IsAssignableFrom(type))
+                {
+                    return false;
+                }
+            }
+
+            return any;
         }
 
         private static bool MatchesAccess(EngineeringAttributeAccessMode mode, AttributeAccessOptions access)
@@ -1822,7 +2043,22 @@ namespace TiaGitAddIn.Services
             return false;
         }
 
-        private static string DriveLabel(DriveObject drive)
+        private static string DriveNumber(DriveObject drive, string module)
+        {
+            try
+            {
+                return drive.DriveObjectNumber.ToString(CultureInfo.InvariantCulture);
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+                string place = string.IsNullOrWhiteSpace(module) ? "Drive" : module;
+                ExportIssues.Remember(place, ex);
+                HmiExportTrace.Info("Drive on " + place + " has no object number. " + ex.GetBaseException().Message);
+                return string.Empty;
+            }
+        }
+
+        private static string DriveLabel(DriveObject drive, string fallback, string number)
         {
             string name = TryGet(drive, "Name");
             if (name.Length > 0)
@@ -1830,7 +2066,19 @@ namespace TiaGitAddIn.Services
                 return name;
             }
 
-            return "DO" + drive.DriveObjectNumber.ToString(CultureInfo.InvariantCulture);
+            if (!string.IsNullOrEmpty(number))
+            {
+                return "DO" + number;
+            }
+
+            try
+            {
+                return "DO" + drive.DriveObjectNumber.ToString(CultureInfo.InvariantCulture);
+            }
+            catch (Exception ex) when (!IsSessionDead(ex))
+            {
+                return string.IsNullOrWhiteSpace(fallback) ? "Drive" : fallback;
+            }
         }
 
         private static string TryGet(IEngineeringObject engineering, string name)
@@ -2107,6 +2355,55 @@ namespace TiaGitAddIn.Services
             return null;
         }
 
+        private static DriveObject MatchDrive(IEnumerable<DriveObject> drives, string moduleName, string number)
+        {
+            DriveObject only = null;
+            int seen = 0;
+            DriveObject missing = null;
+            foreach (DriveObject drive in drives)
+            {
+                if (drive == null)
+                {
+                    continue;
+                }
+
+                seen++;
+                only = drive;
+                string driveNumber;
+                try
+                {
+                    driveNumber = drive.DriveObjectNumber.ToString(CultureInfo.InvariantCulture);
+                }
+                catch (Exception ex) when (!IsSessionDead(ex))
+                {
+                    ExportIssues.Remember(moduleName, ex);
+                    if (string.IsNullOrEmpty(number) && missing == null)
+                    {
+                        missing = drive;
+                    }
+
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(number) && string.Equals(driveNumber, number, StringComparison.Ordinal))
+                {
+                    return drive;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(number))
+            {
+                return null;
+            }
+
+            if (missing != null)
+            {
+                return missing;
+            }
+
+            return seen == 1 ? only : null;
+        }
+
         private static DriveObject? FindDriveOnItems(IEnumerable<DeviceItem> items, string moduleName, string number, CancellationToken ct)
         {
             if (items == null)
@@ -2124,12 +2421,10 @@ namespace TiaGitAddIn.Services
                         DriveObjectContainer container = item.GetService<DriveObjectContainer>();
                         if (container?.DriveObjects != null)
                         {
-                            foreach (DriveObject drive in container.DriveObjects)
+                            DriveObject match = MatchDrive(container.DriveObjects, moduleName, number);
+                            if (match != null)
                             {
-                                if (drive != null && drive.DriveObjectNumber.ToString(CultureInfo.InvariantCulture) == number)
-                                {
-                                    return drive;
-                                }
+                                return match;
                             }
                         }
                     }
@@ -2510,14 +2805,7 @@ namespace TiaGitAddIn.Services
 
         private static bool IsSessionDead(Exception ex)
         {
-            if (ex is NonRecoverableException || ex is EngineeringObjectDisposedException)
-            {
-                throw new InvalidOperationException(
-                    "TIA Portal closed the Openness session while exporting hardware. " + ex.Message,
-                    ex);
-            }
-
-            return false;
+            return ExportIssues.MustStop(ex);
         }
     }
 }

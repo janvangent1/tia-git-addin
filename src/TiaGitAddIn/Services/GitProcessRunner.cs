@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using TiaGitAddIn.Configuration;
+using TiaGitAddIn.Logging;
 using TiaGitAddIn.Services.Revision;
 using AddInProcess = Siemens.Engineering.AddIn.Utilities.Process;
 using AddInProcessStartInfo = Siemens.Engineering.AddIn.Utilities.ProcessStartInfo;
@@ -18,8 +20,12 @@ namespace TiaGitAddIn.Services
     {
         private const int BinaryReadBufferSize = 81920;
 
+        // Status and stage walk the whole workspace. On a large HMI export that takes minutes.
+        // The old 30-second limit killed git, and disposing that Siemens process froze TIA.
+        internal static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(15);
+
         public GitProcessRunner()
-            : this(TimeSpan.FromSeconds(30))
+            : this(DefaultTimeout)
         {
         }
 
@@ -75,38 +81,103 @@ namespace TiaGitAddIn.Services
             IReadOnlyList<string> arguments,
             CancellationToken cancellationToken)
         {
-            using (AddInProcess process = new())
+            // Not a using-block. Dispose waits for a live child, and that wait runs on the
+            // TIA thread and closes Portal. Dispose only after git has actually exited.
+            AddInProcess process = new AddInProcess();
+            bool started = false;
+            bool exited = false;
+            Task<string>? outputTask = null;
+            Task<string>? errorTask = null;
+            try
             {
                 process.StartInfo = BuildStartInfo(gitExecutablePath, workingDirectory, arguments);
 
                 using (CancellationTokenRegistration cancellation = cancellationToken.Register(() => TryKill(process)))
                 {
                     process.Start();
-                    Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
-                    Task<string> errorTask = process.StandardError.ReadToEndAsync();
+                    started = true;
+                    outputTask = process.StandardOutput.ReadToEndAsync();
+                    errorTask = process.StandardError.ReadToEndAsync();
 
-                    bool exited = process.WaitForExit((int)timeout.TotalMilliseconds);
+                    exited = WaitUntilExit(process, cancellationToken);
                     if (!exited)
                     {
                         TryKill(process);
-                        return new GitProcessResult
+                        exited = WaitOnce(process, 5000);
+                        GitProcessResult timedOut = new GitProcessResult
                         {
                             ExitCode = -1,
                             TimedOut = true,
-                            StandardError = "Git operation timed out."
+                            StandardOutput = ReadAvailable(outputTask),
+                            StandardError = "Git took too long and was stopped. Run it again."
                         };
+                        LogFailure(arguments, timedOut);
+                        return timedOut;
                     }
 
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    return new GitProcessResult
+                    GitProcessResult result = new GitProcessResult
                     {
                         ExitCode = process.ExitCode,
-                        StandardOutput = outputTask.Result,
-                        StandardError = errorTask.Result
+                        StandardOutput = ReadAvailable(outputTask),
+                        StandardError = ReadAvailable(errorTask)
                     };
+                    LogFailure(arguments, result);
+                    return result;
                 }
             }
+            catch (OperationCanceledException)
+            {
+                TryKill(process);
+                exited = WaitOnce(process, 2000);
+                Observe(outputTask, errorTask);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                TryKill(process);
+                exited = WaitOnce(process, 2000);
+                Observe(outputTask, errorTask);
+                GitProcessResult failed = new GitProcessResult
+                {
+                    ExitCode = -1,
+                    StandardError = ex.Message
+                };
+                LogFailure(arguments, failed);
+                return failed;
+            }
+            finally
+            {
+                if (!started || exited)
+                {
+                    TryDispose(process);
+                }
+            }
+        }
+
+        // Short waits. One long WaitForExit is marshalled onto the TIA thread and Portal
+        // stops painting until it returns.
+        private bool WaitUntilExit(AddInProcess process, CancellationToken cancellationToken)
+        {
+            const int sliceMilliseconds = 250;
+            Stopwatch watch = Stopwatch.StartNew();
+            while (watch.Elapsed < timeout)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                int remaining = (int)Math.Min(sliceMilliseconds, (timeout - watch.Elapsed).TotalMilliseconds);
+                if (remaining <= 0)
+                {
+                    break;
+                }
+
+                if (WaitOnce(process, remaining))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         // Binary reads never go through StandardOutput's StreamReader (which would transcode/corrupt
@@ -133,7 +204,7 @@ namespace TiaGitAddIn.Services
                     Task<byte[]> outputTask = ReadBoundedAsync(
                         process.StandardOutput.BaseStream, maximumStandardOutputBytes, cancellationToken);
                     Task<bool> waitTask = Task.Run(
-                        () => process.WaitForExit((int)timeout.TotalMilliseconds), CancellationToken.None);
+                        () => WaitUntilExit(process, CancellationToken.None), CancellationToken.None);
 
                     Task firstCompleted = await Task.WhenAny(outputTask, waitTask).ConfigureAwait(false);
                     if (firstCompleted == outputTask && outputTask.IsFaulted)
@@ -145,7 +216,8 @@ namespace TiaGitAddIn.Services
                     if (!exited)
                     {
                         TryKill(process);
-                        return new GitBinaryProcessResult(-1, Array.Empty<byte>(), "Git operation timed out.", true);
+                        WaitOnce(process, 5000);
+                        return new GitBinaryProcessResult(-1, Array.Empty<byte>(), "Git took too long and was stopped. Run it again.", true);
                     }
 
                     cancellationToken.ThrowIfCancellationRequested();
@@ -220,13 +292,88 @@ namespace TiaGitAddIn.Services
             return builder.ToString();
         }
 
+        private static bool WaitOnce(AddInProcess process, int milliseconds)
+        {
+            try
+            {
+                return process.WaitForExit(milliseconds);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        private static void Observe(Task<string>? outputTask, Task<string>? errorTask)
+        {
+            if (outputTask != null)
+            {
+                ReadAvailable(outputTask);
+            }
+
+            if (errorTask != null)
+            {
+                ReadAvailable(errorTask);
+            }
+        }
+
+        private static string ReadAvailable(Task<string> task)
+        {
+            try
+            {
+                if (!task.Wait(TimeSpan.FromSeconds(5)))
+                {
+                    return string.Empty;
+                }
+
+                return task.Result ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                return ex.GetBaseException().Message;
+            }
+        }
+
+        private static void LogFailure(IReadOnlyList<string> arguments, GitProcessResult result)
+        {
+            if (result.IsSuccess)
+            {
+                return;
+            }
+
+            string detail = result.StandardError ?? string.Empty;
+            if (detail.Length > 500)
+            {
+                detail = detail.Substring(0, 500);
+            }
+
+            try
+            {
+                new FileLogger().Info("git " + string.Join(" ", arguments) + " failed. " + detail);
+            }
+            catch (Exception)
+            {
+            }
+        }
+
         private static void TryKill(AddInProcess process)
         {
             try
             {
                 process.Kill();
             }
-            catch (InvalidOperationException)
+            catch (Exception)
+            {
+            }
+        }
+
+        private static void TryDispose(AddInProcess process)
+        {
+            try
+            {
+                process.Dispose();
+            }
+            catch (Exception)
             {
             }
         }

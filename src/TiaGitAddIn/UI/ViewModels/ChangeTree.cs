@@ -56,8 +56,6 @@ namespace TiaGitAddIn.UI.ViewModels
     /// </summary>
     public static class ChangeTree
     {
-        public const int CollapseAbove = 8;
-
         private static readonly string[] CategoryOrder =
         {
             "Screens",
@@ -234,7 +232,7 @@ namespace TiaGitAddIn.UI.ViewModels
             }
 
             string title = name + " (" + children.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")";
-            return new ChangeNode(title, null, children, children.Count <= CollapseAbove);
+            return new ChangeNode(title, null, children, false);
         }
 
         private static string CategoryName(string folder)
@@ -363,7 +361,7 @@ namespace TiaGitAddIn.UI.ViewModels
                 }
 
                 string title = label + " · " + deviceName + " (" + total.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")";
-                return new ChangeNode(title, null, children, true);
+                return new ChangeNode(title, null, children, false);
             }
         }
     }

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Windows;
+using System.Windows.Media;
 using TiaGitAddIn.Models.Hmi;
 
 namespace TiaGitAddIn.UI.ViewModels.Comparison
@@ -15,6 +17,15 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
             ScaledTop = Math.Max(0, item.Top) * scale;
             ScaledWidth = Math.Max(8, item.Width) * scale;
             ScaledHeight = Math.Max(8, item.Height) * scale;
+            bool marked = Change == "Added" || Change == "Removed" || Change == "Changed";
+            Fill = marked ? FillFor(Change) : Freeze(Color.FromRgb(244, 244, 244));
+            Edge = marked ? EdgeFor(Change) : Freeze(Color.FromRgb(208, 208, 208));
+            EdgeThickness = marked ? 3 : 1;
+            Ink = marked ? Freeze(Color.FromRgb(20, 20, 20)) : Freeze(Color.FromRgb(150, 150, 150));
+            LabelWeight = marked ? FontWeights.Bold : FontWeights.Normal;
+            ToolTipText = marked
+                ? Change + ": " + Label + (string.IsNullOrEmpty(item.Detail) ? string.Empty : " — " + item.Detail)
+                : Label;
         }
 
         public string Kind { get; }
@@ -24,6 +35,49 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
         public double ScaledTop { get; }
         public double ScaledWidth { get; }
         public double ScaledHeight { get; }
+        public Brush Fill { get; }
+        public Brush Edge { get; }
+        public double EdgeThickness { get; }
+        public Brush Ink { get; }
+        public FontWeight LabelWeight { get; }
+        public string ToolTipText { get; }
+
+        private static Brush FillFor(string change)
+        {
+            if (change == "Added")
+            {
+                return Freeze(Color.FromRgb(125, 206, 160));
+            }
+
+            if (change == "Removed")
+            {
+                return Freeze(Color.FromRgb(241, 148, 138));
+            }
+
+            return Freeze(Color.FromRgb(247, 220, 111));
+        }
+
+        private static Brush EdgeFor(string change)
+        {
+            if (change == "Added")
+            {
+                return Freeze(Color.FromRgb(30, 132, 73));
+            }
+
+            if (change == "Removed")
+            {
+                return Freeze(Color.FromRgb(192, 57, 43));
+            }
+
+            return Freeze(Color.FromRgb(183, 149, 11));
+        }
+
+        private static SolidColorBrush Freeze(Color color)
+        {
+            var brush = new SolidColorBrush(color);
+            brush.Freeze();
+            return brush;
+        }
     }
 
     public sealed class HmiScreenPaneViewModel
@@ -43,9 +97,31 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
                 {
                     boxes.Add(new HmiScreenBoxViewModel(item, scale));
                 }
+
+                boxes.Sort((left, right) => Rank(left.Change).CompareTo(Rank(right.Change)));
             }
 
             Boxes = boxes;
+            int marked = 0;
+            foreach (HmiScreenBoxViewModel box in boxes)
+            {
+                if (box.Change != "Unchanged")
+                {
+                    marked++;
+                }
+            }
+
+            Title = marked == 0 ? title : title + " · " + marked.ToString() + " highlighted";
+        }
+
+        private static int Rank(string change)
+        {
+            if (change == "Added" || change == "Removed" || change == "Changed")
+            {
+                return 1;
+            }
+
+            return 0;
         }
 
         public string Title { get; }

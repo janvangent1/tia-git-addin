@@ -256,6 +256,7 @@ namespace TiaGitAddIn.Services
                 catch (Exception ex) when (!IsSessionDead(ex))
                 {
                     HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                     element.Add(new XAttribute("error", ex.Message));
                 }
 
@@ -288,6 +289,7 @@ namespace TiaGitAddIn.Services
             catch (Exception ex) when (!IsSessionDead(ex))
             {
                 HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                 Skip("Other", ex.Message);
                 return 0;
             }
@@ -365,6 +367,7 @@ namespace TiaGitAddIn.Services
                 catch (Exception ex) when (!IsSessionDead(ex))
                 {
                     HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                     Track(name + " failed: " + ex.Message);
                 }
             }
@@ -396,6 +399,7 @@ namespace TiaGitAddIn.Services
             catch (Exception ex) when (!IsSessionDead(ex))
             {
                 HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                 Skip("Runtime settings", ex.Message);
                 return 0;
             }
@@ -691,6 +695,7 @@ namespace TiaGitAddIn.Services
                 catch (Exception ex) when (IsDeferredTagExport(ex))
                 {
                     HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                     report?.Invoke("tag table " + tableName + " skipped: " + ex.Message);
                     return count;
                 }
@@ -826,6 +831,7 @@ namespace TiaGitAddIn.Services
                     catch (Exception ex) when (!IsSessionDead(ex))
                     {
                         HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                         element.Add(new XAttribute("error", ex.Message));
                     }
                 }
@@ -837,6 +843,7 @@ namespace TiaGitAddIn.Services
                 catch (Exception ex) when (!IsSessionDead(ex))
                 {
                     HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                     element.Add(new XAttribute("textError", ex.Message));
                 }
 
@@ -1037,7 +1044,7 @@ namespace TiaGitAddIn.Services
 
         private static bool IsSessionDead(Exception ex)
         {
-            return ex is NonRecoverableException || ex is EngineeringObjectDisposedException;
+            return ExportIssues.MustStop(ex);
         }
 
         private static int ExportFolder(

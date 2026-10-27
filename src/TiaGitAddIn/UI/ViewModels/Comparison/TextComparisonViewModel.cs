@@ -47,6 +47,7 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
         private readonly int[] changeStarts;
         private int currentChangeIndex = -1;
         private TextDiffLineViewModel? currentChangeLine;
+        private double screenZoom = 1;
 
         public TextComparisonViewModel(
             TextPresentation presentation,
@@ -64,6 +65,9 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
             changeStarts = FindChangeStarts(Lines);
             PreviousChangeCommand = new RelayCommand(_ => GoToPreviousChange(), _ => CanGoToPreviousChange);
             NextChangeCommand = new RelayCommand(_ => GoToNextChange(), _ => CanGoToNextChange);
+            ScreenZoomOutCommand = new RelayCommand(_ => ScreenZoom = Math.Max(0.5, ScreenZoom - 0.25));
+            ScreenZoomInCommand = new RelayCommand(_ => ScreenZoom = Math.Min(3, ScreenZoom + 0.25));
+            ScreenZoomResetCommand = new RelayCommand(_ => ScreenZoom = 1);
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -98,6 +102,28 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
 
         public RelayCommand PreviousChangeCommand { get; }
         public RelayCommand NextChangeCommand { get; }
+        public RelayCommand ScreenZoomOutCommand { get; }
+        public RelayCommand ScreenZoomInCommand { get; }
+        public RelayCommand ScreenZoomResetCommand { get; }
+
+        public double ScreenZoom
+        {
+            get => screenZoom;
+            private set
+            {
+                if (Math.Abs(screenZoom - value) < 0.001)
+                {
+                    return;
+                }
+
+                screenZoom = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ScreenZoomText));
+            }
+        }
+
+        public string ScreenZoomText =>
+            Math.Round(ScreenZoom * 100).ToString(System.Globalization.CultureInfo.InvariantCulture) + "%";
 
         private bool CanGoToPreviousChange => currentChangeIndex > 0;
 

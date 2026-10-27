@@ -19,6 +19,12 @@ namespace TiaGitAddIn.Tests.Services
     public class GitProcessRunnerTests
     {
         [Fact]
+        public void WorkspaceGitOperationsAreNotKilledAfterThirtySeconds()
+        {
+            Assert.True(GitProcessRunner.DefaultTimeout >= TimeSpan.FromMinutes(5));
+        }
+
+        [Fact]
         public async Task ReadBoundedAsyncReturnsExactBytesAtTheLimit()
         {
             byte[] data = { 1, 2, 3, 4 };

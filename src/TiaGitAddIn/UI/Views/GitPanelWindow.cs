@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -11,6 +12,8 @@ namespace TiaGitAddIn.UI.Views
     public sealed class GitPanelWindow : Window
     {
         private readonly MainViewModel viewModel;
+        private TransferStatusWindow? transferWindow;
+        private bool panelClosing;
 
         public GitPanelWindow(MainViewModel viewModel)
         {
@@ -19,6 +22,7 @@ namespace TiaGitAddIn.UI.Views
             viewModel.Status.Confirm = Confirm;
             viewModel.Hmi.Confirm = Confirm;
             viewModel.Hmi.ShowError = ShowError;
+            viewModel.Hmi.PropertyChanged += OnHmiPropertyChanged;
             DataContext = viewModel;
             Title = "TIA Git";
             FontSize = 14;
@@ -68,11 +72,18 @@ namespace TiaGitAddIn.UI.Views
             };
 
             shell.Children.Add(BuildHeader());
-            FrameworkElement checklist = BuildChecklist();
-            DockPanel.SetDock(checklist, Dock.Bottom);
-            shell.Children.Add(checklist);
             shell.Children.Add(BuildTabs(vm));
             return shell;
+        }
+
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            panelClosing = true;
+            base.OnClosing(e);
+            if (e.Cancel)
+            {
+                panelClosing = false;
+            }
         }
 
         private bool Confirm(string message)
@@ -87,12 +98,75 @@ namespace TiaGitAddIn.UI.Views
 
         private void ShowError(string message)
         {
-            MessageBox.Show(
-                this,
-                message,
-                "TIA Git",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            var window = new Window
+            {
+                Title = "TIA Git",
+                Owner = this,
+                Width = 760,
+                Height = 520,
+                MinWidth = 480,
+                MinHeight = 320,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Background = PanelTheme.SurfaceBrush(),
+                Foreground = PanelTheme.InkBrush(),
+                FontSize = 14
+            };
+            var text = new TextBox
+            {
+                Text = message ?? string.Empty,
+                IsReadOnly = true,
+                IsReadOnlyCaretVisible = true,
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.Wrap,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                BorderThickness = new Thickness(0),
+                Background = PanelTheme.SurfaceBrush(),
+                Foreground = PanelTheme.InkBrush(),
+                FontFamily = new FontFamily("Consolas")
+            };
+            var copy = new Button
+            {
+                Content = "Copy",
+                Width = 90,
+                Margin = new Thickness(0, 0, 8, 0),
+                IsDefault = true
+            };
+            copy.Click += (_, __) =>
+            {
+                try
+                {
+                    Clipboard.SetText(text.Text ?? string.Empty);
+                    copy.Content = "Copied";
+                }
+                catch (Exception)
+                {
+                    copy.Content = "Copy failed";
+                }
+            };
+            var close = new Button
+            {
+                Content = "Close",
+                Width = 90,
+                IsCancel = true
+            };
+            close.Click += (_, __) => window.Close();
+            var buttons = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(0, 12, 0, 0)
+            };
+            buttons.Children.Add(copy);
+            buttons.Children.Add(close);
+            var layout = new DockPanel { Margin = new Thickness(16) };
+            DockPanel.SetDock(buttons, Dock.Bottom);
+            layout.Children.Add(buttons);
+            layout.Children.Add(text);
+            window.Content = layout;
+            text.Focus();
+            text.SelectAll();
+            window.ShowDialog();
         }
 
         private static FrameworkElement BuildHeader()
@@ -363,71 +437,53 @@ namespace TiaGitAddIn.UI.Views
             }
         }
 
-        private static FrameworkElement BuildChecklist()
+        private void OnHmiPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            Border card = new()
+            if (e.PropertyName != nameof(HmiExchangeViewModel.HasChecklist))
             {
-                Background = PanelTheme.CardBrush(),
-                BorderBrush = PanelTheme.LineBrush(),
-                BorderThickness = new Thickness(0, 1, 0, 0),
-                Padding = new Thickness(12, 8, 12, 8),
-                MaxHeight = 280
-            };
-            card.SetBinding(UIElement.VisibilityProperty, new Binding("Hmi.HasChecklist")
-            {
-                Converter = new BooleanToVisibilityConverter()
-            });
+                return;
+            }
 
-            DockPanel dock = new();
-            Button close = new()
+            if (viewModel.Hmi.HasChecklist)
             {
-                MinWidth = 90,
-                Padding = new Thickness(16, 4, 16, 4),
-                Margin = new Thickness(12, 0, 0, 0),
-                VerticalAlignment = VerticalAlignment.Top
-            };
-            close.SetBinding(ContentControl.ContentProperty, new Binding("OverlayActionText"));
-            close.SetBinding(Button.CommandProperty, new Binding("OverlayActionCommand"));
-            DockPanel.SetDock(close, Dock.Right);
+                ShowTransferWindow();
+            }
+            else
+            {
+                CloseTransferWindow();
+            }
+        }
 
-            TextBlock timer = new()
+        private void ShowTransferWindow()
+        {
+            if (transferWindow != null)
             {
-                Foreground = PanelTheme.InkBrush(),
-                FontWeight = FontWeights.SemiBold,
-                Margin = new Thickness(0, 0, 0, 4)
-            };
-            timer.SetBinding(TextBlock.TextProperty, new Binding("Hmi.ElapsedText"));
-            timer.SetBinding(UIElement.VisibilityProperty, new Binding("Hmi.HasElapsed")
-            {
-                Converter = new BooleanToVisibilityConverter()
-            });
-            DockPanel.SetDock(timer, Dock.Top);
+                if (!transferWindow.IsVisible)
+                {
+                    transferWindow.Show();
+                }
 
-            TextBlock message = new()
-            {
-                Foreground = PanelTheme.InkBrush(),
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 0, 0, 6)
-            };
-            message.SetBinding(TextBlock.TextProperty, new Binding("OverlayStatus"));
-            DockPanel.SetDock(message, Dock.Top);
+                return;
+            }
 
-            ItemsControl checklist = new()
+            transferWindow = new TransferStatusWindow(viewModel, () => panelClosing)
             {
-                ItemTemplate = ChecklistTemplate()
+                Owner = this
             };
-            checklist.SetBinding(ItemsControl.ItemsSourceProperty, new Binding("Hmi.ChecklistGroups"));
-            ScrollViewer list = new()
+            transferWindow.Closed += (_, _) => transferWindow = null;
+            transferWindow.Show();
+        }
+
+        private void CloseTransferWindow()
+        {
+            TransferStatusWindow? window = transferWindow;
+            if (window == null)
             {
-                Content = checklist,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-            };
-            dock.Children.Add(close);
-            dock.Children.Add(timer);
-            dock.Children.Add(message);
-            dock.Children.Add(list);
-            card.Child = dock;
-            return card;
+                return;
+            }
+
+            transferWindow = null;
+            window.RequestClose();
         }
 
         private static FrameworkElement BuildBusyOverlay()
@@ -521,52 +577,6 @@ namespace TiaGitAddIn.UI.Views
             card.Child = panel;
             overlay.Children.Add(card);
             return overlay;
-        }
-
-        private static DataTemplate ChecklistTemplate()
-        {
-            var expander = new FrameworkElementFactory(typeof(Expander));
-            expander.SetBinding(Expander.IsExpandedProperty, new Binding(nameof(HmiChecklistGroup.IsExpanded))
-            {
-                Mode = BindingMode.TwoWay
-            });
-            expander.SetBinding(HeaderedContentControl.HeaderProperty, new Binding(nameof(HmiChecklistGroup.Header)));
-            expander.SetValue(Control.ForegroundProperty, PanelTheme.InkBrush());
-            expander.SetValue(Control.BackgroundProperty, Brushes.Transparent);
-            expander.SetValue(Control.FontSizeProperty, 13.0);
-            expander.SetValue(Control.PaddingProperty, new Thickness(0, 3, 0, 3));
-            expander.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 1, 0, 1));
-
-            var children = new FrameworkElementFactory(typeof(ItemsControl));
-            children.SetBinding(ItemsControl.ItemsSourceProperty, new Binding(nameof(HmiChecklistGroup.Items)));
-            children.SetValue(ItemsControl.ItemTemplateProperty, CategoryTemplate());
-            children.SetValue(FrameworkElement.MarginProperty, new Thickness(22, 2, 0, 6));
-            expander.AppendChild(children);
-            return new DataTemplate { VisualTree = expander };
-        }
-
-        private static DataTemplate CategoryTemplate()
-        {
-            var row = new FrameworkElementFactory(typeof(StackPanel));
-            row.SetValue(StackPanel.OrientationProperty, Orientation.Horizontal);
-            row.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 1, 0, 1));
-
-            var mark = new FrameworkElementFactory(typeof(TextBlock));
-            mark.SetBinding(TextBlock.TextProperty, new Binding(nameof(HmiChecklistItem.Mark)));
-            mark.SetValue(TextBlock.WidthProperty, 24.0);
-            mark.SetValue(TextBlock.ForegroundProperty, PanelTheme.InkBrush());
-            mark.SetValue(TextBlock.FontSizeProperty, 13.0);
-
-            var line = new FrameworkElementFactory(typeof(TextBlock));
-            line.SetBinding(TextBlock.TextProperty, new Binding(nameof(HmiChecklistItem.Line)));
-            line.SetValue(TextBlock.ForegroundProperty, PanelTheme.InkBrush());
-            line.SetValue(TextBlock.FontSizeProperty, 13.0);
-            line.SetValue(TextBlock.TextWrappingProperty, TextWrapping.Wrap);
-            line.SetValue(TextBlock.MaxWidthProperty, 720.0);
-
-            row.AppendChild(mark);
-            row.AppendChild(line);
-            return new DataTemplate { VisualTree = row };
         }
 
         private async void OnLoaded(object sender, RoutedEventArgs e)

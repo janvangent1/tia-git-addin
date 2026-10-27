@@ -72,12 +72,38 @@
                        Foreground="#856404"/>
         </Border>
 
-        <ScrollViewer Grid.Row="2"
-                      MaxHeight="280"
-                      HorizontalScrollBarVisibility="Auto"
-                      VerticalScrollBarVisibility="Auto"
-                      Visibility="{Binding HasScreenPreview, Converter={StaticResource BoolToVis}}">
-            <ItemsControl ItemsSource="{Binding ScreenPanes}">
+        <DockPanel Grid.Row="2"
+                   MaxHeight="310"
+                   Visibility="{Binding HasScreenPreview, Converter={StaticResource BoolToVis}}">
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,4,8,2">
+                <Border Width="14" Height="14" Background="#7DCEA0" BorderBrush="#1E8449" BorderThickness="2" Margin="0,0,4,0"/>
+                <TextBlock Text="Added" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <Border Width="14" Height="14" Background="#F1948A" BorderBrush="#C0392B" BorderThickness="2" Margin="0,0,4,0"/>
+                <TextBlock Text="Removed" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <Border Width="14" Height="14" Background="#F7DC6F" BorderBrush="#B7950B" BorderThickness="2" Margin="0,0,4,0"/>
+                <TextBlock Text="Changed" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBlock Text="Unchanged items are faded." VerticalAlignment="Center" Foreground="#777777" Margin="0,0,12,0"/>
+                <Button Content="−"
+                        Command="{Binding ScreenZoomOutCommand}"
+                        Padding="8,0"
+                        ToolTip="Make the screen drawing smaller."/>
+                <TextBlock Text="{Binding ScreenZoomText}"
+                           Margin="6,0"
+                           VerticalAlignment="Center"
+                           MinWidth="36"/>
+                <Button Content="+"
+                        Command="{Binding ScreenZoomInCommand}"
+                        Padding="8,0"
+                        ToolTip="Make the screen drawing larger."/>
+                <Button Content="100%"
+                        Command="{Binding ScreenZoomResetCommand}"
+                        Margin="6,0,0,0"
+                        Padding="8,0"
+                        ToolTip="Fit the screen drawing again."/>
+            </StackPanel>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding ScreenPanes}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <StackPanel Orientation="Horizontal"/>
@@ -93,6 +119,10 @@
                                        Visibility="{Binding IsMissing, Converter={StaticResource BoolToVis}}"/>
                             <Border BorderBrush="#CCCCCC" BorderThickness="1" Background="#F7F7F7"
                                     Width="{Binding CanvasWidth}" Height="{Binding CanvasHeight}">
+                                <Border.LayoutTransform>
+                                    <ScaleTransform ScaleX="{Binding DataContext.ScreenZoom, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    ScaleY="{Binding DataContext.ScreenZoom, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                </Border.LayoutTransform>
                                 <ItemsControl ItemsSource="{Binding Boxes}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -109,28 +139,15 @@
                                         <DataTemplate>
                                             <Border Width="{Binding ScaledWidth}"
                                                     Height="{Binding ScaledHeight}"
-                                                    BorderThickness="1"
-                                                    BorderBrush="#666666"
-                                                    ToolTip="{Binding Label}">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="Background" Value="White"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Change}" Value="Added">
-                                                                <Setter Property="Background" Value="#C8E6C9"/>
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding Change}" Value="Removed">
-                                                                <Setter Property="Background" Value="#FFCDD2"/>
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding Change}" Value="Changed">
-                                                                <Setter Property="Background" Value="#FFF3B0"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
+                                                    BorderThickness="{Binding EdgeThickness}"
+                                                    BorderBrush="{Binding Edge}"
+                                                    Background="{Binding Fill}"
+                                                    ToolTip="{Binding ToolTipText}">
                                                 <TextBlock Text="{Binding Label}"
                                                            Margin="2"
                                                            FontSize="10"
+                                                           FontWeight="{Binding LabelWeight}"
+                                                           Foreground="{Binding Ink}"
                                                            TextWrapping="Wrap"
                                                            TextTrimming="CharacterEllipsis"/>
                                             </Border>
@@ -142,7 +159,8 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
-        </ScrollViewer>
+            </ScrollViewer>
+        </DockPanel>
 
         <ListView Grid.Row="2"
                   MaxHeight="160"

@@ -97,44 +97,100 @@
             <TabItem x:Name="RawTextTab"
                      Header="Raw text"
                      Visibility="{Binding HasRawText, Converter={StaticResource BoolToVis}}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="1"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <DockPanel Grid.Column="0">
-                        <TextBlock DockPanel.Dock="Top"
-                                   Text="Left"
-                                   FontWeight="Bold"
-                                   Margin="4,4,4,2"/>
-                        <TextBox Text="{Binding Metadata.RawText.LeftText, Mode=OneWay}"
-                                 IsReadOnly="True"
-                                 FontFamily="Consolas"
-                                 TextWrapping="NoWrap"
-                                 AcceptsReturn="True"
-                                 VerticalScrollBarVisibility="Auto"
-                                 HorizontalScrollBarVisibility="Auto"/>
-                    </DockPanel>
-
-                    <Rectangle Grid.Column="1"
-                               Fill="#DDDDDD"/>
-
-                    <DockPanel Grid.Column="2">
-                        <TextBlock DockPanel.Dock="Top"
-                                   Text="Right"
-                                   FontWeight="Bold"
-                                   Margin="4,4,4,2"/>
-                        <TextBox Text="{Binding Metadata.RawText.RightText, Mode=OneWay}"
-                                 IsReadOnly="True"
-                                 FontFamily="Consolas"
-                                 TextWrapping="NoWrap"
-                                 AcceptsReturn="True"
-                                 VerticalScrollBarVisibility="Auto"
-                                 HorizontalScrollBarVisibility="Auto"/>
-                    </DockPanel>
-                </Grid>
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4,4,4,2">
+                        <Button Content="Previous change"
+                                Command="{Binding Metadata.RawText.PreviousChangeCommand}"
+                                Padding="8,2"
+                                ToolTip="Scroll to the previous changed block."/>
+                        <Button Content="Next change"
+                                Command="{Binding Metadata.RawText.NextChangeCommand}"
+                                Margin="6,0,0,0"
+                                Padding="8,2"
+                                ToolTip="Scroll to the next changed block."/>
+                        <TextBlock Text="{Binding Metadata.RawText.ChangePositionText}"
+                                   Margin="10,0,12,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="#555555"/>
+                        <Border Width="14" Height="14" Background="#F5B7B1" Margin="0,0,4,0"/>
+                        <TextBlock Text="Only in Previous" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <Border Width="14" Height="14" Background="#A9DFBF" Margin="0,0,4,0"/>
+                        <TextBlock Text="Only in Current" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <TextBlock Text="Matching lines stay plain." VerticalAlignment="Center" Foreground="#777777"/>
+                        <TextBlock Text="The file was too long to color every line."
+                                   VerticalAlignment="Center"
+                                   Margin="12,0,0,0"
+                                   Foreground="#856404"
+                                   Visibility="{Binding Metadata.RawText.IsTruncated, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Previous" FontWeight="Bold" Margin="28,0,4,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Current" FontWeight="Bold" Margin="28,0,4,2"/>
+                        <ListView x:Name="RawTextLines"
+                                  Grid.Row="1"
+                                  Grid.Column="0"
+                                  Grid.ColumnSpan="2"
+                                  BorderThickness="0"
+                                  ItemsSource="{Binding Metadata.RawText.Lines}"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="Margin" Value="0"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="36"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="36"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding LeftNumber}"
+                                                   Foreground="#888888"
+                                                   FontFamily="Consolas"
+                                                   FontSize="12"
+                                                   Margin="2,0"/>
+                                        <Border Grid.Column="1" Background="{Binding LeftFill}">
+                                            <TextBlock Text="{Binding LeftText}"
+                                                       FontFamily="Consolas"
+                                                       FontSize="12"
+                                                       TextWrapping="NoWrap"/>
+                                        </Border>
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding RightNumber}"
+                                                   Foreground="#888888"
+                                                   FontFamily="Consolas"
+                                                   FontSize="12"
+                                                   Margin="2,0"/>
+                                        <Border Grid.Column="3" Background="{Binding RightFill}">
+                                            <TextBlock Text="{Binding RightText}"
+                                                       FontFamily="Consolas"
+                                                       FontSize="12"
+                                                       TextWrapping="NoWrap"/>
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </DockPanel>
             </TabItem>
         </TabControl>
     </Grid>

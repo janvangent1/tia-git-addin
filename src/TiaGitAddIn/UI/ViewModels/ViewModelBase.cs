@@ -93,7 +93,7 @@ namespace TiaGitAddIn.UI.ViewModels
             }
             catch (Exception ex)
             {
-                InvokeOnUI(() => ReportStatus(GitUserMessages.DescribeException(ex.Message)));
+                InvokeOnUI(() => ReportStatus(GitUserMessages.DescribeException(ex.GetBaseException().Message)));
             }
             finally
             {

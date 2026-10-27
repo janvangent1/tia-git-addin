@@ -196,24 +196,20 @@ namespace TiaGitAddIn.UI.ViewModels
             {
                 IProgress<string> progress = new ChecklistProgress(ReportChecklist);
                 var messages = new System.Collections.Generic.List<string>();
-                var failures = new System.Collections.Generic.List<string>();
                 bool succeeded = false;
+                ExportIssues.Begin();
                 try
                 {
                     if (includeHmi)
                     {
-                        OperationResult hmi = await exchange.ExportAsync(repositoryPath, progress, ct).ConfigureAwait(false);
-                        RecordOutcome(hmi, messages, failures, ref succeeded);
-                        ct.ThrowIfCancellationRequested();
+                        await RunExchangeStep("HMI", () => exchange.ExportAsync(repositoryPath, progress, ct), messages, ct, succeededFlag => succeeded = succeeded || succeededFlag).ConfigureAwait(false);
                     }
 
-                    if (includeHardware)
+                    if (includeHardware && !ExportIssues.SessionClosed)
                     {
-                        OperationResult hardware = await exchange.ExportHardwareAsync(repositoryPath, progress, ct).ConfigureAwait(false);
-                        RecordOutcome(hardware, messages, failures, ref succeeded);
+                        await RunExchangeStep("Hardware", () => exchange.ExportHardwareAsync(repositoryPath, progress, ct), messages, ct, succeededFlag => succeeded = succeeded || succeededFlag).ConfigureAwait(false);
                     }
 
-                    InvokeOnUI(() => PublishOutcome(messages, failures));
                     if (succeeded)
                     {
                         await refreshStatusAsync().ConfigureAwait(false);
@@ -221,13 +217,9 @@ namespace TiaGitAddIn.UI.ViewModels
                 }
                 finally
                 {
-                    InvokeOnUI(() =>
-                    {
-                        if (elapsed.IsRunning)
-                        {
-                            FinishElapsed(ct.IsCancellationRequested);
-                        }
-                    });
+                    ExportIssues finished = ExportIssues.End();
+                    bool cancelled = ct.IsCancellationRequested;
+                    InvokeOnUI(() => PublishOutcome(messages, finished, cancelled));
                     ExportCategorySet.Pending = null;
                 }
             });
@@ -302,24 +294,20 @@ namespace TiaGitAddIn.UI.ViewModels
             {
                 IProgress<string> progress = new ChecklistProgress(ReportChecklist);
                 var messages = new System.Collections.Generic.List<string>();
-                var failures = new System.Collections.Generic.List<string>();
                 bool succeeded = false;
+                ExportIssues.Begin();
                 try
                 {
                     if (includeHmi)
                     {
-                        OperationResult hmi = await exchange.ImportAsync(repositoryPath, progress, ct).ConfigureAwait(false);
-                        RecordOutcome(hmi, messages, failures, ref succeeded);
-                        ct.ThrowIfCancellationRequested();
+                        await RunExchangeStep("HMI", () => exchange.ImportAsync(repositoryPath, progress, ct), messages, ct, succeededFlag => succeeded = succeeded || succeededFlag).ConfigureAwait(false);
                     }
 
-                    if (includeHardware)
+                    if (includeHardware && !ExportIssues.SessionClosed)
                     {
-                        OperationResult hardware = await exchange.ImportHardwareAsync(repositoryPath, progress, ct).ConfigureAwait(false);
-                        RecordOutcome(hardware, messages, failures, ref succeeded);
+                        await RunExchangeStep("Hardware", () => exchange.ImportHardwareAsync(repositoryPath, progress, ct), messages, ct, succeededFlag => succeeded = succeeded || succeededFlag).ConfigureAwait(false);
                     }
 
-                    InvokeOnUI(() => PublishOutcome(messages, failures));
                     if (succeeded)
                     {
                         await refreshStatusAsync().ConfigureAwait(false);
@@ -327,13 +315,9 @@ namespace TiaGitAddIn.UI.ViewModels
                 }
                 finally
                 {
-                    InvokeOnUI(() =>
-                    {
-                        if (elapsed.IsRunning)
-                        {
-                            FinishElapsed(ct.IsCancellationRequested);
-                        }
-                    });
+                    ExportIssues finished = ExportIssues.End();
+                    bool cancelled = ct.IsCancellationRequested;
+                    InvokeOnUI(() => PublishOutcome(messages, finished, cancelled));
                 }
             });
         }
@@ -469,37 +453,79 @@ namespace TiaGitAddIn.UI.ViewModels
             return created;
         }
 
-        private static void RecordOutcome(
-            OperationResult result,
+        private async Task RunExchangeStep(
+            string name,
+            Func<Task<OperationResult>> operation,
             ICollection<string> messages,
-            ICollection<string> failures,
-            ref bool succeeded)
+            CancellationToken ct,
+            Action<bool> markSucceeded)
         {
-            string described = GitUserMessages.Describe(result);
-            messages.Add(described);
-            if (result.Success)
+            int before = ExportIssues.Count;
+            try
             {
-                succeeded = true;
-                return;
-            }
+                OperationResult result = await operation().ConfigureAwait(false);
+                string described = GitUserMessages.Describe(result);
+                messages.Add(described);
+                if (result.Success)
+                {
+                    markSucceeded(true);
+                    return;
+                }
 
-            if (!string.IsNullOrWhiteSpace(described))
+                if (ExportIssues.Count == before && !string.IsNullOrWhiteSpace(described))
+                {
+                    ExportIssues.Note(name, described);
+                }
+
+                ct.ThrowIfCancellationRequested();
+            }
+            catch (OperationCanceledException)
             {
-                failures.Add(described);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                ExportIssues.Remember(name, ex);
+                messages.Add(GitUserMessages.DescribeException(ex.GetBaseException().Message));
             }
         }
 
-        private void PublishOutcome(IReadOnlyList<string> messages, IReadOnlyList<string> failures)
+        private void PublishOutcome(IReadOnlyList<string> messages, ExportIssues issues, bool cancelled)
         {
-            FinishElapsed(false);
-            LastOperationFailed = failures.Count > 0;
-            LastOperationMessage = string.Join(" ", messages) + " " + ElapsedText + ".";
-            if (failures.Count == 0)
+            if (elapsed.IsRunning)
+            {
+                FinishElapsed(cancelled);
+            }
+
+            int issueCount = issues == null ? 0 : issues.IssueCount;
+            if (cancelled)
+            {
+                LastOperationFailed = false;
+                LastOperationMessage = "Cancelled. " + ElapsedText;
+            }
+            else
+            {
+                LastOperationFailed = issueCount > 0;
+                string status = string.Join(" ", messages);
+                if (issueCount > 0)
+                {
+                    status += " " + issueCount.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                        + (issueCount == 1 ? " issue." : " issues.");
+                }
+
+                LastOperationMessage = (status + " " + ElapsedText + ".").Trim();
+            }
+
+            if (issueCount == 0)
             {
                 return;
             }
 
-            ShowError?.Invoke(string.Join(Environment.NewLine + Environment.NewLine, failures));
+            string heading = "Transfer finished with " + issueCount.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + (issueCount == 1 ? " issue." : " issues.");
+            string report = issues.Format(heading);
+            HmiExportTrace.Info(report);
+            ShowError?.Invoke(report);
         }
 
         protected override void ReportStatus(string message)

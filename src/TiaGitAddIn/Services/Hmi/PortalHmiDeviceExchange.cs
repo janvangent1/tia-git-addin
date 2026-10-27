@@ -155,6 +155,10 @@ namespace TiaGitAddIn.Services
                     {
                         throw canceled;
                     }
+                    catch (AggregateException ex)
+                    {
+                        throw ex.GetBaseException();
+                    }
 
                     return operation.Task.Result;
                 }, ct);
@@ -278,6 +282,8 @@ namespace TiaGitAddIn.Services
                 {
                     ct.ThrowIfCancellationRequested();
                     UnifiedDevice device = unified[index];
+                    try
+                    {
                     progress?.Report("Unified panel " + (index + 1).ToString(CultureInfo.InvariantCulture) + " of " + unified.Count.ToString(CultureInfo.InvariantCulture) + ": " + device.Name);
                     Announce(progress, device.Name, HmiExportProgress.UnifiedCategories);
                     HmiDeviceExport export = ReadDevice(device, progress, ct, selected);
@@ -294,6 +300,11 @@ namespace TiaGitAddIn.Services
                         message => ReportProgress(progress, device.Name + ": ", message),
                         selected);
                     HmiExportNormalizer.StabilizeCreationTimestamps(folder, previousTimestamps);
+                    }
+                    catch (Exception ex) when (!ExportIssues.MustStop(ex))
+                    {
+                        ExportIssues.Remember(device.Name, ex);
+                    }
                 }
 
                 int comfortFiles = 0;
@@ -302,6 +313,8 @@ namespace TiaGitAddIn.Services
                     ct.ThrowIfCancellationRequested();
                     ComfortDevice device = comfort[index];
                     string prefix = "WinCC Comfort " + (index + 1).ToString(CultureInfo.InvariantCulture) + " of " + comfort.Count.ToString(CultureInfo.InvariantCulture) + ": " + device.Name;
+                    try
+                    {
                     progress?.Report(prefix);
                     string folder = HmiExportStore.DeviceFolder(repositoryPath, device.Name);
                     IReadOnlyDictionary<string, string> previousTimestamps = HmiExportNormalizer.CaptureCreationTimestamps(folder);
@@ -315,6 +328,11 @@ namespace TiaGitAddIn.Services
                     HmiExportNormalizer.StabilizeCreationTimestamps(folder, previousTimestamps);
                     comfortFiles += written;
                     fileCount += written;
+                    }
+                    catch (Exception ex) when (!ExportIssues.MustStop(ex))
+                    {
+                        ExportIssues.Remember(device.Name, ex);
+                    }
                 }
 
                 int projectFiles = 0;
@@ -349,6 +367,7 @@ namespace TiaGitAddIn.Services
             catch (Exception ex)
             {
                 HmiExportTrace.Error(ex);
+                ExportIssues.Remember(ex);
                 return OperationResult.Fail("Could not export the HMI device.", ex.Message);
             }
         }
@@ -461,6 +480,7 @@ namespace TiaGitAddIn.Services
             catch (Exception ex)
             {
                 HmiExportTrace.Error(ex);
+                ExportIssues.Remember(ex);
                 return OperationResult.Fail("Could not import the HMI export.", ex.Message);
             }
         }
@@ -471,7 +491,19 @@ namespace TiaGitAddIn.Services
             {
                 foreach (Device device in HardwareExchange.ListDevices(project, CancellationToken.None))
                 {
-                    CollectDevice(device, unified, comfort);
+                    if (HardwareExchange.IsDriveDevice(device))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        CollectDevice(device, unified, comfort);
+                    }
+                    catch (Exception ex) when (!ExportIssues.MustStop(ex))
+                    {
+                        ExportIssues.Remember(device == null ? "Device" : device.Name, ex);
+                    }
                 }
             }
         }
@@ -486,7 +518,15 @@ namespace TiaGitAddIn.Services
 
         private static void CollectItem(string deviceName, DeviceItem item, List<UnifiedDevice> unified, List<ComfortDevice> comfort)
         {
-            SoftwareContainer container = item.GetService<SoftwareContainer>();
+            SoftwareContainer container = null;
+            try
+            {
+                container = item.GetService<SoftwareContainer>();
+            }
+            catch (Exception ex) when (!ExportIssues.MustStop(ex))
+            {
+                ExportIssues.Remember(item == null ? deviceName : item.Name, ex);
+            }
             if (container?.Software is HmiSoftware software)
             {
                 unified.Add(new UnifiedDevice(deviceName, software));

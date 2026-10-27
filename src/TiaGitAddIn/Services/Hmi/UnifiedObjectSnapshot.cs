@@ -464,14 +464,7 @@ namespace TiaGitAddIn.Services.Hmi
 
         private static bool IsSessionDead(Exception ex)
         {
-            if (ex is NonRecoverableException || ex is EngineeringObjectDisposedException)
-            {
-                throw new InvalidOperationException(
-                    "TIA Portal closed the Openness session while exporting a Unified screen. " + ex.Message,
-                    ex);
-            }
-
-            return false;
+            return ExportIssues.MustStop(ex);
         }
 
         private sealed class State

@@ -157,6 +157,13 @@ The table under **HMI and hardware in Git** is the list of what export and impor
 
 The add-in version is `AddInVersion` in `src/TiaGitAddIn/AddInPublisherConfiguration.xml`. Newest first.
 
+- **1.2.55** — Transfer progress opens in its own window. Minimize it and keep using the other Git panel pages while the transfer runs.
+- **1.2.54** — A screen button or I/O field is highlighted when the tag or screen it uses changes, even if the caption and position stay the same. The screen drawing has −, +, and 100% zoom.
+- **1.2.53** — Raw text has Previous change and Next change, and they scroll to the colored block. Diff trees such as Hardware and HMI start collapsed.
+- **1.2.52** — Stage all no longer stops Git after 30 seconds. Stopping it there closed TIA Portal. A Git command that fails is written to the add-in log instead of closing Portal.
+- **1.2.51** — Screen comparison draws added, removed, and changed items with a strong color and a thick border, and fades items that did not change. The Raw text tab colors a line red when it is only in Previous and green when it is only in Current.
+- **1.2.50** — Transfer to Git reads each hardware object's text attributes once, skips drive devices while looking for HMI panels, and reads a drive parameter's other columns only when the value is not the factory value. A Siemens error on one device, module, drive, or screen is listed at the end in text that can be copied, and the rest of the transfer still runs.
+- **1.2.49** — A hardware module that Openness cannot read is skipped. One such module no longer stops Transfer to Git with "One or more errors occurred."
 - **1.2.48** — Hardware export no longer reads number and enum attributes in one bulk call. A null number makes TIA Portal exit, and the add-in cannot catch that. Text attributes are still written. Addresses, telegrams, and drive parameters keep their own numbers.
 - **1.2.47** — Settings can ignore `//` comments and comments between `(*` and `*)` or `*(` and `*)`. That box starts unchecked. Save keeps every setting, including the whitespace boxes.
 - **1.2.46** — Settings lists Git's whitespace options for a text diff, with ignore-all-space (-w) on by default. A line that was inserted no longer marks every line below it.

@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using TiaGitAddIn.Logging;
 
 namespace TiaGitAddIn.UI
 {
@@ -32,10 +33,27 @@ namespace TiaGitAddIn.UI
             {
                 await executeAsync(parameter).ConfigureAwait(true);
             }
+            catch (Exception ex)
+            {
+                // async void runs on the TIA dispatcher. An exception here closes Portal.
+                try
+                {
+                    new FileLogger().Error("A Git panel command failed.", ex);
+                }
+                catch (Exception)
+                {
+                }
+            }
             finally
             {
                 isExecuting = false;
-                RaiseCanExecuteChanged();
+                try
+                {
+                    RaiseCanExecuteChanged();
+                }
+                catch (Exception)
+                {
+                }
             }
         }
 
