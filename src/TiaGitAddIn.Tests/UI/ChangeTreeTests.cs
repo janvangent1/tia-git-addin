@@ -113,6 +113,47 @@ namespace TiaGitAddIn.Tests.UI
         }
 
         [Fact]
+        public void GroupNestsBlocksUnderTheirSoftwareUnit()
+        {
+            var roots = ChangeTree.Group(
+                new[]
+                {
+                    @"PLC\Software units\Unit_600_Motion\Program blocks\Motion\FB_Jog.xml",
+                    "PLC/Software units/Unit_600_Motion/Program blocks/FB_Stop.xml",
+                    "PLC/Software units/Unit_100_Library/Program blocks/FC_Scale.xml",
+                    "PLC/Program blocks/Main.xml",
+                },
+                path => path);
+
+            ChangeNode plc = Assert.Single(roots);
+            Assert.Equal("PLC (4)", plc.Title);
+            Assert.False(plc.IsExpanded);
+            Assert.Equal(
+                new[] { "Program blocks (1)", "Software units (3)" },
+                plc.Children!.Select(child => child.Title).ToArray());
+
+            ChangeNode units = plc.Children![1];
+            Assert.Equal(
+                new[] { "Unit_100_Library (1)", "Unit_600_Motion (2)" },
+                units.Children!.Select(child => child.Title).ToArray());
+
+            ChangeNode libraryBlocks = Assert.Single(units.Children![0].Children!);
+            Assert.Equal("Program blocks (1)", libraryBlocks.Title);
+            Assert.Equal("FC_Scale.xml", Assert.Single(libraryBlocks.Children!).Title);
+            Assert.Equal(
+                "PLC/Software units/Unit_100_Library/Program blocks/FC_Scale.xml",
+                libraryBlocks.Children![0].Item);
+
+            ChangeNode motionBlocks = Assert.Single(units.Children![1].Children!);
+            Assert.Equal("Program blocks (2)", motionBlocks.Title);
+            Assert.Equal(
+                new[] { "Motion (1)", "FB_Stop.xml" },
+                motionBlocks.Children!.Select(child => child.Title).ToArray());
+            Assert.Equal("FB_Jog.xml", Assert.Single(motionBlocks.Children![0].Children!).Title);
+            Assert.False(motionBlocks.Children![0].IsExpanded);
+        }
+
+        [Fact]
         public void GroupPlacesProjectPicturesAndLibraryTypesBesideTheDevices()
         {
             var roots = ChangeTree.Group(

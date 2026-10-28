@@ -9,7 +9,9 @@ namespace TiaGitAddIn.Reporting
         Heading,
         Added,
         Removed,
-        Note
+        Changed,
+        Note,
+        PageBreak
     }
 
     public sealed class PdfLine

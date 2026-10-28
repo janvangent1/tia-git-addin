@@ -198,5 +198,50 @@ namespace TiaGitAddIn.Tests.Services
             Assert.Equal("Old.txt", entry.FilePath);
             Assert.Equal("D", entry.ChangeType);
         }
+
+        [Fact]
+        public void ParseDiffReadsAQuotedPathWithSpaces()
+        {
+            DiffResult result = GitOutputParser.ParseDiff(
+                "diff --git \"a/PLC/Software units/Unit_600_Motion/Program blocks/FB Jog.xml\" \"b/PLC/Software units/Unit_600_Motion/Program blocks/FB Jog.xml\"\n" +
+                "--- \"a/PLC/Software units/Unit_600_Motion/Program blocks/FB Jog.xml\"\n" +
+                "+++ \"b/PLC/Software units/Unit_600_Motion/Program blocks/FB Jog.xml\"\n");
+
+            Assert.Equal(
+                "PLC/Software units/Unit_600_Motion/Program blocks/FB Jog.xml",
+                Assert.Single(result.Entries).FilePath);
+        }
+
+        [Fact]
+        public void ParseDiffDecodesQuotedUtf8BytesInThePath()
+        {
+            DiffResult result = GitOutputParser.ParseDiff(
+                "diff --git \"a/PLC/Software units/Unit_100_Library/Program blocks/caf\\303\\251.xml\" \"b/PLC/Software units/Unit_100_Library/Program blocks/caf\\303\\251.xml\"\n");
+
+            Assert.Equal(
+                "PLC/Software units/Unit_100_Library/Program blocks/café.xml",
+                Assert.Single(result.Entries).FilePath);
+        }
+
+        [Fact]
+        public void ParseDiffKeepsAnUnquotedPathThatContainsSpaces()
+        {
+            DiffResult result = GitOutputParser.ParseDiff(
+                "diff --git a/PLC/Program blocks/Main.xml b/PLC/Program blocks/Main.xml\n");
+
+            Assert.Equal("PLC/Program blocks/Main.xml", Assert.Single(result.Entries).FilePath);
+        }
+
+        [Fact]
+        public void ParseDiffUsesTheNewNameAfterARename()
+        {
+            DiffResult result = GitOutputParser.ParseDiff(
+                "diff --git \"a/old name.xml\" \"b/PLC/Program blocks/New name.xml\"\n" +
+                "similarity index 90%\n" +
+                "rename from old name.xml\n" +
+                "rename to PLC/Program blocks/New name.xml\n");
+
+            Assert.Equal("PLC/Program blocks/New name.xml", Assert.Single(result.Entries).FilePath);
+        }
     }
 }

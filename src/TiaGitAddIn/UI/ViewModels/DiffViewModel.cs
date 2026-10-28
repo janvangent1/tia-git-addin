@@ -293,13 +293,35 @@ namespace TiaGitAddIn.UI.ViewModels
                 .ToList();
             string? selectedFile = SelectedEntry?.FilePath;
 
-            if (CurrentPresentation is LadComparisonViewModel)
+            if (CurrentPresentation is LadComparisonViewModel ladder)
             {
-                return DiffPdfReport.Create(reportTitle, files, selectedFile, true, null, false);
+                var lines = new List<DiffPdfTextLine>(DiffPdfContent.Ladder(ladder.Content.Networks));
+                lines.Add(new DiffPdfTextLine("#", "Interface"));
+                lines.AddRange(FlattenInterface(ladder.Content.InterfaceComparison));
+                return DiffPdfReport.Create(
+                    reportTitle,
+                    files,
+                    selectedFile,
+                    false,
+                    lines,
+                    false,
+                    "Each network is written as instructions. The ladder drawing itself is not pasted in.");
             }
 
             if (CurrentPresentation is TextComparisonViewModel text)
             {
+                if (text.HasScreenPreview)
+                {
+                    return DiffPdfReport.Create(
+                        reportTitle,
+                        files,
+                        selectedFile,
+                        false,
+                        DiffPdfContent.Screen(text),
+                        false,
+                        "Highlighted buttons and I/O fields. Unchanged items are left out.");
+                }
+
                 IReadOnlyList<DiffPdfTextLine> lines = text.Lines
                     .Select(line => new DiffPdfTextLine(line.StatusLabel, line.Text))
                     .ToList();

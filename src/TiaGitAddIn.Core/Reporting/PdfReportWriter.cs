@@ -43,53 +43,98 @@ namespace TiaGitAddIn.Reporting
                 throw new ArgumentNullException(nameof(stream));
             }
 
-            List<string> wrapped = Wrap(report.Lines);
-            int linesPerPage = Math.Max(1, (int)((PageHeight - (Margin * 2)) / LineHeight));
-            int pageCount = Math.Max(1, (int)Math.Ceiling(wrapped.Count / (double)linesPerPage));
-            var contents = new string[pageCount];
-            for (int page = 0; page < pageCount; page++)
+            List<List<string>> pages = Paginate(report.Lines);
+            var contents = new string[pages.Count];
+            for (int page = 0; page < pages.Count; page++)
             {
-                int start = page * linesPerPage;
-                int count = Math.Min(linesPerPage, wrapped.Count - start);
-                contents[page] = count <= 0
-                    ? string.Empty
-                    : BuildContent(wrapped.GetRange(start, count));
+                contents[page] = BuildContent(pages[page], page + 1, pages.Count);
             }
 
             WriteDocument(stream, contents);
         }
 
-        private static List<string> Wrap(IReadOnlyList<PdfLine> lines)
+        private static List<List<string>> Paginate(IReadOnlyList<PdfLine> lines)
+        {
+            int linesPerPage = Math.Max(1, (int)((PageHeight - (Margin * 2)) / LineHeight));
+            var pages = new List<List<string>>();
+            var current = new List<string>();
+            if (lines != null)
+            {
+                foreach (PdfLine line in lines)
+                {
+                    if (line == null)
+                    {
+                        continue;
+                    }
+
+                    if (line.Style == PdfLineStyle.PageBreak)
+                    {
+                        if (current.Count > 0)
+                        {
+                            pages.Add(current);
+                            current = new List<string>();
+                        }
+
+                        continue;
+                    }
+
+                    foreach (string wrapped in WrapLine(line))
+                    {
+                        if (current.Count >= linesPerPage)
+                        {
+                            pages.Add(current);
+                            current = new List<string>();
+                        }
+
+                        current.Add(wrapped);
+                    }
+                }
+            }
+
+            if (current.Count > 0 || pages.Count == 0)
+            {
+                pages.Add(current);
+            }
+
+            return pages;
+        }
+
+        private static List<string> WrapLine(PdfLine line)
         {
             var wrapped = new List<string>();
-            if (lines == null)
+            string style = StyleCode(line.Style);
+            string text = line.Text ?? string.Empty;
+            if (text.Length == 0)
             {
+                wrapped.Add(style + " ");
                 return wrapped;
             }
 
-            foreach (PdfLine line in lines)
+            string[] rows = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+            foreach (string row in rows)
             {
-                string style = StyleCode(line.Style);
-                string text = line.Text ?? string.Empty;
-                if (text.Length == 0)
+                if (row.Length == 0)
                 {
                     wrapped.Add(style + " ");
                     continue;
                 }
 
-                string[] rows = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
-                foreach (string row in rows)
+                int start = 0;
+                while (start < row.Length)
                 {
-                    if (row.Length == 0)
+                    int remaining = row.Length - start;
+                    if (remaining <= CharactersPerLine)
                     {
-                        wrapped.Add(style + " ");
-                        continue;
+                        wrapped.Add(style + row.Substring(start));
+                        break;
                     }
 
-                    for (int index = 0; index < row.Length; index += CharactersPerLine)
+                    int length = BreakLength(row, start, CharactersPerLine);
+                    wrapped.Add(style + row.Substring(start, length).TrimEnd());
+                    start += length;
+                    while (start < row.Length && row[start] == ' ')
                     {
-                        int length = Math.Min(CharactersPerLine, row.Length - index);
-                        wrapped.Add(style + row.Substring(index, length));
+                        start++;
                     }
                 }
             }
@@ -107,6 +152,8 @@ namespace TiaGitAddIn.Reporting
                     return "A";
                 case PdfLineStyle.Removed:
                     return "R";
+                case PdfLineStyle.Changed:
+                    return "C";
                 case PdfLineStyle.Note:
                     return "N";
                 default:
@@ -114,28 +161,54 @@ namespace TiaGitAddIn.Reporting
             }
         }
 
-        private static string BuildContent(List<string> lines)
+        private static int BreakLength(string row, int start, int max)
+        {
+            int window = Math.Min(max, row.Length - start);
+            int slash = row.LastIndexOf('/', start + window - 1, window);
+            int space = row.LastIndexOf(' ', start + window - 1, window);
+            int best = Math.Max(slash, space);
+            if (best > start)
+            {
+                return best - start + 1;
+            }
+
+            return window;
+        }
+
+        private static string BuildContent(List<string> lines, int pageNumber, int pageCount)
         {
             var builder = new StringBuilder();
             double y = PageHeight - Margin;
             foreach (string packed in lines)
             {
                 y -= LineHeight;
-                char style = packed[0];
-                string text = packed.Substring(1);
-                builder.Append(ColorFor(style));
-                builder.Append(" BT ");
-                builder.Append(style == 'H' ? "/F1 11 Tf " : "/F2 9 Tf ");
-                builder.Append("1 0 0 1 ");
-                builder.Append(Margin.ToString(CultureInfo.InvariantCulture));
-                builder.Append(' ');
-                builder.Append(y.ToString(CultureInfo.InvariantCulture));
-                builder.Append(" Tm (");
-                builder.Append(Escape(text));
-                builder.Append(") Tj ET\n");
+                char style = packed.Length == 0 ? 'B' : packed[0];
+                string text = packed.Length == 0 ? string.Empty : packed.Substring(1);
+                AppendText(builder, style, Margin, y, text);
             }
 
+            AppendText(
+                builder,
+                'N',
+                Margin,
+                24,
+                "Page " + pageNumber.ToString(CultureInfo.InvariantCulture) + " of " +
+                pageCount.ToString(CultureInfo.InvariantCulture));
             return builder.ToString();
+        }
+
+        private static void AppendText(StringBuilder builder, char style, double x, double y, string text)
+        {
+            builder.Append(ColorFor(style));
+            builder.Append(" BT ");
+            builder.Append(style == 'H' ? "/F1 11 Tf " : "/F2 9 Tf ");
+            builder.Append("1 0 0 1 ");
+            builder.Append(x.ToString(CultureInfo.InvariantCulture));
+            builder.Append(' ');
+            builder.Append(y.ToString(CultureInfo.InvariantCulture));
+            builder.Append(" Tm (");
+            builder.Append(Escape(text));
+            builder.Append(") Tj ET\n");
         }
 
         private static string ColorFor(char style)
@@ -146,6 +219,8 @@ namespace TiaGitAddIn.Reporting
                     return "0 0.45 0.15 rg\n";
                 case 'R':
                     return "0.7 0.1 0.1 rg\n";
+                case 'C':
+                    return "0.45 0.32 0 rg\n";
                 case 'N':
                     return "0.35 0.35 0.35 rg\n";
                 default:
@@ -168,6 +243,13 @@ namespace TiaGitAddIn.Reporting
                 if (character == '\u2212')
                 {
                     builder.Append('-');
+                    continue;
+                }
+
+                if (WinAnsi.TryGetValue(character, out byte ansi))
+                {
+                    builder.Append('\\');
+                    builder.Append(Convert.ToString(ansi, 8).PadLeft(3, '0'));
                     continue;
                 }
 
@@ -214,8 +296,8 @@ namespace TiaGitAddIn.Reporting
                 offsets,
                 "2 0 obj << /Type /Pages /Count " + pageContents.Length.ToString(CultureInfo.InvariantCulture) +
                 " /Kids [" + kids + "] >> endobj\n");
-            WriteObject(stream, offsets, "3 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n");
-            WriteObject(stream, offsets, "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Courier >> endobj\n");
+            WriteObject(stream, offsets, "3 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> endobj\n");
+            WriteObject(stream, offsets, "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >> endobj\n");
 
             for (int page = 0; page < pageContents.Length; page++)
             {
@@ -254,6 +336,20 @@ namespace TiaGitAddIn.Reporting
             offsets.Add(stream.Position);
             Write(stream, body);
         }
+
+        private static readonly Dictionary<char, byte> WinAnsi = new Dictionary<char, byte>
+        {
+            { '\u2013', 0x96 },
+            { '\u2014', 0x97 },
+            { '\u2018', 0x91 },
+            { '\u2019', 0x92 },
+            { '\u201C', 0x93 },
+            { '\u201D', 0x94 },
+            { '\u2022', 0x95 },
+            { '\u2026', 0x85 },
+            { '\u20AC', 0x80 },
+            { '\u00A0', 0xA0 },
+        };
 
         private static void Write(Stream stream, string text)
         {

@@ -146,7 +146,7 @@
                             Command="{Binding ExportPdfCommand}"
                             Margin="0,0,8,0"
                             Padding="10,2"
-                            ToolTip="Save the loaded commit list, and the selected commit's changed files, as a PDF."/>
+                            ToolTip="Save the loaded commits on the first page, and the changed files of each commit on the following pages."/>
                     <Button Content="Restore this commit"
                             Command="{Binding RestoreCommand}"
                             Margin="0,0,8,0"

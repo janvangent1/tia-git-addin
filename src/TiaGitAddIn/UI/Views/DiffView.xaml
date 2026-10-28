@@ -132,7 +132,7 @@
                 <Button Content="Export PDF"
                         Command="{Binding ExportPdfCommand}"
                         Padding="10,2"
-                        ToolTip="Save the changed-file list and the open text diff as a PDF. Ladder diagrams are left out."/>
+                        ToolTip="Save the changed-file list and the open comparison as a PDF. A ladder is written as networks, and a screen lists the highlighted items."/>
             </StatusBarItem>
         </StatusBar>
     </Grid>

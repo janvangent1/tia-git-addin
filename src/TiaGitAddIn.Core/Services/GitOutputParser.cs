@@ -146,10 +146,9 @@ namespace TiaGitAddIn.Services
                     entries.Add(currentEntry);
                     currentHunk = null;
 
-                    Match match = Regex.Match(line, @"diff --git a/(.*) b/(.*)");
-                    if (match.Success)
+                    if (TryParseDiffGitPath(line, out string path))
                     {
-                        currentEntry.FilePath = match.Groups[2].Value;
+                        currentEntry.FilePath = path;
                     }
                 }
                 else if (currentEntry != null && line.StartsWith("new file mode", StringComparison.Ordinal))
@@ -236,8 +235,96 @@ namespace TiaGitAddIn.Services
         public static List<string> ParseDiffTree(string output)
         {
             return SplitLines(output)
-                .Select(line => line.Split('\t').Last())
+                .Select(line => UnquotePorcelainPath(line.Split('\t').Last()))
                 .ToList();
+        }
+
+        /// <summary>
+        /// Reads the new-side path from <c>diff --git</c>. Git quotes a path that contains a space,
+        /// a quote, or a non-ASCII byte, and the quotes are not part of the workspace path.
+        /// </summary>
+        private static bool TryParseDiffGitPath(string line, out string path)
+        {
+            const string prefix = "diff --git ";
+            path = string.Empty;
+            if (!line.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            string rest = line.Substring(prefix.Length);
+            string newSide;
+            if (rest.StartsWith("\"", StringComparison.Ordinal))
+            {
+                if (!TryReadQuotedToken(rest, out string first, out int consumed))
+                {
+                    return false;
+                }
+
+                string afterFirst = rest.Substring(consumed);
+                if (afterFirst.Length == 0 || afterFirst[0] != ' ')
+                {
+                    return false;
+                }
+
+                if (!TryReadQuotedToken(afterFirst.Substring(1), out string second, out _))
+                {
+                    return false;
+                }
+
+                newSide = UnquotePorcelainPath(second);
+            }
+            else
+            {
+                int split = rest.LastIndexOf(" b/", StringComparison.Ordinal);
+                if (split < 2 || !rest.StartsWith("a/", StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                newSide = rest.Substring(split + 1);
+            }
+
+            if (newSide.StartsWith("b/", StringComparison.Ordinal))
+            {
+                newSide = newSide.Substring(2);
+            }
+
+            if (newSide.Length == 0 || newSide.Equals("/dev/null", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            path = newSide;
+            return true;
+        }
+
+        private static bool TryReadQuotedToken(string value, out string token, out int consumed)
+        {
+            token = string.Empty;
+            consumed = 0;
+            if (value.Length == 0 || value[0] != '"')
+            {
+                return false;
+            }
+
+            for (int index = 1; index < value.Length; index++)
+            {
+                if (value[index] == '\\')
+                {
+                    index++;
+                    continue;
+                }
+
+                if (value[index] == '"')
+                {
+                    consumed = index + 1;
+                    token = value.Substring(0, consumed);
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static FileStatusEntry ParseStatusEntry(string line)

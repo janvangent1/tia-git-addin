@@ -948,9 +948,9 @@
     "semantic_hash": ""
   },
   "src/TiaGitAddIn.Tests/UI/GitPanelWindowTests.cs": {
-    "mtime": 1792343634.8610392,
-    "seen": 1792353217.5656452,
-    "ast_hash": "289bbe7aed067f64305e79d76f0bb97b",
+    "mtime": 1793119115.0217996,
+    "seen": 1793119178.8771746,
+    "ast_hash": "ef3ff1b64bdc31e44316dc82021cf683",
     "semantic_hash": ""
   },
   "src/TiaGitAddIn.Tests/UI/HistoryViewModelTests.cs": {
@@ -1368,9 +1368,9 @@
     "semantic_hash": ""
   },
   "src/TiaGitAddIn/UI/Views/GitPanelWindow.cs": {
-    "mtime": 1793105099.2569473,
-    "seen": 1793105248.8805008,
-    "ast_hash": "69ecede42188b5b3adde9bf54723d37d",
+    "mtime": 1793119083.1365426,
+    "seen": 1793119178.8771746,
+    "ast_hash": "eb80cb6fb361de81b74bc09312a8dae5",
     "semantic_hash": ""
   },
   "src/TiaGitAddIn/UI/Views/HistoryView.xaml": {
@@ -1602,9 +1602,9 @@
     "semantic_hash": ""
   },
   "src/TiaGitAddIn.Tests/UI/ChangeTreeTests.cs": {
-    "mtime": 1793118595.628835,
-    "seen": 1793118659.1823285,
-    "ast_hash": "b375672fc23c8d5b410b07758ba04bf2",
+    "mtime": 1793120807.3661027,
+    "seen": 1793120985.592741,
+    "ast_hash": "80e445cd9f8ee4bd9ae3c63e1f95b2ee",
     "semantic_hash": ""
   },
   "src/TiaGitAddIn.Tests/UI/ExportCatalogViewModelTests.cs": {
@@ -1662,9 +1662,9 @@
     "semantic_hash": ""
   },
   "src/TiaGitAddIn/UI/ViewModels/AboutCoverage.cs": {
-    "mtime": 1793118831.5266125,
-    "seen": 1793118884.3852441,
-    "ast_hash": "bf593487256e4dd132220d751e5f45b9",
+    "mtime": 1793120807.4019444,
+    "seen": 1793120985.592741,
+    "ast_hash": "5dde2ca6b27b8186c11256aef0457293",
     "semantic_hash": ""
   },
   "src/TiaGitAddIn/UI/ViewModels/AboutViewModel.cs": {
@@ -1674,9 +1674,9 @@
     "semantic_hash": ""
   },
   "src/TiaGitAddIn/UI/ViewModels/ChangeTree.cs": {
-    "mtime": 1793118565.1323645,
-    "seen": 1793118659.1823285,
-    "ast_hash": "c31ced56a09f16773ce4c77ca9e81924",
+    "mtime": 1793120829.824082,
+    "seen": 1793120985.592741,
+    "ast_hash": "6d9eb71fd440d84b28a8fa40f1e11ef8",
     "semantic_hash": ""
   },
   "src/TiaGitAddIn/UI/ViewModels/ExportCatalogViewModel.cs": {
@@ -1797,6 +1797,12 @@
     "mtime": 1793118830.3529005,
     "seen": 1793118884.3852441,
     "ast_hash": "3968b30be273f6eeba1dcd610d9dfa7e",
+    "semantic_hash": ""
+  },
+  "src/TiaGitAddIn/UI/Views/TransferStatusWindow.cs": {
+    "mtime": 1793119085.2704785,
+    "seen": 1793119178.8771746,
+    "ast_hash": "5f6e623e49249b9a4f551ab651ad133e",
     "semantic_hash": ""
   }
 }

@@ -10,53 +10,126 @@ namespace TiaGitAddIn.Reporting
         public static PdfReport Create(
             string repositoryPath,
             IReadOnlyList<CommitInfo> commits,
-            CommitInfo? selectedCommit,
-            IReadOnlyList<string>? selectedChangedFiles)
+            IReadOnlyDictionary<string, IReadOnlyList<string>?>? filesByCommit)
         {
             var lines = new List<PdfLine>
             {
                 new PdfLine("Version history", PdfLineStyle.Heading),
                 new PdfLine(string.IsNullOrWhiteSpace(repositoryPath) ? "Repository" : repositoryPath),
-                new PdfLine(string.Empty)
+                new PdfLine("Commits", PdfLineStyle.Heading)
             };
 
-            if (commits == null || commits.Count == 0)
+            var listed = new List<CommitInfo>();
+            if (commits != null)
+            {
+                foreach (CommitInfo commit in commits)
+                {
+                    if (commit != null)
+                    {
+                        listed.Add(commit);
+                    }
+                }
+            }
+
+            if (listed.Count == 0)
             {
                 lines.Add(new PdfLine("No commits are loaded.", PdfLineStyle.Note));
                 return new PdfReport("Version history", lines);
             }
 
-            foreach (CommitInfo commit in commits)
+            foreach (CommitInfo commit in listed)
             {
-                if (commit == null)
-                {
-                    continue;
-                }
-
-                string hash = ShortHash(commit.Hash);
-                string date = commit.AuthorDate?.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? string.Empty;
-                lines.Add(new PdfLine(hash + "  " + date + "  " + commit.AuthorName, PdfLineStyle.Heading));
-                lines.Add(new PdfLine(commit.Subject ?? string.Empty));
-                lines.Add(new PdfLine(string.Empty));
+                lines.Add(new PdfLine(CommitLine(commit)));
             }
 
-            if (selectedCommit != null)
+            lines.Add(new PdfLine(string.Empty, PdfLineStyle.PageBreak));
+            lines.Add(new PdfLine("Changed files", PdfLineStyle.Heading));
+            foreach (CommitInfo commit in listed)
             {
-                lines.Add(new PdfLine("Changed files in " + ShortHash(selectedCommit.Hash), PdfLineStyle.Heading));
-                if (selectedChangedFiles == null || selectedChangedFiles.Count == 0)
+                lines.Add(new PdfLine(CommitLine(commit), PdfLineStyle.Heading));
+                IReadOnlyList<string>? files = null;
+                if (filesByCommit != null && commit.Hash != null)
+                {
+                    filesByCommit.TryGetValue(commit.Hash, out files);
+                }
+
+                if (files == null)
+                {
+                    lines.Add(new PdfLine("The changed files could not be read.", PdfLineStyle.Note));
+                }
+                else if (files.Count == 0)
                 {
                     lines.Add(new PdfLine("No changed files are listed for this commit.", PdfLineStyle.Note));
                 }
                 else
                 {
-                    foreach (string file in selectedChangedFiles)
-                    {
-                        lines.Add(new PdfLine(file ?? string.Empty));
-                    }
+                    AppendPaths(lines, files);
                 }
+
+                lines.Add(new PdfLine(string.Empty));
             }
 
             return new PdfReport("Version history", lines);
+        }
+
+        private static string CommitLine(CommitInfo commit)
+        {
+            string hash = ShortHash(commit.Hash);
+            string date = commit.AuthorDate?.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? string.Empty;
+            string author = commit.AuthorName ?? string.Empty;
+            string subject = commit.Subject ?? string.Empty;
+            return hash + "  " + date + "  " + author + "  " + subject;
+        }
+
+        private static void AppendPaths(List<PdfLine> lines, IReadOnlyList<string> files)
+        {
+            var paths = new List<string[]>();
+            foreach (string file in files)
+            {
+                string[] parts = (file ?? string.Empty)
+                    .Replace('\\', '/')
+                    .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length > 0)
+                {
+                    paths.Add(parts);
+                }
+            }
+
+            paths.Sort((left, right) =>
+            {
+                int count = Math.Min(left.Length, right.Length);
+                for (int index = 0; index < count; index++)
+                {
+                    int compared = StringComparer.OrdinalIgnoreCase.Compare(left[index], right[index]);
+                    if (compared != 0)
+                    {
+                        return compared;
+                    }
+                }
+
+                return left.Length.CompareTo(right.Length);
+            });
+
+            string[] previous = Array.Empty<string>();
+            foreach (string[] parts in paths)
+            {
+                int folders = parts.Length - 1;
+                int shared = 0;
+                while (shared < folders
+                    && shared < previous.Length - 1
+                    && string.Equals(previous[shared], parts[shared], StringComparison.OrdinalIgnoreCase))
+                {
+                    shared++;
+                }
+
+                for (int index = shared; index < folders; index++)
+                {
+                    lines.Add(new PdfLine(new string(' ', index * 2) + parts[index]));
+                }
+
+                lines.Add(new PdfLine(new string(' ', folders * 2) + parts[parts.Length - 1]));
+                previous = parts;
+            }
         }
 
         private static string ShortHash(string? hash)

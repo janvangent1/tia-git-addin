@@ -1,17 +1,17 @@
 # Graph Report - TIA git plugin  (2026-10-27)
 
 ## Corpus Check
-- 298 files · ~121,514 words
+- 299 files · ~122,200 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 9 file(s) not represented in the graph (top: (none) 4, .xml 3, .props 1)
 
 ## Summary
-- 4907 nodes · 11951 edges · 354 communities (142 shown, 212 thin omitted)
-- Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 919 edges (avg confidence: 0.85)
+- 4927 nodes · 12003 edges · 359 communities (148 shown, 211 thin omitted)
+- Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 924 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `904d8387`
+- Built from commit: `983cab9a`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -23,22 +23,22 @@
 - FakeGitService
 - PlcRevision
 - tia-git-addin/src/TiaGitAddIn/UI/Views/BranchView.xaml.cs
-- PlcComparisonContext
+- TextFallbackStrategy
 - GitFileExtractorTests.cs
 - .ParseText
 - PlcComparisonCoordinatorTests
-- PlcArtifactKind
+- PlcComparisonCoordinator
 - tia-git-addin/src/TiaGitAddIn/UI/Converters/BoolToVisibilityConverter.cs
 - SimaticMlSchemaLocation
 - UnifiedLibraryExchange
-- BranchViewModel
+- .InvokeOnUI
 - UserControl
-- NetworkSourceDefinition
+- LadVisualGraphBuilder
 - GitPanelLaunchService
 - RecordingRunner
 - .InitializeAsync
 - Program
-- GitProcessRunner
+- ExportIssues
 - SimaticMlParser
 - StatusViewModel
 - ComparisonRawText
@@ -47,7 +47,7 @@
 - GitService
 - MainViewModel
 - tia-git-addin/src/TiaGitAddIn/UI/ViewModels/LadWireViewModel.cs
-- InterfaceFieldKind
+- EngineeringSnapshotRestorer
 - SactComponentData
 - IGitService
 - FakeGitService
@@ -57,18 +57,18 @@
 - InterfaceComparer
 - tia-git-addin/src/TiaGitAddIn/Entry/GitVciWorkspaceViewProvider.cs
 - TextPresentation
-- DiffResult
+- GitProcessRunner
 - IValueConverter
-- TiaGitAddIn.UI.ViewModels
+- ComparisonPresentationViewModel
 - GitBlobReader
-- FakeGitService
+- .Ok
 - .CompareAsync
 - FakeGitService
 - TiaGitAddIn.Tests.csproj
 - HmiScreenItemPreview
 - HmiExportStore
 - system_collections_generic
-- system
+- TiaGitAddIn.UI.ViewModels
 - UserControl
 - DiffViewModel
 - SimaticMlModels.cs
@@ -77,6 +77,7 @@
 - UserControl
 - HmiScreenPaneViewModel
 - FileStatusEntry
+- ViewModelBase
 - .LoadAsync
 - .CreateSelectionCoordinator
 - tia-git-addin/src/TiaGitAddIn/UI/Views/GitPanelWindow.cs
@@ -90,13 +91,13 @@
 - VciWorkspaceLocator
 - InterfaceSnapshotBuilder
 - UserControl
-- PlcComparisonResult
+- PlcArtifactKind
 - .HasTopLevelBlockEvidence
 - tia-git-addin/src/TiaGitAddIn.Tests/Configuration/PathValidatorTests.cs
 - StaThreadInvoker
-- ViewModelBase
+- PlcSupportLevel
 - SimaticMlComparer
-- CallDefinition
+- CallParameterDefinition
 - UserControl
 - tia-git-addin/src/TiaGitAddIn.Tests/Services/VciWorkspaceLocatorTests.cs
 - UserControl
@@ -109,36 +110,38 @@
 - HmiItemExport
 - TextDiffLineViewModel
 - HmiChecklistItem
-- .List
+- SingleByteChunkStream
 - DiffHunk
 - ComparisonSelectionCoordinator
-- SactCompareResultCloner
+- LadElementViewModel
 - LadElementType
 - tia-git-addin/src/TiaGitAddIn.Tests/Entry/MenuSelectionContextResolverTests.cs
 - ProjectContentExchange
 - RecordingExchange
 - XmlStructureComparer
 - UserControl
-- .Ok
+- .List
 - ProjectBoundaryTests
 - .CreateViewModelForFolder
-- SactParameterData
+- BranchViewModel
 - GitPanelWindow
+- .ReadBoundedAsync
 - tia-git-addin/src/TiaGitAddIn/Entry/MenuSelectionContextResolver.cs
 - tia-git-addin/src/TiaGitAddIn/UI/AsyncCommand.cs
 - tia-git-addin/src/TiaGitAddIn/UI/ViewModels/RelayCommand.cs
 - GitOutputParser
 - tia-git-addin/src/TiaGitAddIn/UI/WpfUiDispatcher.cs
+- PdfReport
 - CommitViewModel
 - LadNetworkPairViewModel
 - UserControl
 - UserControl
-- ComparisonPresentationViewModel
-- BlockDefinition
+- PlcComparisonResult
+- PartDefinition
 - GitBinaryProcessResult
-- .Remember
+- .Write
 - .ReadTags
-- system_io
+- system
 - GitVciWorkspaceViewProvider
 - InterfaceMemberSnapshot
 - tia-git-addin/src/TiaGitAddIn/Entry/GitVciEditorProvider.cs
@@ -146,15 +149,15 @@
 - build_plugin_installer.py
 - .Validate
 - DiffWhitespace
-- system_text
+- xunit
 - HmiExchangeViewModel
 - .RefreshAsync
 - tia-git-addin/src/TiaGitAddIn.Tests/Configuration/ConfigurationServiceTests.cs
-- HistoryViewModel
+- CommitInfo
 - CompareState
 - ComparisonBoundaryTests
 - UserControl
-- .Write
+- .Create
 - ChangeType
 - ComparisonDiagnosticSanitizer
 - .TryCreate
@@ -195,27 +198,28 @@
 - tia-git-addin/src/TiaGitAddIn/UI/Views/StatusView.xaml.cs
 - PlcComparisonDiagnostic
 - tia-git-addin/src/TiaGitAddIn.Tests/Services/GitArgumentEscaperTests.cs
-- PartDefinition
+- ComparisonDiagnosticViewModel
 - Dispatcher
 - GitPanelLaunchService
 - MainViewModel
 - LocalSchemaXmlResolver
-- InterfaceMemberComparison
-- SactCompareResult
+- .ReadScreenLevel
+- SactNetworkResult
 - HmiTagPreviewRow
 - SimaticMlSchemaValidationResult
 - EncodingFixture
-- .Compare
+- BlockDefinition
 - CompileUnitDefinition
 - SimaticMlParserLimits
 - SimaticMlSchemaLocatorTests
+- TransferStatusWindow
 - PluginInstaller.csproj
-- SingleByteChunkStream
+- HmiExportUpdate
 - UnavailableHmiDeviceExchange
 - GitStatus
-- AccessComponentDefinition
-- AboutRow
-- .ReadBoundedAsync
+- AccessDefinition
+- AboutViewModel
+- LadNetworkViewModel
 - ComparisonRawTextViewModel
 - FileStatus
 - UserControl
@@ -223,18 +227,24 @@
 - UserControl
 - LadDiffView
 - UserControl
-- .Create
+- PdfReportTests
 - TextDiffLine
 - DiffOpKind
 - TextDiffView
 - BranchInfo
-- ComparisonDiagnosticViewModel
+- IHmiDeviceExchange
+- LadNetworkPairLayout
 - Diagram
 - DiagramScroll
-- .EscapePreservesWindowsArgumentMeaning
-- LinesListView
+- LadPinLayout
+- FakeGitBlobReader
 - HmiImportDifference
-- PlcDiagnosticSeverity
+- PdfLineStyle
+- .EscapePreservesWindowsArgumentMeaning
+- .Export
+- LadWireViewModel
+- LinesListView
+- NullLogger
 
 ## God Nodes (most connected - your core abstractions)
 1. `OperationResult` - 169 edges
@@ -245,8 +255,8 @@
 6. `StatusViewModel` - 64 edges
 7. `TiaGitAddIn.Services` - 60 edges
 8. `TiaGitAddIn.Models` - 59 edges
-9. `HmiExchangeViewModel` - 57 edges
-10. `MainViewModel` - 56 edges
+9. `MainViewModel` - 58 edges
+10. `HmiExchangeViewModel` - 57 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `UserControl` --references--> `AboutViewModel`  [INFERRED]
@@ -263,18 +273,22 @@
 ## Import Cycles
 - None detected.
 
-## Communities (354 total, 212 thin omitted)
+## Communities (359 total, 211 thin omitted)
 
 ### Community 0 - "system_threading"
-Cohesion: 0.11
-Nodes (6): TiaGitAddIn.Tests.Revision, TiaGitAddIn.Services, TiaGitAddIn.Tests.UI, TiaGitAddIn.Services.Revision, TiaGitAddIn.IntegrationTests.Services, TiaGitAddIn.Models
+Cohesion: 0.10
+Nodes (5): TiaGitAddIn.Services, TiaGitAddIn.Configuration, TiaGitAddIn.Services.Revision, TiaGitAddIn.IntegrationTests.Services, TiaGitAddIn.Models
+
+### Community 1 - "ComfortHmiExchange"
+Cohesion: 0.07
+Nodes (3): FileLogger, ComfortHmiExchange, HmiExportTrace
 
 ### Community 2 - "PlcArtifactClassifier"
-Cohesion: 0.11
-Nodes (8): PlcArtifactDescriptor, ArtifactKind, Evidence, PreferredMode, IPlcArtifactClassifier, PlcArtifactClassifier, ComparisonTestData, PlcArtifactClassifierTests
+Cohesion: 0.14
+Nodes (4): IPlcArtifactClassifier, PlcArtifactClassifier, ComparisonTestData, PlcArtifactClassifierTests
 
 ### Community 3 - "HardwareExchange"
-Cohesion: 0.11
+Cohesion: 0.06
 Nodes (3): ExportedParameter, HardwareExchange, ParameterColumns
 
 ### Community 4 - "FakeGitService"
@@ -282,48 +296,36 @@ Cohesion: 0.18
 Nodes (3): FakeGitService, DiscardedPaths, StagedPaths
 
 ### Community 5 - "PlcRevision"
-Cohesion: 0.06
-Nodes (35): ImmutableCopy, PlcRevisionMissingReason, Added, Deleted, None, NotPresentInRevision, PlcRevisionSide, Left (+27 more)
+Cohesion: 0.07
+Nodes (31): ImmutableCopy, PlcRevisionMissingReason, Added, Deleted, None, NotPresentInRevision, PlcRevisionSide, Left (+23 more)
 
-### Community 7 - "PlcComparisonContext"
-Cohesion: 0.10
-Nodes (16): PlcComparisonContext, RawText, Request, PlcComparisonRequest, Left, Pair, Right, ITextComparer (+8 more)
+### Community 7 - "TextFallbackStrategy"
+Cohesion: 0.16
+Nodes (7): PlcComparisonRequest, Left, Pair, Right, TextFallbackStrategy, SupportedKinds, TextFallbackStrategyTests
 
 ### Community 8 - "GitFileExtractorTests.cs"
 Cohesion: 0.50
 Nodes (3): FakeGitProcessRunner, GitFileExtractorTests, TiaGitAddIn.Tests.Services
 
 ### Community 9 - ".ParseText"
-Cohesion: 0.09
-Nodes (12): PlcSourceLocation, Column, Length, Line, Side, StartOffset, SimaticMlParseResult, Diagnostics (+4 more)
+Cohesion: 0.11
+Nodes (6): SimaticMlParseResult, Diagnostics, IsPartial, IsSuccess, Model, SimaticMlParserSecurityTests
 
 ### Community 10 - "PlcComparisonCoordinatorTests"
-Cohesion: 0.14
-Nodes (11): IPlcComparisonCoordinator, CancellingStrategy, SupportedKinds, PlcComparisonCoordinatorTests, RecordingStrategy, CallCount, SupportedKinds, StubLogicNetworkPresentation (+3 more)
+Cohesion: 0.12
+Nodes (13): IPlcComparisonStrategy, SupportedKinds, IPlcComparisonCoordinator, CancellingStrategy, SupportedKinds, PlcComparisonCoordinatorTests, RecordingStrategy, CallCount (+5 more)
 
-### Community 11 - "PlcArtifactKind"
-Cohesion: 0.08
-Nodes (21): PlcArtifactPairDescriptor, ArtifactKind, ChangeKind, Diagnostics, Left, Limitation, RequestedMode, Right (+13 more)
+### Community 11 - "PlcComparisonCoordinator"
+Cohesion: 0.12
+Nodes (10): PlcSourceLocation, Column, Length, Line, Side, StartOffset, PlcComparisonContext, RawText (+2 more)
 
 ### Community 13 - "SimaticMlSchemaLocation"
 Cohesion: 0.18
 Nodes (9): ISimaticMlSchemaLocator, SimaticMlSchemaLocator, SimaticMlSchemaLocation, IsAvailable, MissingExpectedSchemas, PortalVersion, Reason, SchemaDirectory (+1 more)
 
-### Community 14 - "UnifiedLibraryExchange"
-Cohesion: 0.06
-Nodes (9): FileLogger, EngineeringSnapshotRestorer, HmiExportTrace, UnifiedLibraryExchange, EngineeringSnapshotRestorerTests, Sample, Off, On (+1 more)
-
-### Community 15 - "BranchViewModel"
-Cohesion: 0.10
-Nodes (13): GitUserMessages, BranchViewModel, Branches, CancelCommand, CreateBranchCommand, FetchCommand, LastOperationMessage, NewBranchName (+5 more)
-
 ### Community 17 - "UserControl"
 Cohesion: 0.05
 Nodes (40): BusyMessage, CompareStateToColorConverter, LadBoolToVis, DataContext.Operand, DiffState, DisplayName, Elements, ElementType (+32 more)
-
-### Community 18 - "NetworkSourceDefinition"
-Cohesion: 0.10
-Nodes (19): LadVisualGraphBuilder, AccessDefinition, Components, ConstantType, ConstantValue, RawXml, Scope, SymbolComponents (+11 more)
 
 ### Community 19 - "GitPanelLaunchService"
 Cohesion: 0.11
@@ -341,6 +343,10 @@ Nodes (9): GitExecutableLocator, GitRepositoryInitializer, IGitProcessRunner, Gi
 Cohesion: 0.09
 Nodes (5): FolderAssessment, GitCheck, InstallForm, Payload, Program
 
+### Community 24 - "ExportIssues"
+Cohesion: 0.16
+Nodes (6): ExportIssues, Count, IssueCount, SessionClosed, Noop, Pop
+
 ### Community 27 - "StatusViewModel"
 Cohesion: 0.06
 Nodes (27): StatusViewModel, CancelCommand, ConflictedEntries, ConflictedGroups, CurrentBranch, DiscardSelectedCommand, Entries, FileFilter (+19 more)
@@ -350,76 +356,72 @@ Cohesion: 0.17
 Nodes (12): TextComparisonLimits, Default, MaximumLineLength, MaximumLinesPerSide, MaximumMatrixCells, ComparisonRawText, IsLeftMissing, IsRightMissing (+4 more)
 
 ### Community 31 - "InterfaceMemberRowViewModel"
-Cohesion: 0.09
-Nodes (23): InterfaceChangeKind, Added, Modified, Removed, Unchanged, InterfaceMemberRowViewModel, ChangeKind, Children (+15 more)
+Cohesion: 0.07
+Nodes (29): InterfaceChangeKind, Added, Modified, Removed, Unchanged, InterfaceFieldChangeViewModel, Field, Key (+21 more)
 
 ### Community 32 - "OperationResult"
 Cohesion: 0.17
 Nodes (6): OperationResult, Detail, DisplayMessage, Message, Success, FakeGitService
 
 ### Community 34 - "MainViewModel"
-Cohesion: 0.07
+Cohesion: 0.06
 Nodes (20): MainViewModel, About, Branch, CancelCommand, Commit, Diff, Export, HasOverlayStatus (+12 more)
 
-### Community 36 - "InterfaceFieldKind"
-Cohesion: 0.10
-Nodes (17): InterfaceFieldKind, Accessibility, Comment, Datatype, DefaultValue, Informative, Name, Retain (+9 more)
+### Community 36 - "EngineeringSnapshotRestorer"
+Cohesion: 0.17
+Nodes (5): EngineeringSnapshotRestorer, EngineeringSnapshotRestorerTests, Sample, Off, On
 
 ### Community 37 - "SactComponentData"
-Cohesion: 0.09
-Nodes (19): SactComponentData, Comment, DisabledENO, DisplayName, Equation, InputConnectors, InputParameters, InvisiblePins (+11 more)
+Cohesion: 0.08
+Nodes (24): SactComponentData, Comment, DisabledENO, DisplayName, Equation, InputConnectors, InputParameters, InvisiblePins (+16 more)
 
 ### Community 39 - "FakeGitService"
 Cohesion: 0.14
 Nodes (7): FakeGitService, Branches, BranchRequests, LocalEmail, LocalName, Log, LogRequests
 
 ### Community 40 - "FakeGitService"
-Cohesion: 0.10
-Nodes (8): ExportCatalogViewModelTests, FakeGitService, Files, RequestedHash, ExportCatalogViewModel, Groups, Heading, Summary
+Cohesion: 0.20
+Nodes (3): FakeGitService, Files, RequestedHash
 
 ### Community 41 - "TiaGitAddIn.Models.Comparison"
-Cohesion: 0.10
-Nodes (7): TiaGitAddIn.Tests.Models, TiaGitAddIn.Tests.Comparison, TiaGitAddIn.Models.Comparison, TiaGitAddIn.UI.Mapping, TiaGitAddIn.UI.ViewModels.Comparison, TiaGitAddIn.Services.Comparison, TiaGitAddIn.Logging
+Cohesion: 0.07
+Nodes (7): TiaGitAddIn.Tests.Revision, TiaGitAddIn.Tests.Comparison, TiaGitAddIn.Models.Comparison, TiaGitAddIn.UI.Mapping, TiaGitAddIn.UI.ViewModels.Comparison, TiaGitAddIn.Services.Comparison, TiaGitAddIn.Logging
 
 ### Community 42 - "GitConfiguration"
 Cohesion: 0.07
 Nodes (25): IConfigurationService, GitConfiguration, CommitAuthorEmail, CommitAuthorName, CompareXmlByElement, DefaultRemote, DisabledHardwareCategories, DisabledHmiCategories (+17 more)
 
 ### Community 43 - "InterfaceComparer"
-Cohesion: 0.21
-Nodes (6): InterfaceFieldChange, Field, Key, LeftValue, RightValue, InterfaceComparer
+Cohesion: 0.06
+Nodes (35): LogicNetworkPresentation, InterfaceFieldChange, Field, Key, LeftValue, RightValue, InterfaceMemberComparison, ChangeKind (+27 more)
 
 ### Community 47 - "TextPresentation"
-Cohesion: 0.14
-Nodes (5): TextPresentation, IsTruncated, Lines, UsedLinearFallback, XmlStructureComparerTests
-
-### Community 48 - "DiffResult"
-Cohesion: 0.20
-Nodes (10): DiffEntry, ChangeType, FilePath, Hunks, DiffResult, Entries, DiffViewModelTests, StubComparisonCoordinator (+2 more)
+Cohesion: 0.10
+Nodes (11): TextPresentation, IsTruncated, Lines, UsedLinearFallback, ITextComparer, PlcComparisonResultFactory, PlcComparisonContractTests, StubInterfacePresentation (+3 more)
 
 ### Community 49 - "IValueConverter"
 Cohesion: 0.10
 Nodes (6): BoolToVisibilityConverter, Invert, CompareStateToColorConverter, DiffLineTypeToColorConverter, FileStatusToColorConverter, LadElementTypeToGeometryConverter
 
-### Community 50 - "TiaGitAddIn.UI.ViewModels"
-Cohesion: 0.16
-Nodes (3): TiaGitAddIn.UI.ViewModels, TiaGitAddIn.Models.Lad, AddInVersion
+### Community 50 - "ComparisonPresentationViewModel"
+Cohesion: 0.06
+Nodes (35): UnsupportedPresentationViewModelFactory, ComparisonPresentationViewModel, HasLimitation, HasRawText, Header, Kind, Limitation, Metadata (+27 more)
 
 ### Community 51 - "GitBlobReader"
-Cohesion: 0.12
-Nodes (10): GitBlobReader, IGitBinaryProcessRunner, RevisionLoadException, RevisionSizeLimitException, FakeGitBlobReader, ReadCount, SizeCallCount, PlcRevisionProviderTests (+2 more)
+Cohesion: 0.13
+Nodes (7): GitBlobReader, IGitBinaryProcessRunner, RevisionLoadException, RevisionSizeLimitException, PlcRevisionProviderTests, ThrowingGitBinaryProcessRunner, ThrowingGitProcessRunner
 
-### Community 52 - "FakeGitService"
-Cohesion: 0.17
+### Community 52 - ".Ok"
+Cohesion: 0.19
 Nodes (4): CommitViewModelTests, FakeGitService, CommitCalls, LastCommitMessage
 
 ### Community 55 - ".CompareAsync"
-Cohesion: 0.16
-Nodes (8): LadPresentation, Interface, LadComparisonStrategy, SupportedKinds, RecoverableComparisonException, Diagnostic, Limitation, LadComparisonStrategyTests
+Cohesion: 0.18
+Nodes (6): LadComparisonStrategy, SupportedKinds, RecoverableComparisonException, Diagnostic, Limitation, LadComparisonStrategyTests
 
 ### Community 56 - "FakeGitService"
-Cohesion: 0.19
-Nodes (3): FakeGitService, RestoredHash, RestoreResult
+Cohesion: 0.08
+Nodes (15): FakeGitService, RestoredHash, RestoreResult, HistoryViewModelTests, HistoryViewModel, CancelCommand, ChangedFileGroups, ChangedFiles (+7 more)
 
 ### Community 57 - "TiaGitAddIn.Tests.csproj"
 Cohesion: 0.08
@@ -430,16 +432,16 @@ Cohesion: 0.12
 Nodes (16): HmiScreenItemPreview, Change, Detail, Height, Kind, Label, Left, Links (+8 more)
 
 ### Community 59 - "HmiExportStore"
-Cohesion: 0.10
+Cohesion: 0.09
 Nodes (12): HmiDeviceExport, Kind, Name, Screens, HmiScreenExport, Content, Folder, Height (+4 more)
 
 ### Community 60 - "system_collections_generic"
-Cohesion: 0.08
-Nodes (4): TiaGitAddIn.Models.Sact, TiaGitAddIn.Tests.Services, TiaGitAddIn.Services.SimaticMl, SactInterfaceSections
+Cohesion: 0.10
+Nodes (4): TiaGitAddIn.Models.Sact, TiaGitAddIn.Reporting, SactInterfaceSections, AddInVersion
 
-### Community 61 - "system"
-Cohesion: 0.08
-Nodes (8): TiaGitAddIn.UI.Views.Comparison, TiaGitAddIn.UI.Converters, TiaGitAddIn.UI.Views, TiaGitAddIn.Entry, TiaGitAddIn.Reporting, TiaGitAddIn.Tests.Entry, TiaGitAddIn.Preview, TiaGitAddIn.UI
+### Community 61 - "TiaGitAddIn.UI.ViewModels"
+Cohesion: 0.07
+Nodes (8): TiaGitAddIn.UI.Views.Comparison, TiaGitAddIn.UI.Views, TiaGitAddIn.Entry, TiaGitAddIn.UI.ViewModels, TiaGitAddIn.Tests.Entry, TiaGitAddIn.Models.Lad, TiaGitAddIn.Preview, TiaGitAddIn.UI
 
 ### Community 64 - "UserControl"
 Cohesion: 0.06
@@ -450,8 +452,8 @@ Cohesion: 0.09
 Nodes (19): DiffEntryViewModel, ChangeType, Entry, FileName, FilePath, DiffViewModel, CancelCommand, ComparisonKind (+11 more)
 
 ### Community 66 - "SimaticMlModels.cs"
-Cohesion: 0.13
-Nodes (20): ConnectionDefinition, Kind, IdentConDefinition, UId, NameConDefinition, Name, UId, OpenbranchConDefinition (+12 more)
+Cohesion: 0.10
+Nodes (29): ConnectionDefinition, Kind, IdentConDefinition, UId, NameConDefinition, Name, UId, NetworkSourceDefinition (+21 more)
 
 ### Community 68 - "SettingsViewModel"
 Cohesion: 0.05
@@ -469,6 +471,10 @@ Nodes (7): HmiPreviewBuilder, HmiScreenPaneViewModel, Boxes, CanvasHeight, Canva
 Cohesion: 0.11
 Nodes (17): FileStatusEntry, FilePath, IndexStatus, IsConflicted, IsStaged, IsUnstaged, OriginalPath, WorkTreeStatus (+9 more)
 
+### Community 76 - "ViewModelBase"
+Cohesion: 0.11
+Nodes (7): ImmediateUiDispatcher, Instance, IUiDispatcher, ViewModelBase, BusyMessage, IsBusy, UiDispatcher
+
 ### Community 77 - ".LoadAsync"
 Cohesion: 0.09
 Nodes (19): PlcTextEncoding, HasBom, Kind, None, Utf16BigEndianWithBom, Utf16LittleEndianWithBom, Utf8WithBom, Utf8WithoutBom (+11 more)
@@ -478,27 +484,27 @@ Cohesion: 0.13
 Nodes (11): IPlcRevisionProvider, ComparisonSelectionCoordinatorTests, ControllableRevisionProvider, PathState, Gate, Leases, ThrowingRevisionProvider, ComparisonSelection (+3 more)
 
 ### Community 82 - ".CollectItem"
-Cohesion: 0.17
-Nodes (6): ComfortDevice, Name, Target, UnifiedDevice, Name, Software
+Cohesion: 0.23
+Nodes (3): ComfortDevice, Name, Target
 
 ### Community 83 - "HmiFilePreview"
 Cohesion: 0.23
 Nodes (6): HmiFilePreview, IsScreen, IsTagTable, LeftScreen, RightScreen, Tags
 
 ### Community 84 - "GitProcessResult"
-Cohesion: 0.14
+Cohesion: 0.15
 Nodes (10): GitProcessResult, ExitCode, IsSuccess, StandardError, StandardOutput, TimedOut, GitServiceUnbornHeadTests, RecordingRunner (+2 more)
 
 ### Community 85 - ".SelectingTheBranchTabListsBranches"
-Cohesion: 0.22
-Nodes (6): FakeConfigurationService, GitPanelWindowTests, UnusedComparisonCoordinator, UnusedPresentationMapper, UnusedRevisionProvider, WpfTestHost
+Cohesion: 0.15
+Nodes (7): FakeConfigurationService, GitPanelWindowTests, UnusedComparisonCoordinator, UnusedPresentationMapper, UnusedRevisionProvider, TextComparisonNavigationTests, WpfTestHost
 
 ### Community 86 - "HmiScreenBoxViewModel"
 Cohesion: 0.11
 Nodes (14): HmiScreenBoxViewModel, Change, Edge, EdgeThickness, Fill, Ink, Kind, Label (+6 more)
 
 ### Community 87 - "InterfaceMember"
-Cohesion: 0.10
+Cohesion: 0.09
 Nodes (21): InterfaceSnapshot, Sections, InterfaceMember, Accessibility, AttributeList, Children, CommentRawXml, Comments (+13 more)
 
 ### Community 88 - "VciWorkspaceLocator"
@@ -513,21 +519,21 @@ Nodes (5): SemanticBoolean, False, True, Unspecified, InterfaceSnapshotBuilder
 Cohesion: 0.11
 Nodes (17): AheadBy, BehindBy, Branches, CreateBranchCommand, FetchCommand, IsCurrent, NewBranchName, PullCommand (+9 more)
 
-### Community 91 - "PlcComparisonResult"
-Cohesion: 0.06
-Nodes (26): ComparisonPresentationKind, Error, Interface, LogicNetwork, Scl, Text, Unsupported, PlcComparisonMode (+18 more)
+### Community 91 - "PlcArtifactKind"
+Cohesion: 0.07
+Nodes (31): PlcArtifactDescriptor, ArtifactKind, Evidence, PreferredMode, PlcArtifactPairDescriptor, ArtifactKind, ChangeKind, Diagnostics (+23 more)
 
 ### Community 94 - "StaThreadInvoker"
 Cohesion: 0.14
 Nodes (4): DispatcherPump, StaThreadInvoker, ThreadId, StaThreadInvokerTests
 
-### Community 95 - "ViewModelBase"
-Cohesion: 0.09
-Nodes (11): AboutViewModelTests, ImmediateUiDispatcher, Instance, IUiDispatcher, AboutViewModel, Sections, Version, ViewModelBase (+3 more)
+### Community 95 - "PlcSupportLevel"
+Cohesion: 0.12
+Nodes (12): ComparisonPresentationKind, Error, Interface, LogicNetwork, Scl, Text, Unsupported, PlcSupportLevel (+4 more)
 
-### Community 99 - "CallDefinition"
-Cohesion: 0.08
-Nodes (20): CallDefinition, AutomaticTyped, CallInfo, CommentRawXml, CommentText, Instance, RawXml, TemplateValues (+12 more)
+### Community 99 - "CallParameterDefinition"
+Cohesion: 0.15
+Nodes (11): CallInfoDefinition, BlockType, Instance, Name, Parameters, CallParameterDefinition, Informative, Name (+3 more)
 
 ### Community 100 - "UserControl"
 Cohesion: 0.08
@@ -541,10 +547,6 @@ Nodes (5): ProjectWithPath, TiaGitAddIn.Tests.Services, VciWorkspaceLocatorTests
 Cohesion: 0.11
 Nodes (17): FieldChanges, HasFieldChanges, LeftDatatype, LeftValue, Members, RightDatatype, RightValue, SectionsTreeView (+9 more)
 
-### Community 103 - "IAddInLogger"
-Cohesion: 0.14
-Nodes (3): IAddInLogger, GitVciWorkspaceMenu, NullLogger
-
 ### Community 104 - "RecordingPrompt"
 Cohesion: 0.13
 Nodes (6): IRepositoryDiscovery, RecordingPrompt, Calls, Response, IRepositoryInitPrompt, RepositoryInitPrompt
@@ -554,12 +556,12 @@ Cohesion: 0.13
 Nodes (5): ReferenceComparer, State, Remaining, Truncated, UnifiedObjectSnapshot
 
 ### Community 106 - "LadElementLayout"
-Cohesion: 0.05
-Nodes (37): LadElementLayout, Column, Comment, DiffState, DisplayName, ElementType, Equation, Height (+29 more)
+Cohesion: 0.12
+Nodes (16): LadElementLayout, Column, Comment, DiffState, DisplayName, ElementType, Equation, Height (+8 more)
 
 ### Community 107 - "LadNetworkLayout"
-Cohesion: 0.06
-Nodes (33): LadNetworkLayout, ColumnCount, DiffState, Elements, NetworkNumber, RowCount, Wires, LadNetworkPairLayout (+25 more)
+Cohesion: 0.13
+Nodes (13): LadNetworkLayout, ColumnCount, DiffState, Elements, NetworkNumber, RowCount, Wires, LadWireSegment (+5 more)
 
 ### Community 108 - ".Probe"
 Cohesion: 0.18
@@ -574,16 +576,20 @@ Cohesion: 0.18
 Nodes (11): TextDiffLineKind, Added, Omitted, Removed, Unchanged, TextDiffLineViewModel, Kind, LeftLineNumber (+3 more)
 
 ### Community 115 - "HmiChecklistItem"
-Cohesion: 0.07
-Nodes (22): HmiExportProgress, HmiExportUpdate, BusyText, Category, Count, Detail, Device, Key (+14 more)
+Cohesion: 0.13
+Nodes (12): HmiChecklistGroup, Device, Header, IsExpanded, Items, HmiChecklistItem, Category, Device (+4 more)
 
-### Community 116 - ".List"
-Cohesion: 0.28
-Nodes (5): SactConnectorData, PartnerUId, PinName, UId, LadLayoutEngineTests
+### Community 116 - "SingleByteChunkStream"
+Cohesion: 0.13
+Nodes (7): SingleByteChunkStream, CanRead, CanSeek, CanWrite, Length, Position, ReadCallCount
 
 ### Community 117 - "DiffHunk"
 Cohesion: 0.10
 Nodes (17): DiffHunk, Header, Lines, NewCount, NewStart, OldCount, OldStart, DiffLine (+9 more)
+
+### Community 119 - "LadElementViewModel"
+Cohesion: 0.12
+Nodes (15): LadElementViewModel, Comment, DiffState, DisplayName, ElementType, Equation, Height, InputPinRows (+7 more)
 
 ### Community 120 - "LadElementType"
 Cohesion: 0.13
@@ -598,7 +604,7 @@ Cohesion: 0.07
 Nodes (5): HmiExportNormalizer, ProjectContentStore, ProjectContentExchange, HmiExportNormalizerTests, ProjectContentStoreTests
 
 ### Community 124 - "RecordingExchange"
-Cohesion: 0.19
+Cohesion: 0.17
 Nodes (7): HmiExportStoreTests, RecordingExchange, ExportedPaths, ExportResult, HardwarePaths, ImportedHardwarePaths, ImportedPaths
 
 ### Community 126 - "XmlStructureComparer"
@@ -609,16 +615,28 @@ Nodes (3): Budget, Stopped, XmlStructureComparer
 Cohesion: 0.10
 Nodes (19): ComparisonKind, FileVis, LineTypeToBackground, CurrentPresentation, FileTree, Item.ChangeType, NextFileCommand, PreviousFileCommand (+11 more)
 
+### Community 128 - ".List"
+Cohesion: 0.10
+Nodes (16): DiffEntry, ChangeType, FilePath, Hunks, DiffResult, Entries, DiffViewModelTests, FakeGitService (+8 more)
+
 ### Community 130 - ".CreateViewModelForFolder"
-Cohesion: 0.15
+Cohesion: 0.16
 Nodes (5): GitPanelLaunchResult, CreateViewModel, Message, Success, WpfUiDispatcher
 
-### Community 131 - "SactParameterData"
-Cohesion: 0.22
-Nodes (6): SactParameterData, IsVisible, Name, Operand, Section, Type
+### Community 131 - "BranchViewModel"
+Cohesion: 0.13
+Nodes (12): BranchViewModel, Branches, CancelCommand, CreateBranchCommand, FetchCommand, LastOperationMessage, NewBranchName, PullCommand (+4 more)
+
+### Community 132 - "GitPanelWindow"
+Cohesion: 0.12
+Nodes (4): Content, Program, ResourceDictionary, GitPanelWindow
+
+### Community 140 - "PdfReport"
+Cohesion: 0.20
+Nodes (7): HistoryPdfReport, PdfLine, Style, Text, PdfReport, Lines, Title
 
 ### Community 141 - "CommitViewModel"
-Cohesion: 0.10
+Cohesion: 0.09
 Nodes (9): AsyncCommand, CommitViewModel, CancelCommand, CanCommit, CommitCommand, CommitMessage, LastOperationMessage, ValidationMessage (+1 more)
 
 ### Community 142 - "LadNetworkPairViewModel"
@@ -633,29 +651,25 @@ Nodes (25): BrowseGitExeCommand, CommitAuthorEmail, CommitAuthorName, DefaultRem
 Cohesion: 0.05
 Nodes (39): Address, Boxes, Change, ChangePositionText, DataContext.ScreenZoom, DataType, Edge, EdgeThickness (+31 more)
 
-### Community 145 - "ComparisonPresentationViewModel"
-Cohesion: 0.04
-Nodes (42): ComparisonPresentation, Kind, LogicNetworkPresentation, ComparisonPresentationMapper, ErrorPresentationViewModelFactory, IComparisonPresentationMapper, IComparisonPresentationViewModelFactory, InterfacePresentationViewModelFactory (+34 more)
+### Community 145 - "PlcComparisonResult"
+Cohesion: 0.06
+Nodes (20): ComparisonPresentation, Kind, ErrorPresentation, PlcComparisonResult, ActualMode, ArtifactKind, Diagnostics, Limitation (+12 more)
 
-### Community 146 - "BlockDefinition"
-Cohesion: 0.15
-Nodes (13): BlockDefinition, BlockKind, CompileUnits, Id, InterfaceSections, MemoryLayout, Name, Namespace (+5 more)
+### Community 146 - "PartDefinition"
+Cohesion: 0.06
+Nodes (33): CallDefinition, AutomaticTyped, CallInfo, CommentRawXml, CommentText, Instance, RawXml, TemplateValues (+25 more)
 
 ### Community 147 - "GitBinaryProcessResult"
 Cohesion: 0.22
 Nodes (6): GitBinaryProcessResult, ExitCode, IsSuccess, StandardError, StandardOutput, TimedOut
 
-### Community 148 - ".Remember"
-Cohesion: 0.16
-Nodes (6): ExportIssues, Count, IssueCount, SessionClosed, Noop, Pop
-
 ### Community 149 - ".ReadTags"
 Cohesion: 0.26
 Nodes (5): TagDraft, Address, Comment, DataType, Name
 
-### Community 150 - "system_io"
-Cohesion: 0.04
-Nodes (7): TiaGitAddIn.Tests.Configuration, TiaGitAddIn.Models.Hmi, TiaGitAddIn.IntegrationTests.Architecture, TiaGitAddIn.Configuration, TiaGitAddIn.Tests.Hmi, TiaGitAddIn.Tests.Architecture, TiaGitAddIn.Services.Hmi
+### Community 150 - "system"
+Cohesion: 0.07
+Nodes (5): TiaGitAddIn.UI.Converters, TiaGitAddIn.IntegrationTests.Architecture, TiaGitAddIn.Tests.Services, TiaGitAddIn.Services.SimaticMl, TiaGitAddIn.Tests.Architecture
 
 ### Community 152 - "InterfaceMemberSnapshot"
 Cohesion: 0.10
@@ -670,32 +684,36 @@ Cohesion: 0.19
 Nodes (6): PathValidator, ValidationResult, ErrorMessage, IsValid, RepositoryDiscovery, PathValidatorTests
 
 ### Community 160 - "DiffWhitespace"
-Cohesion: 0.18
+Cohesion: 0.19
 Nodes (8): DiffWhitespace, Exact, IgnoreAllSpace, IgnoreBlankLines, IgnoreComments, IgnoreSpaceChange, IgnoreTabExpansion, IgnoreTrailingSpace
 
+### Community 163 - "xunit"
+Cohesion: 0.08
+Nodes (8): TiaGitAddIn.Tests.Models, TiaGitAddIn.IntegrationTests.Reporting, TiaGitAddIn.Tests.Configuration, TiaGitAddIn.Models.Hmi, TiaGitAddIn.Tests.UI, TiaGitAddIn.Tests.Hmi, TiaGitAddIn.Installer, TiaGitAddIn.Services.Hmi
+
 ### Community 164 - "HmiExchangeViewModel"
-Cohesion: 0.06
-Nodes (21): IHmiDeviceExchange, ChecklistProgress, HmiExchangeViewModel, CancelCommand, Categories, Checklist, ChecklistGroups, Confirm (+13 more)
+Cohesion: 0.07
+Nodes (20): ChecklistProgress, HmiExchangeViewModel, CancelCommand, Categories, Checklist, ChecklistGroups, Confirm, DismissChecklistCommand (+12 more)
 
 ### Community 165 - ".RefreshAsync"
 Cohesion: 0.20
 Nodes (4): RecordingUiDispatcher, InvokeCount, StatusViewModelTests, Confirm
 
-### Community 168 - "HistoryViewModel"
-Cohesion: 0.09
-Nodes (18): CommitInfo, AuthorDate, AuthorName, Hash, ParentHash, Subject, HistoryViewModelTests, HistoryViewModel (+10 more)
+### Community 168 - "CommitInfo"
+Cohesion: 0.12
+Nodes (11): CommitInfo, AuthorDate, AuthorName, Hash, ParentHash, Subject, ExportCatalogViewModelTests, ExportCatalogViewModel (+3 more)
 
 ### Community 169 - "CompareState"
-Cohesion: 0.07
-Nodes (20): CompareState, Changed, Equal, MissingOnLeft, MissingOnRight, SactInterfaceMemberComparison, LeftDatatype, LeftStartValue (+12 more)
+Cohesion: 0.06
+Nodes (28): CompareState, Changed, Equal, MissingOnLeft, MissingOnRight, SactCompareResult, Attributes, Content (+20 more)
 
 ### Community 171 - "UserControl"
 Cohesion: 0.25
 Nodes (7): CommitCommand, CommitMessage, CommitMessage.Length, UserControl, LastOperationMessage, ValidationMessage, CommitView
 
-### Community 172 - ".Write"
-Cohesion: 0.07
-Nodes (19): DiffPdfReport, DiffPdfTextLine, Marker, Text, HistoryPdfReport, PdfLine, Style, Text (+11 more)
+### Community 172 - ".Create"
+Cohesion: 0.21
+Nodes (4): DiffPdfReport, DiffPdfTextLine, Marker, Text
 
 ### Community 173 - "ChangeType"
 Cohesion: 0.29
@@ -706,12 +724,12 @@ Cohesion: 0.09
 Nodes (21): TextComparisonViewModel, CanGoToNextChange, CanGoToPreviousChange, ChangePositionText, CurrentChangeLine, HasScreenPreview, HasTagPreview, IsTruncated (+13 more)
 
 ### Community 186 - "PlcComparisonEnums.cs"
-Cohesion: 0.12
-Nodes (14): PlcPairChangeKind, Added, Modified, Removed, PlcRevisionSourceKind, Commit, Head, ParentOfCommit (+6 more)
+Cohesion: 0.18
+Nodes (10): PlcRevisionSourceKind, Commit, Head, ParentOfCommit, WorkingTree, PlcTextEncodingKind, None, Utf16BigEndian (+2 more)
 
 ### Community 187 - "ExportCategorySet"
-Cohesion: 0.15
-Nodes (6): ExportCategorySet, All, DisabledHardware, DisabledHmi, Pending, HardwareExchange
+Cohesion: 0.20
+Nodes (5): ExportCategorySet, All, DisabledHardware, DisabledHmi, Pending
 
 ### Community 188 - "SimaticMlSchemaDiagnostic"
 Cohesion: 0.20
@@ -723,31 +741,31 @@ Nodes (3): fixtures, publicApiBuild, schemaVersion
 
 ### Community 204 - ".Group"
 Cohesion: 0.10
-Nodes (13): ChangeTreeTests, ChangeNode, Children, IsExpanded, IsFile, IsSelected, Item, Title (+5 more)
+Nodes (14): ChangeTreeTests, ChangeNode, Children, IsExpanded, IsFile, IsSelected, Item, Title (+6 more)
 
 ### Community 205 - "PanelTheme"
-Cohesion: 0.10
-Nodes (14): Content, PanelTheme, Added, Card, Changed, Danger, Gap, Ink (+6 more)
+Cohesion: 0.11
+Nodes (12): PanelTheme, Added, Card, Changed, Danger, Gap, Ink, Line (+4 more)
 
 ### Community 211 - "OperationSerializer"
-Cohesion: 0.11
+Cohesion: 0.12
 Nodes (9): GitOperationInProgressException, Lease, OperationSerializer, IsBusy, GitServiceWorkspaceCommandTests, RecordingRunner, Calls, RemoteListOutput (+1 more)
 
 ### Community 216 - "PlcComparisonDiagnostic"
-Cohesion: 0.06
-Nodes (14): ErrorPresentation, UnsupportedPresentation, PlcComparisonDiagnostic, Code, Location, Message, Severity, CollectingTraceListener (+6 more)
+Cohesion: 0.07
+Nodes (10): UnsupportedPresentation, PlcComparisonDiagnostic, Code, Location, Message, Severity, CollectingTraceListener, Messages (+2 more)
 
-### Community 218 - "PartDefinition"
-Cohesion: 0.08
-Nodes (24): InstanceDefinition, Name, RawXml, Scope, UId, PartDefinition, Attributes, AutomaticTyped (+16 more)
+### Community 218 - "ComparisonDiagnosticViewModel"
+Cohesion: 0.18
+Nodes (10): PlcDiagnosticSeverity, Error, Info, Warning, ComparisonDiagnosticViewModel, Code, HasLocation, LocationLabel (+2 more)
 
-### Community 316 - "InterfaceMemberComparison"
-Cohesion: 0.12
-Nodes (16): InterfaceMemberComparison, ChangeKind, Children, FieldChanges, Left, Right, InterfacePresentation, HasChanges (+8 more)
+### Community 316 - ".ReadScreenLevel"
+Cohesion: 0.22
+Nodes (3): UnifiedDevice, Name, Software
 
-### Community 317 - "SactCompareResult"
-Cohesion: 0.09
-Nodes (21): SactCompareResult, Attributes, Content, Interface, Left, Right, State, SactContentResult (+13 more)
+### Community 317 - "SactNetworkResult"
+Cohesion: 0.07
+Nodes (20): SactNetworkResult, Body, Comment, LeftBody, Number, RightBody, State, Title (+12 more)
 
 ### Community 318 - "HmiTagPreviewRow"
 Cohesion: 0.33
@@ -757,9 +775,9 @@ Nodes (6): HmiTagPreviewRow, Address, Change, Comment, DataType, Name
 Cohesion: 0.25
 Nodes (5): SimaticMlSchemaValidationResult, Diagnostics, IsValid, SchemaAvailable, SchemaDirectory
 
-### Community 321 - ".Compare"
-Cohesion: 0.28
-Nodes (4): SimaticMlFile, Blocks, EngineeringVersion, SimaticMlComparerTests
+### Community 321 - "BlockDefinition"
+Cohesion: 0.13
+Nodes (17): BlockDefinition, BlockKind, CompileUnits, Id, InterfaceSections, MemoryLayout, Name, Namespace (+9 more)
 
 ### Community 322 - "CompileUnitDefinition"
 Cohesion: 0.13
@@ -769,21 +787,25 @@ Nodes (15): CompileUnitDefinition, CompositionName, Id, Network, ProgrammingLang
 Cohesion: 0.19
 Nodes (10): SimaticMlParserLimits, Default, MaximumCharactersInDocument, MaximumDepth, MaximumElementCount, ParserBoundaryCase, AtLimitXml, ExpectedDiagnosticCode (+2 more)
 
-### Community 327 - "SingleByteChunkStream"
-Cohesion: 0.13
-Nodes (7): SingleByteChunkStream, CanRead, CanSeek, CanWrite, Length, Position, ReadCallCount
+### Community 327 - "HmiExportUpdate"
+Cohesion: 0.18
+Nodes (9): HmiExportProgress, HmiExportUpdate, BusyText, Category, Count, Detail, Device, Key (+1 more)
 
 ### Community 330 - "GitStatus"
 Cohesion: 0.14
 Nodes (12): GitStatus, AheadBy, BehindBy, CurrentBranch, Entries, HasConflicts, IsClean, StagedEntries (+4 more)
 
-### Community 331 - "AccessComponentDefinition"
-Cohesion: 0.22
-Nodes (7): AccessComponentDefinition, AccessModifier, Name, RawAttributes, SimpleAccessModifier, SliceAccessModifier, SimaticMlEmptyCollections
+### Community 331 - "AccessDefinition"
+Cohesion: 0.11
+Nodes (16): AccessComponentDefinition, AccessModifier, Name, RawAttributes, SimpleAccessModifier, SliceAccessModifier, AccessDefinition, Components (+8 more)
 
-### Community 332 - "AboutRow"
-Cohesion: 0.18
-Nodes (10): AboutCoverage, Sections, AboutRow, Export, Import, IsGap, Item, AboutSection (+2 more)
+### Community 332 - "AboutViewModel"
+Cohesion: 0.11
+Nodes (14): AboutViewModelTests, AboutCoverage, Sections, AboutRow, Export, Import, IsGap, Item (+6 more)
+
+### Community 333 - "LadNetworkViewModel"
+Cohesion: 0.20
+Nodes (7): LadNetworkViewModel, CanvasHeight, CanvasWidth, DiffState, Elements, NetworkNumber, Wires
 
 ### Community 334 - "ComparisonRawTextViewModel"
 Cohesion: 0.08
@@ -821,37 +843,49 @@ Nodes (5): DiffOpKind, Delete, Insert, Match, Substitute
 Cohesion: 0.29
 Nodes (6): BranchInfo, AheadBy, BehindBy, IsCurrent, Name, TrackingBranch
 
-### Community 346 - "ComparisonDiagnosticViewModel"
+### Community 347 - "LadNetworkPairLayout"
 Cohesion: 0.29
-Nodes (6): ComparisonDiagnosticViewModel, Code, HasLocation, LocationLabel, Message, Severity
+Nodes (7): LadNetworkPairLayout, Comment, DiffState, Left, NetworkNumber, Right, Title
 
-### Community 351 - "LinesListView"
+### Community 350 - "LadPinLayout"
+Cohesion: 0.29
+Nodes (6): LadPinLayout, Name, Operand, LadPinViewModel, Name, Operand
+
+### Community 351 - "FakeGitBlobReader"
+Cohesion: 0.32
+Nodes (3): FakeGitBlobReader, ReadCount, SizeCallCount
+
+### Community 353 - "PdfLineStyle"
+Cohesion: 0.33
+Nodes (6): PdfLineStyle, Added, Body, Heading, Note, Removed
+
+### Community 356 - "LadWireViewModel"
+Cohesion: 0.33
+Nodes (6): LadWireViewModel, IsOrBranch, X1, X2, Y1, Y2
+
+### Community 357 - "LinesListView"
 Cohesion: 0.40
 Nodes (5): Lines, ShowTextLines, LinesListView, BoolToVis, ListView
 
-### Community 353 - "PlcDiagnosticSeverity"
-Cohesion: 0.50
-Nodes (4): PlcDiagnosticSeverity, Error, Info, Warning
-
 ## Knowledge Gaps
 - **1386 isolated node(s):** `TiaGitAddIn.Installer`, `net48`, `Microsoft.NET.Sdk`, `IsValid`, `ErrorMessage` (+1381 more)
-  These have ≤1 connection - possible missing edges. (Counts symbols only; 1981 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **212 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges. (Counts symbols only; 1984 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **211 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `HardwareExchange` connect `HardwareExchange` to `.Export`, `CancellationToken`, `.IsSessionDead`, `List`, `.Import`, `system_io`, `ExportCategorySet`?**
-  _High betweenness centrality (0.047) - this node is a cross-community bridge._
+- **Why does `MainViewModel` connect `MainViewModel` to `system_threading`, `DiffViewModel`, `.CreateViewModelForFolder`, `BranchViewModel`, `HmiExchangeViewModel`, `SettingsViewModel`, `GitPanelWindow`, `IAddInLogger`, `CommitInfo`, `TransferStatusWindow`, `AboutViewModel`, `CommitViewModel`, `ViewModelBase`, `UserControl`, `.SelectingTheBranchTabListsBranches`, `FakeGitService`, `StatusViewModel`?**
+  _High betweenness centrality (0.051) - this node is a cross-community bridge._
 - **What connects `TiaGitAddIn.Installer`, `net48`, `Microsoft.NET.Sdk` to the rest of the system?**
   _1386 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `system_threading` be split into smaller, more focused modules?**
-  _Cohesion score 0.11090225563909774 - nodes in this community are weakly interconnected._
-- **Why does `MainViewModel` connect `MainViewModel` to `system_threading`, `DiffViewModel`, `.CreateViewModelForFolder`, `HmiExchangeViewModel`, `SettingsViewModel`, `GitPanelWindow`, `IAddInLogger`, `FakeGitService`, `HistoryViewModel`, `.InvokeOnUI`, `CommitViewModel`, `BranchViewModel`, `UserControl`, `.SelectingTheBranchTabListsBranches`, `StatusViewModel`, `ViewModelBase`?**
-  _High betweenness centrality (0.046) - this node is a cross-community bridge._
+  _Cohesion score 0.10275689223057644 - nodes in this community are weakly interconnected._
+- **Why does `StatusViewModel` connect `StatusViewModel` to `system_threading`, `UserControl`, `MainViewModel`, `.RefreshAsync`, `IGitService`, `FileStatusEntry`, `.Group`, `CommitViewModel`, `ViewModelBase`, `.InvokeOnUI`?**
+  _High betweenness centrality (0.042) - this node is a cross-community bridge._
 - **Should `ComfortHmiExchange` be split into smaller, more focused modules?**
-  _Cohesion score 0.0795196364816618 - nodes in this community are weakly interconnected._
-- **Why does `StatusViewModel` connect `StatusViewModel` to `system_threading`, `UserControl`, `MainViewModel`, `.RefreshAsync`, `IGitService`, `FileStatusEntry`, `.Group`, `CommitViewModel`, `.InvokeOnUI`, `ViewModelBase`?**
-  _High betweenness centrality (0.034) - this node is a cross-community bridge._
+  _Cohesion score 0.06741573033707865 - nodes in this community are weakly interconnected._
+- **Why does `HardwareExchange` connect `HardwareExchange` to `ExportCategorySet`, `system`?**
+  _High betweenness centrality (0.042) - this node is a cross-community bridge._
 - **Should `PlcArtifactClassifier` be split into smaller, more focused modules?**
-  _Cohesion score 0.11184939091915837 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.13663663663663664 - nodes in this community are weakly interconnected._

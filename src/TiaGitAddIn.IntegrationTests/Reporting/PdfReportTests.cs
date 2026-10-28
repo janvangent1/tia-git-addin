@@ -20,15 +20,18 @@ public sealed class PdfReportTests
         PdfReport report = HistoryPdfReport.Create(
             @"C:\workspace",
             new[] { selected },
-            selected,
-            new[] { "Blocks/Motor.scl" });
+            new Dictionary<string, IReadOnlyList<string>?>
+            {
+                [selected.Hash] = new[] { "Blocks/Motor.scl" }
+            });
 
         string pdf = Write(report);
 
         Assert.StartsWith("%PDF", pdf, StringComparison.Ordinal);
         Assert.StartsWith("1 0 obj", pdf.Substring(FirstObjectOffset(pdf)), StringComparison.Ordinal);
         Assert.Contains("(Add motor interlock)", pdf, StringComparison.Ordinal);
-        Assert.Contains("(Blocks/Motor.scl)", pdf, StringComparison.Ordinal);
+        Assert.Contains("(Blocks)", pdf, StringComparison.Ordinal);
+        Assert.Contains("(Motor.scl)", pdf, StringComparison.Ordinal);
         Assert.Contains("%%EOF", pdf, StringComparison.Ordinal);
     }
 
@@ -86,6 +89,63 @@ public sealed class PdfReportTests
         int pageCount = Count(pdf, "/Type /Page /Parent");
 
         Assert.Equal(2, pageCount);
+        Assert.Contains("(Page 1 of 2)", pdf, StringComparison.Ordinal);
+        Assert.Contains("(Page 2 of 2)", pdf, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ChangedLineIsPrintedInTheChangedColor()
+    {
+        PdfReport report = DiffPdfReport.Create(
+            "Diff",
+            new[] { "Blocks/Motor.scl" },
+            "Blocks/Motor.scl",
+            ladderOmitted: false,
+            new[] { new DiffPdfTextLine("~", "StartButton [changed]") },
+            textTruncated: false);
+
+        string pdf = Write(report);
+
+        Assert.Contains("(StartButton [changed])", pdf, StringComparison.Ordinal);
+        Assert.Contains("0.45 0.32 0 rg", pdf, StringComparison.Ordinal);
+        Assert.DoesNotContain("(~ ", pdf, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PdfKeepsGermanLetters()
+    {
+        string pdf = Write(new PdfReport("Motor", new[] { new PdfLine("l\u00e4uft") }));
+
+        Assert.Contains("(l\\344uft)", pdf, StringComparison.Ordinal);
+        Assert.Contains("/Encoding /WinAnsiEncoding", pdf, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HistoryPdfNestsABlockUnderItsSoftwareUnit()
+    {
+        PdfReport report = HistoryPdfReport.Create(
+            @"C:\workspace",
+            new[]
+            {
+                new CommitInfo { Hash = "abc", Subject = "Motion" }
+            },
+            new Dictionary<string, IReadOnlyList<string>?>
+            {
+                ["abc"] = new[]
+                {
+                    "PLC/Software units/Unit_600_Motion/Program blocks/FB_Jog.xml",
+                    "PLC/Program blocks/Main.xml"
+                }
+            });
+
+        string pdf = Write(report);
+
+        Assert.Contains("(PLC)", pdf, StringComparison.Ordinal);
+        Assert.Contains("(  Software units)", pdf, StringComparison.Ordinal);
+        Assert.Contains("(    Unit_600_Motion)", pdf, StringComparison.Ordinal);
+        Assert.Contains("(        FB_Jog.xml)", pdf, StringComparison.Ordinal);
+        Assert.Contains("(  Program blocks)", pdf, StringComparison.Ordinal);
+        Assert.Contains("(    Main.xml)", pdf, StringComparison.Ordinal);
     }
 
     private static string Write(PdfReport report)

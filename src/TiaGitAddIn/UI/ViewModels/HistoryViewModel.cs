@@ -38,7 +38,7 @@ namespace TiaGitAddIn.UI.ViewModels
             this.repositoryPath = repositoryPath ?? string.Empty;
             RefreshCommand = new AsyncCommand(() => RefreshAsync(), () => !IsBusy);
             RestoreCommand = new AsyncCommand(() => RestoreSelectedCommitAsync(), () => !IsBusy && SelectedCommit != null);
-            ExportPdfCommand = new RelayCommand(_ => ExportPdf(), _ => !IsBusy && Commits.Count > 0);
+            ExportPdfCommand = new AsyncCommand(() => ExportPdfAsync(), () => !IsBusy && Commits.Count > 0);
             CancelCommand = new RelayCommand(_ => RequestCancel(), _ => IsBusy);
         }
 
@@ -83,7 +83,7 @@ namespace TiaGitAddIn.UI.ViewModels
 
         public AsyncCommand RefreshCommand { get; }
         public AsyncCommand RestoreCommand { get; }
-        public RelayCommand ExportPdfCommand { get; }
+        public AsyncCommand ExportPdfCommand { get; }
         public RelayCommand CancelCommand { get; }
 
         public Task OpenFile(string path)
@@ -131,12 +131,12 @@ namespace TiaGitAddIn.UI.ViewModels
             });
         }
 
-        private void ExportPdf()
+        private Task ExportPdfAsync()
         {
             if (Commits.Count == 0)
             {
                 LastOperationMessage = "There is no history to export. Refresh the history first.";
-                return;
+                return Task.CompletedTask;
             }
 
             SaveFileDialog dialog = new()
@@ -150,22 +150,41 @@ namespace TiaGitAddIn.UI.ViewModels
 
             if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.FileName))
             {
-                return;
+                return Task.CompletedTask;
             }
 
-            try
+            string path = dialog.FileName;
+            List<CommitInfo> commits = Commits.ToList();
+            return RunBusyAsync("Reading changed files for the PDF…", async ct =>
             {
-                IReadOnlyList<string> files = SelectedCommit == null
-                    ? Array.Empty<string>()
-                    : ChangedFiles.ToList();
-                PdfReport report = HistoryPdfReport.Create(repositoryPath, Commits.ToList(), SelectedCommit, files);
-                PdfReportWriter.Write(report, dialog.FileName);
-                LastOperationMessage = "Exported version history to " + dialog.FileName;
-            }
-            catch (Exception ex)
-            {
-                LastOperationMessage = "Unable to export the PDF. " + ex.Message;
-            }
+                var filesByCommit = new Dictionary<string, IReadOnlyList<string>?>(StringComparer.OrdinalIgnoreCase);
+                foreach (CommitInfo commit in commits)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    string hash = commit?.Hash ?? string.Empty;
+                    if (hash.Length == 0 || filesByCommit.ContainsKey(hash))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        filesByCommit[hash] = await gitService.GetCommitFilesAsync(hash, ct).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception)
+                    {
+                        filesByCommit[hash] = null;
+                    }
+                }
+
+                PdfReport report = HistoryPdfReport.Create(repositoryPath, commits, filesByCommit);
+                PdfReportWriter.Write(report, path);
+                InvokeOnUI(() => LastOperationMessage = "Exported version history to " + path);
+            });
         }
 
         private async void LoadChangedFilesAsync(CommitInfo? commit)
