@@ -126,6 +126,7 @@ namespace TiaGitAddIn.UI
                 var strategies = new IPlcComparisonStrategy[]
                 {
                     new LadComparisonStrategy(resultFactory, sanitizer),
+                    new SclComparisonStrategy(resultFactory, sanitizer),
                     new TextFallbackStrategy(resultFactory, () => configurationService.Load(repositoryRoot).CompareXmlByElement),
                 };
                 IPlcComparisonCoordinator comparisonCoordinator = new PlcComparisonCoordinator(
@@ -141,10 +142,14 @@ namespace TiaGitAddIn.UI
                     var mapper = new ComparisonPresentationMapper(new IComparisonPresentationViewModelFactory[]
                     {
                         new InterfacePresentationViewModelFactory(),
-                        new TextPresentationViewModelFactory(() => configurationService.Load(repositoryRoot).ShowScreenPreview),
+                        new TextPresentationViewModelFactory(
+                            () => configurationService.Load(repositoryRoot).ShowScreenPreview,
+                            () => configurationService.Load(repositoryRoot).ShowPlcTablePreview),
                         new UnsupportedPresentationViewModelFactory(),
                         new ErrorPresentationViewModelFactory(),
                         new LadPresentationViewModelFactory(logger, dispatcher),
+                        new SclPresentationViewModelFactory(
+                            () => configurationService.Load(repositoryRoot).ShowSclStructure),
                     });
 
                     return new MainViewModel(

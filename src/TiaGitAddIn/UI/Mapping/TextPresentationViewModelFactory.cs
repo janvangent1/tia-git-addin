@@ -9,10 +9,12 @@ namespace TiaGitAddIn.UI.Mapping
     public sealed class TextPresentationViewModelFactory : IComparisonPresentationViewModelFactory
     {
         private readonly Func<bool> showScreenPreview;
+        private readonly Func<bool> showPlcTable;
 
-        public TextPresentationViewModelFactory(Func<bool>? showScreenPreview = null)
+        public TextPresentationViewModelFactory(Func<bool>? showScreenPreview = null, Func<bool>? showPlcTable = null)
         {
             this.showScreenPreview = showScreenPreview ?? (() => true);
+            this.showPlcTable = showPlcTable ?? (() => true);
         }
 
         public bool CanMap(ComparisonPresentation presentation) => presentation is TextPresentation;
@@ -27,6 +29,7 @@ namespace TiaGitAddIn.UI.Mapping
             {
                 HmiFilePreview.TryCreate(metadata.RawText.LeftText, metadata.RawText.RightText, out preview);
                 preview = HmiFilePreview.ApplyScreenChoice(preview, showScreenPreview());
+                preview = HmiFilePreview.ApplyPlcChoice(preview, showPlcTable());
             }
 
             return new TextComparisonViewModel((TextPresentation)result.Presentation, metadata, preview);

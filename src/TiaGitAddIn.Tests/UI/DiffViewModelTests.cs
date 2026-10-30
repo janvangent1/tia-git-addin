@@ -134,18 +134,93 @@ namespace TiaGitAddIn.Tests.UI
 
             await viewModel.StartVersionWalkAsync(new[] { "PLC/Block.xml" });
 
-            Assert.Equal(2, viewModel.FileHistorySections.Count);
-            Assert.Contains("Version 2 of 2", viewModel.FileHistorySections[0].Title);
-            Assert.Contains(newer.Substring(0, 7), viewModel.FileHistorySections[0].Title);
-            Assert.Contains("Version 1 of 2", viewModel.FileHistorySections[1].Title);
-            Assert.Contains(older.Substring(0, 7), viewModel.FileHistorySections[1].Title);
-            Assert.NotNull(viewModel.FileHistorySections[0].Presentation);
-            Assert.NotNull(viewModel.FileHistorySections[1].Presentation);
-            Assert.Equal(older, revisions.RightSource!.CommitHash);
-            Assert.Equal(PlcRevisionSourceKind.ParentOfCommit, revisions.LeftSource!.Kind);
-            Assert.Equal("PLC/Block.xml", revisions.LastPath);
+            Assert.Equal(2, viewModel.FileHistoryLines.Count);
+            Assert.Contains(newer.Substring(0, 7), viewModel.FileHistoryLines[0].Title);
+            Assert.Contains("Newest edit", viewModel.FileHistoryLines[0].Title);
+            Assert.Contains("region", viewModel.FileHistoryLines[0].Regions);
+            Assert.Contains(older.Substring(0, 7), viewModel.FileHistoryLines[1].Title);
+            Assert.Contains("Older edit", viewModel.FileHistoryLines[1].Title);
+            Assert.NotNull(viewModel.CurrentPresentation);
+            Assert.Equal(newer, revisions.RightSource!.CommitHash);
             Assert.Contains(newer, git.PathLimitedCommits);
             Assert.Contains(older, git.PathLimitedCommits);
+
+            await viewModel.OpenHistoryLineAsync(viewModel.FileHistoryLines[1]);
+
+            Assert.Equal(older, revisions.RightSource.CommitHash);
+            Assert.Equal(PlcRevisionSourceKind.ParentOfCommit, revisions.LeftSource!.Kind);
+            Assert.Equal("PLC/Block.xml", revisions.LastPath);
+        }
+
+        [Fact]
+        public async Task ReviewCommitListsSclBlocksBySoftwareUnit()
+        {
+            var gitService = new FakeGitService
+            {
+                CommitDiff = new DiffResult
+                {
+                    Entries = new List<DiffEntry>
+                    {
+                        new DiffEntry
+                        {
+                            FilePath = "PLC/Software units/Unit_600_Motion/Program blocks/GoToPosition.scl",
+                            ChangeType = "M",
+                            Hunks = new List<DiffHunk>()
+                        },
+                        new DiffEntry
+                        {
+                            FilePath = "PLC/Software units/Unit_100_Library/Program blocks/ALARM.scl",
+                            ChangeType = "M",
+                            Hunks = new List<DiffHunk>()
+                        },
+                        new DiffEntry { FilePath = "PLC/Tags.xml", ChangeType = "M", Hunks = new List<DiffHunk>() }
+                    }
+                }
+            };
+            var viewModel = new DiffViewModel(
+                gitService, new RecordingRevisionProvider(), new StubComparisonCoordinator(), new StubMapper(),
+                uiDispatcher: ImmediateUiDispatcher.Instance);
+
+            await viewModel.LoadCommitDiffAsync("abc1234567890abcdef1234567890abcdef1234");
+
+            Assert.Equal(2, viewModel.ReviewBlocks.Count);
+            Assert.Equal("Unit_600_Motion   GoToPosition", viewModel.ReviewBlocks[0].Caption);
+            Assert.Equal("Unit_100_Library   ALARM", viewModel.ReviewBlocks[1].Caption);
+
+            viewModel.ToggleReviewCommand.Execute(null);
+            Assert.True(viewModel.IsReviewingCommit);
+            Assert.Contains("GoToPosition", viewModel.SelectedEntry!.FilePath);
+
+            viewModel.NextBlockCommand.Execute(null);
+            Assert.Contains("ALARM", viewModel.SelectedEntry.FilePath);
+        }
+
+        [Fact]
+        public async Task RangeDiffComparesTheTwoChosenCommits()
+        {
+            const string left = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+            const string right = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+            var git = new FakeGitService
+            {
+                CommitDiff = new DiffResult
+                {
+                    Entries = new List<DiffEntry>
+                    {
+                        new DiffEntry { FilePath = "PLC/Block.scl", ChangeType = "M", Hunks = new List<DiffHunk>() }
+                    }
+                }
+            };
+            var revisions = new RecordingRevisionProvider();
+            var viewModel = new DiffViewModel(
+                git, revisions, new StubComparisonCoordinator(), new StubMapper(),
+                uiDispatcher: ImmediateUiDispatcher.Instance);
+
+            await viewModel.LoadRangeDiffAsync(left, right);
+            await viewModel.SelectEntryAsync(viewModel.Entries[0], CancellationToken.None);
+
+            Assert.Equal(PlcRevisionSourceKind.Commit, revisions.LeftSource!.Kind);
+            Assert.Equal(left, revisions.LeftSource.CommitHash);
+            Assert.Equal(right, revisions.RightSource!.CommitHash);
         }
 
         [Fact]
@@ -399,6 +474,9 @@ namespace TiaGitAddIn.Tests.UI
             public Task<IReadOnlyList<string>> GetCommitFilesAsync(string commitHash, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<string>>(new List<string>());
             public Task<IReadOnlyList<string>> ListExportFilesAsync(string commitHash, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<string>>(new List<string>());
             public Task<IReadOnlyList<RemoteInfo>> GetRemotesAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<RemoteInfo>>(new List<RemoteInfo>());
+            public Task<PullPreview> PreviewPullAsync(string? remote = null, CancellationToken ct = default) => Task.FromResult(new PullPreview(new List<CommitInfo>(), new List<string>(), string.Empty));
+            public Task<(string? Ours, string? Theirs)> GetConflictSidesAsync(string path, CancellationToken ct = default) => Task.FromResult<(string?, string?)>((null, null));
+            public Task<DiffResult> GetRangeDiffAsync(string leftCommitHash, string rightCommitHash, CancellationToken ct = default) => Task.FromResult(CommitDiff);
         }
     }
 }

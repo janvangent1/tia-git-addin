@@ -95,6 +95,8 @@ namespace TiaGitAddIn.Configuration
                 CommitAuthorEmail = configuration.CommitAuthorEmail ?? string.Empty,
                 CompareXmlByElement = configuration.CompareXmlByElement,
                 ShowScreenPreview = configuration.ShowScreenPreview,
+                ShowPlcTablePreview = configuration.ShowPlcTablePreview,
+                ShowSclStructure = configuration.ShowSclStructure,
                 IgnoreTabExpansion = configuration.IgnoreTabExpansion,
                 IgnoreTrailingSpace = configuration.IgnoreTrailingSpace,
                 IgnoreSpaceChange = configuration.IgnoreSpaceChange,

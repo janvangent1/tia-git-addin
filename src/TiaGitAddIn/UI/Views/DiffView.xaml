@@ -54,6 +54,12 @@
                         Command="{Binding PreviousFileCommand}"
                         Padding="8,2"/>
                 <Button DockPanel.Dock="Left"
+                        Content="{Binding ReviewButtonText}"
+                        Command="{Binding ToggleReviewCommand}"
+                        Margin="0,0,6,0"
+                        Padding="8,2"
+                        ToolTip="List the SCL blocks in this commit, with the software-unit folder, and step from one block to the next."/>
+                <Button DockPanel.Dock="Left"
                         Content="Choose files"
                         Command="{Binding ChooseFilesCommand}"
                         Margin="0,0,6,0"
@@ -70,7 +76,8 @@
                       BorderThickness="0"
                       SelectedItemChanged="OnSelectionChanged"
                       VirtualizingPanel.IsVirtualizing="True"
-                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                      Visibility="{Binding IsReviewingCommit, Converter={StaticResource InvertVis}}">
                 <TreeView.Resources>
                     <conv:BoolToVisibilityConverter x:Key="FileVis"/>
                     <conv:BoolToVisibilityConverter x:Key="GroupVis" Invert="True"/>
@@ -114,69 +121,83 @@
                 </TreeView.ItemContainerStyle>
             </TreeView>
 
+            <DockPanel Grid.Row="1"
+                       Grid.Column="0"
+                       Visibility="{Binding IsReviewingCommit, Converter={StaticResource BoolToVis}}">
+                <StackPanel DockPanel.Dock="Top" Margin="8,4,8,6">
+                    <TextBlock Text="SCL blocks in this commit" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Previous block" Command="{Binding PreviousBlockCommand}" Padding="8,2" Margin="0,0,6,0"/>
+                        <Button Content="Next block" Command="{Binding NextBlockCommand}" Padding="8,2"/>
+                    </StackPanel>
+                </StackPanel>
+                <ListBox ItemsSource="{Binding ReviewBlocks}"
+                         SelectedItem="{Binding SelectedReviewBlock, Mode=TwoWay}"
+                         BorderThickness="0"
+                         SelectionChanged="OnReviewSelected">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Caption}" Margin="2" TextWrapping="Wrap"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+
             <GridSplitter Grid.Row="1"
                           Grid.Column="1"
                           Width="5"
                           HorizontalAlignment="Stretch"
                           Background="#DDDDDD"/>
 
-            <!-- Diff content panel: every artifact kind (text, LAD, interface-only, unsupported, error)
-                 renders through the one ComparisonPresentationHost, driven entirely by CurrentPresentation.
-                 Show history replaces that one comparison with every version, stacked. -->
+            <!-- One comparison stays open. File history is a list of versions beside it. -->
             <Grid Grid.Row="1" Grid.Column="2">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <DockPanel Margin="8,0,8,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <DockPanel Grid.ColumnSpan="2" Margin="8,0,8,4">
                     <Button DockPanel.Dock="Right"
                             Content="Show history"
                             Command="{Binding ShowHistoryCommand}"
                             Padding="8,2"
                             Visibility="{Binding HasFileHistory, Converter={StaticResource InvertVis}}"
-                            ToolTip="Show every version of this file in one view. The newest is at the top."/>
+                            ToolTip="List every version of this file. Open one version in the comparison."/>
                     <Button DockPanel.Dock="Right"
                             Content="Close history"
                             Command="{Binding CloseHistoryCommand}"
                             Padding="8,2"
                             Visibility="{Binding HasFileHistory, Converter={StaticResource BoolToVis}}"
-                            ToolTip="Return to the comparison that was open."/>
-                    <TextBlock Text="Every version of this file, newest at the top. Each block is the change made in that commit."
+                            ToolTip="Hide the version list."/>
+                    <TextBlock Text="Each line is one version. Select it to open that comparison."
                                VerticalAlignment="Center"
                                TextWrapping="Wrap"
                                Foreground="DimGray"
                                Visibility="{Binding HasFileHistory, Converter={StaticResource BoolToVis}}"/>
                 </DockPanel>
+                <ListBox Grid.Row="1"
+                         Grid.Column="0"
+                         Width="280"
+                         ItemsSource="{Binding FileHistoryLines}"
+                         SelectedItem="{Binding SelectedHistoryLine, Mode=TwoWay}"
+                         SelectionChanged="OnHistorySelected"
+                         BorderThickness="0"
+                         Visibility="{Binding HasFileHistory, Converter={StaticResource BoolToVis}}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="4,6">
+                                <TextBlock Text="{Binding Title}" TextWrapping="Wrap" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding Regions}" Foreground="DimGray"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
                 <comparison:ComparisonPresentationHost Grid.Row="1"
-                                                        DataContext="{Binding CurrentPresentation}"
-                                                        Visibility="{Binding DataContext.HasFileHistory, ElementName=DiffRoot, Converter={StaticResource InvertVis}}"/>
-                <ScrollViewer Grid.Row="1"
-                              VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled"
-                              Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"
-                              Visibility="{Binding HasFileHistory, Converter={StaticResource BoolToVis}}">
-                    <ItemsControl ItemsSource="{Binding FileHistorySections}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border BorderBrush="#DDDDDD"
-                                        BorderThickness="0,0,0,1"
-                                        Margin="0,0,0,12"
-                                        Padding="0,0,0,12"
-                                        Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}">
-                                    <DockPanel>
-                                        <TextBlock DockPanel.Dock="Top"
-                                                   Text="{Binding Title}"
-                                                   FontWeight="SemiBold"
-                                                   Margin="8,8,8,6"
-                                                   TextWrapping="Wrap"/>
-                                        <comparison:ComparisonPresentationHost DataContext="{Binding Presentation}"
-                                                                                Height="520"/>
-                                    </DockPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
+                                                        Grid.Column="1"
+                                                        DataContext="{Binding CurrentPresentation}"/>
             </Grid>
         </Grid>
 

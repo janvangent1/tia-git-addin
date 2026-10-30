@@ -24,6 +24,8 @@ namespace TiaGitAddIn.UI.ViewModels
         private ObservableCollection<string> changedFiles = new();
         private ObservableCollection<ChangeNode> changedFileGroups = new();
         private string lastOperationMessage = string.Empty;
+        private string compareFromText = "No commit chosen as the other side.";
+        private CommitInfo? compareFrom;
         private CancellationTokenSource? changedFilesCts;
 
         public HistoryViewModel(
@@ -40,6 +42,8 @@ namespace TiaGitAddIn.UI.ViewModels
             RestoreCommand = new AsyncCommand(() => RestoreSelectedCommitAsync(), () => !IsBusy && SelectedCommit != null);
             ExportPdfCommand = new AsyncCommand(() => ExportPdfAsync(), () => !IsBusy && Commits.Count > 0);
             ChooseFilesCommand = new AsyncCommand(ChooseFilesAsync, () => !IsBusy && this.repositoryPath.Length > 0);
+            MarkCompareFromCommand = new RelayCommand(_ => MarkCompareFrom(), _ => !IsBusy && SelectedCommit != null);
+            CompareWithSelectedCommand = new AsyncCommand(CompareWithSelectedAsync, () => !IsBusy && SelectedCommit != null && compareFrom != null);
             CancelCommand = new RelayCommand(_ => RequestCancel(), _ => IsBusy);
         }
 
@@ -57,6 +61,8 @@ namespace TiaGitAddIn.UI.ViewModels
                 if (SetProperty(selectedCommit, value, updated => selectedCommit = updated))
                 {
                     RestoreCommand.RaiseCanExecuteChanged();
+                    MarkCompareFromCommand?.RaiseCanExecuteChanged();
+                    CompareWithSelectedCommand?.RaiseCanExecuteChanged();
                     LoadChangedFilesAsync(value);
                 }
             }
@@ -88,7 +94,17 @@ namespace TiaGitAddIn.UI.ViewModels
         public AsyncCommand RestoreCommand { get; }
         public AsyncCommand ExportPdfCommand { get; }
         public AsyncCommand ChooseFilesCommand { get; }
+        public RelayCommand MarkCompareFromCommand { get; }
+        public AsyncCommand CompareWithSelectedCommand { get; }
         public RelayCommand CancelCommand { get; }
+
+        public Func<string, string, Task>? CompareRangeAsync { get; set; }
+
+        public string CompareFromText
+        {
+            get => compareFromText;
+            private set => SetProperty(compareFromText, value ?? string.Empty, updated => compareFromText = updated);
+        }
 
         private Task ChooseFilesAsync()
         {
@@ -146,6 +162,37 @@ namespace TiaGitAddIn.UI.ViewModels
             }
 
             return OpenFileAsync(path);
+        }
+
+        private void MarkCompareFrom()
+        {
+            if (SelectedCommit == null)
+            {
+                return;
+            }
+
+            compareFrom = SelectedCommit;
+            string hash = compareFrom.Hash ?? string.Empty;
+            string mark = hash.Length > 7 ? hash.Substring(0, 7) : hash;
+            CompareFromText = "Other side: " + mark + "  " + (compareFrom.Subject ?? string.Empty);
+            CompareWithSelectedCommand.RaiseCanExecuteChanged();
+        }
+
+        private Task CompareWithSelectedAsync()
+        {
+            if (compareFrom == null || SelectedCommit == null || CompareRangeAsync == null)
+            {
+                LastOperationMessage = "Choose the other side, then the commit to compare it with.";
+                return Task.CompletedTask;
+            }
+
+            if (string.Equals(compareFrom.Hash, SelectedCommit.Hash, StringComparison.OrdinalIgnoreCase))
+            {
+                LastOperationMessage = "Choose two different commits.";
+                return Task.CompletedTask;
+            }
+
+            return CompareRangeAsync(compareFrom.Hash, SelectedCommit.Hash);
         }
 
         public Task RefreshAsync() =>
@@ -287,6 +334,8 @@ namespace TiaGitAddIn.UI.ViewModels
                 RestoreCommand.RaiseCanExecuteChanged();
                 ExportPdfCommand.RaiseCanExecuteChanged();
                 ChooseFilesCommand.RaiseCanExecuteChanged();
+                MarkCompareFromCommand.RaiseCanExecuteChanged();
+                CompareWithSelectedCommand.RaiseCanExecuteChanged();
                 CancelCommand.RaiseCanExecuteChanged();
             });
         }

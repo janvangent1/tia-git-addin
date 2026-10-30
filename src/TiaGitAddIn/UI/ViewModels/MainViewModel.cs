@@ -16,6 +16,8 @@ namespace TiaGitAddIn.UI.ViewModels
 {
     public sealed class MainViewModel : ViewModelBase
     {
+        private readonly IGitService gitService;
+
         public MainViewModel(
             string repositoryPath,
             IGitService gitService,
@@ -42,6 +44,7 @@ namespace TiaGitAddIn.UI.ViewModels
                 throw new ArgumentNullException(nameof(configurationService));
 
             RepositoryPath = repositoryPath;
+            this.gitService = gitService;
             Status = new StatusViewModel(gitService, UiDispatcher, ShowWorkingTreeDiffAsync, OpenWorkingTreeFileAsync);
             Commit = new CommitViewModel(gitService, RefreshAfterCommitAsync, UiDispatcher);
             Branch = new BranchViewModel(
@@ -56,6 +59,8 @@ namespace TiaGitAddIn.UI.ViewModels
             About = new AboutViewModel();
             History.OpenFileAsync = OpenHistoryFileAsync;
             History.OpenFileHistoryAsync = OpenFileHistoryAsync;
+            History.CompareRangeAsync = OpenRangeDiffAsync;
+            Status.CompareConflictAsync = OpenConflictAsync;
             Hmi = new HmiExchangeViewModel(
                 repositoryPath,
                 hmiExchange ?? new UnavailableHmiDeviceExchange(),
@@ -118,6 +123,19 @@ namespace TiaGitAddIn.UI.ViewModels
         {
             SelectedTabIndex = DiffTabIndex;
             return OpenDiffFileAsync(null, path);
+        }
+
+        private Task OpenRangeDiffAsync(string leftHash, string rightHash)
+        {
+            SelectedTabIndex = DiffTabIndex;
+            return Diff.LoadRangeDiffAsync(leftHash, rightHash);
+        }
+
+        private async Task OpenConflictAsync(string path)
+        {
+            SelectedTabIndex = DiffTabIndex;
+            (string? ours, string? theirs) = await gitService.GetConflictSidesAsync(path).ConfigureAwait(false);
+            await Diff.ShowConflictAsync(path, ours, theirs).ConfigureAwait(false);
         }
 
         private Task OpenFileHistoryAsync(System.Collections.Generic.IReadOnlyList<string> paths)

@@ -62,6 +62,7 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
             UsedLinearFallback = presentation.UsedLinearFallback;
             ScreenPanes = HmiPreviewBuilder.Screens(preview);
             TagRows = preview != null && preview.IsTagTable ? preview.Tags : Array.Empty<HmiTagPreviewRow>();
+            IsPlcTable = preview != null && preview.IsPlcTable;
             changeStarts = FindChangeStarts(Lines);
             PreviousChangeCommand = new RelayCommand(_ => GoToPreviousChange(), _ => CanGoToPreviousChange);
             NextChangeCommand = new RelayCommand(_ => GoToNextChange(), _ => CanGoToNextChange);
@@ -79,7 +80,9 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
         public IReadOnlyList<HmiTagPreviewRow> TagRows { get; }
         public bool HasScreenPreview => ScreenPanes.Count > 0;
         public bool HasTagPreview => TagRows.Count > 0;
-        public bool ShowTextLines => !HasScreenPreview;
+        public bool IsPlcTable { get; }
+        public bool HasHmiTagPreview => HasTagPreview && !IsPlcTable;
+        public bool ShowTextLines => !HasScreenPreview && !IsPlcTable;
         public bool ShowTruncationBanner => IsTruncated && ShowTextLines;
 
         /// <summary>The first line of the changed block last jumped to, or null before any jump.</summary>

@@ -52,10 +52,14 @@ namespace TiaGitAddIn.UI.ViewModels
             DiscardSelectedCommand = new AsyncCommand(p => DiscardSelectedAsync(p), _ => !IsBusy);
             StageAllCommand = new AsyncCommand(() => StageAllAsync(), () => !IsBusy);
             OpenSelectedCommand = new AsyncCommand(p => OpenSelectedAsync(p), _ => !IsBusy);
+            CompareConflictCommand = new AsyncCommand(() => CompareSelectedConflictAsync(), () => !IsBusy && SelectedConflictPath() != null);
+            MarkResolvedCommand = new AsyncCommand(() => MarkSelectedResolvedAsync(), () => !IsBusy && SelectedConflictPath() != null);
             CancelCommand = new RelayCommand(_ => RequestCancel(), _ => IsBusy);
         }
 
         public Func<string, bool>? Confirm { get; set; }
+
+        public Func<string, Task>? CompareConflictAsync { get; set; }
 
         public ObservableCollection<FileStatusItemViewModel> StagedEntries
         {
@@ -124,7 +128,14 @@ namespace TiaGitAddIn.UI.ViewModels
         public FileStatusItemViewModel? SelectedEntry
         {
             get => selectedEntry;
-            set => SetProperty(selectedEntry, value, updated => selectedEntry = updated);
+            set
+            {
+                if (SetProperty(selectedEntry, value, updated => selectedEntry = updated))
+                {
+                    CompareConflictCommand?.RaiseCanExecuteChanged();
+                    MarkResolvedCommand?.RaiseCanExecuteChanged();
+                }
+            }
         }
 
         public ObservableCollection<FileStatusItemViewModel> Entries
@@ -164,6 +175,8 @@ namespace TiaGitAddIn.UI.ViewModels
         public AsyncCommand DiscardSelectedCommand { get; }
         public AsyncCommand StageAllCommand { get; }
         public AsyncCommand OpenSelectedCommand { get; }
+        public AsyncCommand CompareConflictCommand { get; }
+        public AsyncCommand MarkResolvedCommand { get; }
         public RelayCommand CancelCommand { get; }
 
         private bool HasComparableChanges => stagedSource.Count > 0 || unstagedSource.Count > 0;
@@ -259,6 +272,58 @@ namespace TiaGitAddIn.UI.ViewModels
             return openFileAsync(entry.FilePath);
         }
 
+        public Task CompareSelectedConflictAsync()
+        {
+            string? path = SelectedConflictPath();
+            if (path == null || CompareConflictAsync == null)
+            {
+                LastOperationMessage = "Select a conflicted file first.";
+                return Task.CompletedTask;
+            }
+
+            return CompareConflictAsync(path);
+        }
+
+        public Task MarkSelectedResolvedAsync()
+        {
+            string? path = SelectedConflictPath();
+            if (path == null)
+            {
+                LastOperationMessage = "Select a conflicted file first.";
+                return Task.CompletedTask;
+            }
+
+            return RunBusyAsync("Marking resolved…", async ct =>
+            {
+                OperationResult result = await gitService.StageAsync(new[] { path }, ct).ConfigureAwait(false);
+                InvokeOnUI(() => LastOperationMessage = result.Success
+                    ? "Marked resolved. Git will keep the file as it is in TIA."
+                    : GitUserMessages.Describe(result));
+                if (result.Success)
+                {
+                    await LoadStatusCoreAsync(ct).ConfigureAwait(false);
+                }
+            });
+        }
+
+        private string? SelectedConflictPath()
+        {
+            if (SelectedEntry == null)
+            {
+                return null;
+            }
+
+            foreach (FileStatusItemViewModel item in conflictedSource)
+            {
+                if (string.Equals(item.FilePath, SelectedEntry.FilePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return item.FilePath;
+                }
+            }
+
+            return null;
+        }
+
         public Task StageAllAsync() =>
             RunBusyAsync("Staging all files…", async ct =>
             {
@@ -341,6 +406,8 @@ namespace TiaGitAddIn.UI.ViewModels
                 DiscardSelectedCommand.RaiseCanExecuteChanged();
                 StageAllCommand.RaiseCanExecuteChanged();
                 OpenSelectedCommand.RaiseCanExecuteChanged();
+                CompareConflictCommand.RaiseCanExecuteChanged();
+                MarkResolvedCommand.RaiseCanExecuteChanged();
                 CancelCommand.RaiseCanExecuteChanged();
             });
         }

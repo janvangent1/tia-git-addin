@@ -21,6 +21,12 @@ namespace TiaGitAddIn.Services
 
         Task<OperationResult> PullAsync(string? remote = null, string? branch = null, CancellationToken ct = default);
 
+        Task<PullPreview> PreviewPullAsync(string? remote = null, CancellationToken ct = default);
+
+        Task<(string? Ours, string? Theirs)> GetConflictSidesAsync(string path, CancellationToken ct = default);
+
+        Task<DiffResult> GetRangeDiffAsync(string leftCommitHash, string rightCommitHash, CancellationToken ct = default);
+
         Task<OperationResult> PushAsync(string? remote = null, string? branch = null, CancellationToken ct = default);
 
         Task<IReadOnlyList<BranchInfo>> GetBranchesAsync(CancellationToken ct = default);

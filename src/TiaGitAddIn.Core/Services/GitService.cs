@@ -127,6 +127,115 @@ namespace TiaGitAddIn.Services
             return ToOperationResult(result, "Pull completed.", "Unable to pull from remote.");
         }
 
+        public async Task<PullPreview> PreviewPullAsync(string? remote = null, CancellationToken ct = default)
+        {
+            OperationResult fetch = await FetchAsync(remote, ct).ConfigureAwait(false);
+            if (!fetch.Success)
+            {
+                return new PullPreview(Array.Empty<CommitInfo>(), Array.Empty<string>(), fetch.Message);
+            }
+
+            GitProcessResult upstream = await RunAsync(
+                new[] { "rev-parse", "--abbrev-ref", "@{upstream}" },
+                ct).ConfigureAwait(false);
+            if (!upstream.IsSuccess)
+            {
+                return new PullPreview(
+                    Array.Empty<CommitInfo>(),
+                    Array.Empty<string>(),
+                    "This branch does not track a remote branch.");
+            }
+
+            string target = (upstream.StandardOutput ?? string.Empty).Trim();
+            GitProcessResult log = await RunAsync(
+                new[] { "log", "--date=iso-strict", "--pretty=format:" + PrettyCommitFormat, "HEAD.." + target },
+                ct).ConfigureAwait(false);
+            if (!log.IsSuccess)
+            {
+                return new PullPreview(Array.Empty<CommitInfo>(), Array.Empty<string>(), "Unable to read the incoming commits.");
+            }
+
+            var commits = new List<CommitInfo>(GitOutputParser.ParseCommitLog(log.StandardOutput ?? string.Empty));
+            GitProcessResult names = await RunAsync(
+                new[] { "diff", "--name-only", "HEAD..." + target },
+                ct).ConfigureAwait(false);
+            var plcFiles = new List<string>();
+            int otherFiles = 0;
+            if (names.IsSuccess)
+            {
+                foreach (string raw in (names.StandardOutput ?? string.Empty).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    string path = raw.Trim();
+                    if (path.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    if (IsPlcPath(path))
+                    {
+                        plcFiles.Add(path);
+                    }
+                    else
+                    {
+                        otherFiles++;
+                    }
+                }
+            }
+
+            string message = commits.Count == 0
+                ? "Nothing new to pull."
+                : commits.Count + " commit(s) will arrive, including " + plcFiles.Count + " PLC file(s)."
+                    + (otherFiles > 0 ? " " + otherFiles + " other file(s) will arrive as well." : string.Empty);
+            return new PullPreview(commits, plcFiles, message);
+        }
+
+        public async Task<(string? Ours, string? Theirs)> GetConflictSidesAsync(string path, CancellationToken ct = default)
+        {
+            string relative = NormalizeRepositoryPath(path);
+            string? ours = await ReadStageAsync(2, relative, ct).ConfigureAwait(false);
+            string? theirs = await ReadStageAsync(3, relative, ct).ConfigureAwait(false);
+            return (ours, theirs);
+        }
+
+        public async Task<DiffResult> GetRangeDiffAsync(string leftCommitHash, string rightCommitHash, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(leftCommitHash) || !CommitHashPattern.IsMatch(leftCommitHash)
+                || string.IsNullOrWhiteSpace(rightCommitHash) || !CommitHashPattern.IsMatch(rightCommitHash))
+            {
+                throw new ArgumentException("Both commits must be selected.");
+            }
+
+            GitProcessResult result = await RunAsync(
+                new[] { "diff", "--no-color", leftCommitHash, rightCommitHash },
+                ct).ConfigureAwait(false);
+            EnsureSuccess(result, "Unable to compare those commits.");
+            return GitOutputParser.ParseDiff(result.StandardOutput);
+        }
+
+        private async Task<string?> ReadStageAsync(int stage, string path, CancellationToken ct)
+        {
+            GitProcessResult result = await RunAsync(
+                new[] { "show", ":" + stage.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":" + path },
+                ct).ConfigureAwait(false);
+            if (!result.IsSuccess || result.StandardOutput == null)
+            {
+                return null;
+            }
+
+            if (result.StandardOutput.IndexOf('\0') >= 0)
+            {
+                return null;
+            }
+
+            return result.StandardOutput;
+        }
+
+        private static bool IsPlcPath(string path)
+        {
+            return path.EndsWith(".scl", StringComparison.OrdinalIgnoreCase)
+                || path.IndexOf("PLC", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         public async Task<OperationResult> PushAsync(string? remote = null, string? branch = null, CancellationToken ct = default)
         {
             List<string> args = new() { "push", remote ?? "origin" };

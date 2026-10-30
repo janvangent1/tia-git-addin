@@ -158,7 +158,7 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
             PlcRevisionLease? rightLease = null;
             try
             {
-                (PlcRevisionSource leftSource, PlcRevisionSource rightSource) = ResolveSources(selection.CommitHash);
+                (PlcRevisionSource leftSource, PlcRevisionSource rightSource) = ResolveSources(selection);
 
                 PlcComparisonResult? loadErrorResult = null;
                 try
@@ -221,14 +221,49 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
             }
         }
 
-        private static (PlcRevisionSource Left, PlcRevisionSource Right) ResolveSources(string? commitHash)
+        public async Task CompareTextsAsync(string path, string? leftText, string? rightText, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrEmpty(commitHash))
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                throw new ArgumentException("A file path is required.", nameof(path));
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            PlcRevision left = TextRevision(PlcRevisionSide.Left, path, leftText);
+            PlcRevision right = TextRevision(PlcRevisionSide.Right, path, rightText);
+            PlcComparisonResult result = await comparisonCoordinator.CompareAsync(left, right, cancellationToken).ConfigureAwait(false);
+            ComparisonPresentationViewModel viewModel = mapper.Map(result);
+            dispatcher.Invoke(() => apply(viewModel));
+        }
+
+        private static PlcRevision TextRevision(PlcRevisionSide side, string path, string? text)
+        {
+            if (text == null)
+            {
+                PlcRevisionMissingReason reason = side == PlcRevisionSide.Left
+                    ? PlcRevisionMissingReason.Added
+                    : PlcRevisionMissingReason.Deleted;
+                return PlcRevision.Missing(side, PlcRevisionSource.Head, path, reason);
+            }
+
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(text);
+            return PlcRevision.Present(
+                side, PlcRevisionSource.Head, path, bytes, PlcTextEncoding.Utf8WithoutBom, text, false, string.Empty);
+        }
+
+        private static (PlcRevisionSource Left, PlcRevisionSource Right) ResolveSources(ComparisonSelection selection)
+        {
+            if (!string.IsNullOrEmpty(selection.LeftCommitHash) && !string.IsNullOrEmpty(selection.CommitHash))
+            {
+                return (PlcRevisionSource.Commit(selection.LeftCommitHash!), PlcRevisionSource.Commit(selection.CommitHash!));
+            }
+
+            if (string.IsNullOrEmpty(selection.CommitHash))
             {
                 return (PlcRevisionSource.Head, PlcRevisionSource.WorkingTree);
             }
 
-            return (PlcRevisionSource.ParentOfCommit(commitHash!), PlcRevisionSource.Commit(commitHash!));
+            return (PlcRevisionSource.ParentOfCommit(selection.CommitHash!), PlcRevisionSource.Commit(selection.CommitHash!));
         }
 
         public void Dispose()

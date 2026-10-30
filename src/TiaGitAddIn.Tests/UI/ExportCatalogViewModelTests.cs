@@ -109,6 +109,9 @@ namespace TiaGitAddIn.Tests.UI
             public Task<IReadOnlyList<FileRevision>> GetFileHistoryAsync(IReadOnlyList<string> repositoryRelativePaths, int maxCount, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<FileRevision>>(new List<FileRevision>());
             public Task<IReadOnlyList<string>> GetCommitFilesAsync(string commitHash, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<string>>(new List<string>());
             public Task<IReadOnlyList<RemoteInfo>> GetRemotesAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<RemoteInfo>>(new List<RemoteInfo>());
+            public Task<PullPreview> PreviewPullAsync(string? remote = null, CancellationToken ct = default) => Task.FromResult(new PullPreview(new List<CommitInfo>(), new List<string>(), string.Empty));
+            public Task<(string? Ours, string? Theirs)> GetConflictSidesAsync(string path, CancellationToken ct = default) => Task.FromResult<(string?, string?)>((null, null));
+            public Task<DiffResult> GetRangeDiffAsync(string leftCommitHash, string rightCommitHash, CancellationToken ct = default) => Task.FromResult(new DiffResult());
         }
     }
 }

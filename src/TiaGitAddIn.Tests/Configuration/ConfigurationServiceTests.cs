@@ -32,6 +32,7 @@ namespace TiaGitAddIn.Tests.Configuration
                 Assert.Equal(config.CommitAuthorName, loaded.CommitAuthorName);
                 Assert.True(loaded.CompareXmlByElement);
                 Assert.True(loaded.ShowScreenPreview);
+                Assert.True(loaded.ShowSclStructure);
                 Assert.True(loaded.IgnoreAllSpace);
                 Assert.False(loaded.IgnoreBlankLines);
                 Assert.False(loaded.IgnoreComments);
@@ -142,6 +143,7 @@ namespace TiaGitAddIn.Tests.Configuration
                     IgnoreBlankLines = true,
                     IgnoreComments = true,
                     ShowScreenPreview = false,
+                    ShowSclStructure = false,
                     DisabledHmiCategories = new System.Collections.Generic.List<string> { "Screens" },
                     DisabledHardwareCategories = new System.Collections.Generic.List<string> { "Drives" },
                     SiemensCompareToolPath = @"C:\Tools\compare.exe",
@@ -167,6 +169,7 @@ namespace TiaGitAddIn.Tests.Configuration
                 Assert.True(loaded.IgnoreBlankLines);
                 Assert.True(loaded.IgnoreComments);
                 Assert.False(loaded.ShowScreenPreview);
+                Assert.False(loaded.ShowSclStructure);
                 Assert.Equal(new[] { "Screens" }, loaded.DisabledHmiCategories);
                 Assert.Equal(new[] { "Drives" }, loaded.DisabledHardwareCategories);
                 Assert.Equal(config.SiemensCompareToolPath, loaded.SiemensCompareToolPath);
@@ -217,6 +220,7 @@ namespace TiaGitAddIn.Tests.Configuration
                 Assert.Equal("git.exe", loaded.GitExecutablePath);
                 Assert.True(loaded.CompareXmlByElement);
                 Assert.True(loaded.ShowScreenPreview);
+                Assert.True(loaded.ShowSclStructure);
             }
             finally
             {

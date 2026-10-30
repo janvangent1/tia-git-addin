@@ -26,6 +26,8 @@ namespace TiaGitAddIn.UI.ViewModels
         private int maxLogEntries = 200;
         private bool compareXmlByElement = true;
         private bool showScreenPreview = true;
+        private bool showPlcTablePreview = true;
+        private bool showSclStructure = true;
         private bool ignoreTabExpansion;
         private bool ignoreTrailingSpace;
         private bool ignoreSpaceChange;
@@ -171,6 +173,70 @@ namespace TiaGitAddIn.UI.ViewModels
             new ScreenDiffChoice("XML text", false)
         };
 
+        public IReadOnlyList<ScreenDiffChoice> PlcTableDiffChoices { get; } = new[]
+        {
+            new ScreenDiffChoice("Grid", true),
+            new ScreenDiffChoice("XML text", false)
+        };
+
+        public IReadOnlyList<ScreenDiffChoice> SclDiffChoices { get; } = new[]
+        {
+            new ScreenDiffChoice("Structure", true),
+            new ScreenDiffChoice("Text", false)
+        };
+
+        public ScreenDiffChoice SelectedPlcTableDiff
+        {
+            get
+            {
+                foreach (ScreenDiffChoice choice in PlcTableDiffChoices)
+                {
+                    if (choice.ShowPreview == showPlcTablePreview)
+                    {
+                        return choice;
+                    }
+                }
+
+                return PlcTableDiffChoices[0];
+            }
+            set
+            {
+                if (value == null || value.ShowPreview == showPlcTablePreview)
+                {
+                    return;
+                }
+
+                showPlcTablePreview = value.ShowPreview;
+                OnPropertyChanged();
+            }
+        }
+
+        public ScreenDiffChoice SelectedSclDiff
+        {
+            get
+            {
+                foreach (ScreenDiffChoice choice in SclDiffChoices)
+                {
+                    if (choice.ShowPreview == showSclStructure)
+                    {
+                        return choice;
+                    }
+                }
+
+                return SclDiffChoices[0];
+            }
+            set
+            {
+                if (value == null || value.ShowPreview == showSclStructure)
+                {
+                    return;
+                }
+
+                showSclStructure = value.ShowPreview;
+                OnPropertyChanged();
+            }
+        }
+
         public ScreenDiffChoice SelectedScreenDiff
         {
             get
@@ -254,6 +320,8 @@ namespace TiaGitAddIn.UI.ViewModels
             maxLogEntries = config.MaxLogEntries;
             compareXmlByElement = config.CompareXmlByElement;
             showScreenPreview = config.ShowScreenPreview;
+            showPlcTablePreview = config.ShowPlcTablePreview;
+            showSclStructure = config.ShowSclStructure;
             ignoreTabExpansion = config.IgnoreTabExpansion;
             ignoreTrailingSpace = config.IgnoreTrailingSpace;
             ignoreSpaceChange = config.IgnoreSpaceChange;
@@ -307,6 +375,8 @@ namespace TiaGitAddIn.UI.ViewModels
                 CommitAuthorEmail = CommitAuthorEmail.Trim(),
                 CompareXmlByElement = compareXmlByElement,
                 ShowScreenPreview = showScreenPreview,
+                ShowPlcTablePreview = showPlcTablePreview,
+                ShowSclStructure = showSclStructure,
                 IgnoreTabExpansion = ignoreTabExpansion,
                 IgnoreTrailingSpace = ignoreTrailingSpace,
                 IgnoreSpaceChange = ignoreSpaceChange,

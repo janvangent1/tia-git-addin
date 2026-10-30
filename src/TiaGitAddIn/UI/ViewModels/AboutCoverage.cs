@@ -43,7 +43,7 @@ namespace TiaGitAddIn.UI.ViewModels
 
     public static class AddInVersion
     {
-        public const string Current = "1.2.62";
+        public const string Current = "1.2.65";
     }
 
     /// <summary>

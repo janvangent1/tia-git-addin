@@ -89,7 +89,8 @@
         </Expander>
 
         <!-- Semantic content: TabControl with the dedicated presentation view plus an optional raw-text tab. -->
-        <TabControl Grid.Row="3"
+        <TabControl x:Name="ComparisonTabs"
+                    Grid.Row="3"
                     Margin="4,0,4,4">
             <TabItem Header="Comparison">
                 <ContentControl Content="{Binding}"/>

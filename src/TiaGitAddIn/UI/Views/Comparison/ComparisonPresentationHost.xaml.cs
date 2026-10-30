@@ -27,6 +27,7 @@ namespace TiaGitAddIn.UI.Views.Comparison
             if (e.NewValue is ComparisonPresentationViewModel presentation)
             {
                 rawText = presentation.Metadata.RawText;
+                ComparisonTabs.SelectedIndex = presentation.OpenRawText && presentation.HasRawText ? 1 : 0;
             }
 
             if (rawText != null)

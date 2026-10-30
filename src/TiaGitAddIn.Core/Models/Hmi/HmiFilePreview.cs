@@ -66,13 +66,16 @@ namespace TiaGitAddIn.Models.Hmi
 
     public sealed class HmiTagPreviewRow
     {
-        public HmiTagPreviewRow(string name, string address, string dataType, string comment, string change)
+        public HmiTagPreviewRow(string name, string address, string dataType, string comment, string change,
+            string retain = "", string defaultValue = "")
         {
             Name = name ?? string.Empty;
             Address = address ?? string.Empty;
             DataType = dataType ?? string.Empty;
             Comment = comment ?? string.Empty;
             Change = change ?? "Unchanged";
+            Retain = retain ?? string.Empty;
+            DefaultValue = defaultValue ?? string.Empty;
         }
 
         public string Name { get; }
@@ -80,6 +83,8 @@ namespace TiaGitAddIn.Models.Hmi
         public string DataType { get; }
         public string Comment { get; }
         public string Change { get; }
+        public string Retain { get; }
+        public string DefaultValue { get; }
     }
 
     public sealed class HmiFilePreview
@@ -87,11 +92,13 @@ namespace TiaGitAddIn.Models.Hmi
         private HmiFilePreview(
             HmiScreenSidePreview? leftScreen,
             HmiScreenSidePreview? rightScreen,
-            IReadOnlyList<HmiTagPreviewRow> tags)
+            IReadOnlyList<HmiTagPreviewRow> tags,
+            bool isPlcTable = false)
         {
             LeftScreen = leftScreen;
             RightScreen = rightScreen;
             Tags = tags ?? Array.Empty<HmiTagPreviewRow>();
+            IsPlcTable = isPlcTable;
         }
 
         public HmiScreenSidePreview? LeftScreen { get; }
@@ -99,6 +106,20 @@ namespace TiaGitAddIn.Models.Hmi
         public IReadOnlyList<HmiTagPreviewRow> Tags { get; }
         public bool IsScreen => LeftScreen != null || RightScreen != null;
         public bool IsTagTable => Tags.Count > 0;
+        public bool IsPlcTable { get; }
+
+        /// <summary>
+        /// Drops a PLC tag table or data type grid when Settings asks for the XML text.
+        /// </summary>
+        public static HmiFilePreview? ApplyPlcChoice(HmiFilePreview? preview, bool showPlcTable)
+        {
+            if (preview == null || showPlcTable || !preview.IsPlcTable)
+            {
+                return preview;
+            }
+
+            return null;
+        }
 
         /// <summary>
         /// Drops a screen drawing when Settings asks for the XML text. A tag table is left as it is.
@@ -133,13 +154,20 @@ namespace TiaGitAddIn.Models.Hmi
             }
 
             IReadOnlyList<HmiTagPreviewRow> tags = CompareTags(ReadTags(leftText), ReadTags(rightText));
-            if (tags.Count == 0)
+            if (tags.Count > 0)
+            {
+                preview = new HmiFilePreview(null, null, tags);
+                return true;
+            }
+
+            IReadOnlyList<HmiTagPreviewRow> plc = CompareTags(ReadPlcTable(leftText), ReadPlcTable(rightText));
+            if (plc.Count == 0)
             {
                 preview = null;
                 return false;
             }
 
-            preview = new HmiFilePreview(null, null, tags);
+            preview = new HmiFilePreview(null, null, plc, true);
             return true;
         }
 
@@ -350,6 +378,142 @@ namespace TiaGitAddIn.Models.Hmi
                 || localName.IndexOf("I/O field", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        private static List<TagDraft> ReadPlcTable(string text)
+        {
+            var rows = new List<TagDraft>();
+            if (string.IsNullOrWhiteSpace(text) || text.IndexOf("<", StringComparison.Ordinal) < 0)
+            {
+                return rows;
+            }
+
+            if (text.IndexOf("PlcTag", StringComparison.OrdinalIgnoreCase) < 0
+                && text.IndexOf("PlcStruct", StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                return rows;
+            }
+
+            XDocument document;
+            try
+            {
+                document = XDocument.Parse(text);
+            }
+            catch (System.Xml.XmlException)
+            {
+                return rows;
+            }
+
+            if (document.Root == null)
+            {
+                return rows;
+            }
+
+            foreach (XElement element in document.Root.Descendants())
+            {
+                string local = element.Name.LocalName;
+                if (local.Equals("PlcTag", StringComparison.OrdinalIgnoreCase)
+                    || local.EndsWith(".PlcTag", StringComparison.OrdinalIgnoreCase))
+                {
+                    string name = TextOf(element, "Name");
+                    if (name.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    rows.Add(new TagDraft(
+                        name,
+                        TextOf(element, "LogicalAddress"),
+                        FirstNonEmpty(TextOf(element, "DataTypeName"), TextOf(element, "DataType")),
+                        CommentOf(element),
+                        RetainOf(element),
+                        TextOf(element, "StartValue")));
+                    continue;
+                }
+
+                if (!local.Equals("Member", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                string memberName = Attribute(element, "Name");
+                string dataType = Attribute(element, "Datatype");
+                if (memberName.Length == 0 || dataType.Length == 0)
+                {
+                    continue;
+                }
+
+                rows.Add(new TagDraft(
+                    memberName,
+                    string.Empty,
+                    dataType,
+                    CommentOf(element),
+                    string.Empty,
+                    FirstNonEmpty(Attribute(element, "StartValue"), TextOf(element, "StartValue"))));
+            }
+
+            return rows;
+        }
+
+        private static string CommentOf(XElement element)
+        {
+            string direct = TextOf(element, "Comment");
+            if (direct.Length > 0)
+            {
+                return direct;
+            }
+
+            foreach (XElement child in element.Descendants())
+            {
+                string local = child.Name.LocalName;
+                if (!local.Equals("MultiLanguageText", StringComparison.OrdinalIgnoreCase)
+                    && !local.Equals("Text", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (child.HasElements)
+                {
+                    continue;
+                }
+
+                string value = (child.Value ?? string.Empty).Trim();
+                if (value.Length > 0)
+                {
+                    return value;
+                }
+            }
+
+            return string.Empty;
+        }
+
+        private static string RetainOf(XElement element)
+        {
+            string value = TextOf(element, "Retain");
+            if (value.Length == 0)
+            {
+                foreach (XElement child in element.Elements())
+                {
+                    if (child.Name.LocalName.IndexOf("Attribute", StringComparison.OrdinalIgnoreCase) >= 0
+                        && Attribute(child, "Name").Equals("Retain", StringComparison.OrdinalIgnoreCase))
+                    {
+                        value = (child.Value ?? string.Empty).Trim();
+                        break;
+                    }
+                }
+            }
+
+            if (value.Equals("true", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Yes";
+            }
+
+            if (value.Equals("false", StringComparison.OrdinalIgnoreCase) || value.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            return value;
+        }
+
         private static List<TagDraft> ReadTags(string text)
         {
             var tags = new List<TagDraft>();
@@ -485,27 +649,31 @@ namespace TiaGitAddIn.Models.Hmi
                 seen.Add(tag.Name);
                 if (!rightByName.TryGetValue(tag.Name, out TagDraft match))
                 {
-                    rows.Add(new HmiTagPreviewRow(tag.Name, tag.Address, tag.DataType, tag.Comment, "Removed"));
+                    rows.Add(new HmiTagPreviewRow(tag.Name, tag.Address, tag.DataType, tag.Comment, "Removed", tag.Retain, tag.DefaultValue));
                     continue;
                 }
 
                 bool addressSame = tag.Address == match.Address;
                 bool typeSame = tag.DataType == match.DataType;
                 bool commentSame = tag.Comment == match.Comment;
-                bool same = addressSame && typeSame && commentSame;
+                bool retainSame = tag.Retain == match.Retain;
+                bool defaultSame = tag.DefaultValue == match.DefaultValue;
+                bool same = addressSame && typeSame && commentSame && retainSame && defaultSame;
                 rows.Add(new HmiTagPreviewRow(
                     tag.Name,
                     addressSame ? tag.Address : tag.Address + " → " + match.Address,
                     typeSame ? tag.DataType : tag.DataType + " → " + match.DataType,
                     commentSame ? tag.Comment : tag.Comment + " → " + match.Comment,
-                    same ? "Unchanged" : "Changed"));
+                    same ? "Unchanged" : "Changed",
+                    retainSame ? tag.Retain : tag.Retain + " → " + match.Retain,
+                    defaultSame ? tag.DefaultValue : tag.DefaultValue + " → " + match.DefaultValue));
             }
 
             foreach (TagDraft tag in right)
             {
                 if (!seen.Contains(tag.Name))
                 {
-                    rows.Add(new HmiTagPreviewRow(tag.Name, tag.Address, tag.DataType, tag.Comment, "Added"));
+                    rows.Add(new HmiTagPreviewRow(tag.Name, tag.Address, tag.DataType, tag.Comment, "Added", tag.Retain, tag.DefaultValue));
                 }
             }
 
@@ -656,18 +824,22 @@ namespace TiaGitAddIn.Models.Hmi
 
         private sealed class TagDraft
         {
-            public TagDraft(string name, string address, string dataType, string comment)
+            public TagDraft(string name, string address, string dataType, string comment, string retain = "", string defaultValue = "")
             {
                 Name = name ?? string.Empty;
                 Address = address ?? string.Empty;
                 DataType = dataType ?? string.Empty;
                 Comment = comment ?? string.Empty;
+                Retain = retain ?? string.Empty;
+                DefaultValue = defaultValue ?? string.Empty;
             }
 
             public string Name { get; }
             public string Address { get; }
             public string DataType { get; }
             public string Comment { get; }
+            public string Retain { get; }
+            public string DefaultValue { get; }
         }
     }
 }

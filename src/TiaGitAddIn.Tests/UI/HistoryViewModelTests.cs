@@ -32,6 +32,52 @@ namespace TiaGitAddIn.Tests.UI
         }
 
         [Fact]
+        public async Task PullPreviewDoesNotPullUntilTheUserContinues()
+        {
+            var git = new FakeGitService(new TaskCompletionSource<IReadOnlyList<string>>())
+            {
+                Preview = new PullPreview(
+                    new List<CommitInfo> { new CommitInfo { Hash = "abc1234", Subject = "Bring the jog block" } },
+                    new List<string> { "PLC/Software units/Unit_100_Library/Program blocks/ALARM.scl" },
+                    "1 commit(s) will arrive, including 1 PLC file(s).")
+            };
+            var branch = new BranchViewModel(git);
+
+            branch.PullCommand.Execute(null);
+
+            Assert.Equal(0, git.PullCalls);
+            Assert.True(branch.HasPullPreview);
+            Assert.Contains("ALARM.scl", branch.PullPreviewText);
+            Assert.Contains("Bring the jog block", branch.PullPreviewText);
+
+            branch.ContinuePullCommand.Execute(null);
+            Assert.Equal(1, git.PullCalls);
+        }
+
+        [Fact]
+        public async Task CompareUsesTheTwoChosenCommits()
+        {
+            var git = new FakeGitService(new TaskCompletionSource<IReadOnlyList<string>>());
+            var history = new HistoryViewModel(git);
+            string? left = null;
+            string? right = null;
+            history.CompareRangeAsync = (from, to) =>
+            {
+                left = from;
+                right = to;
+                return Task.CompletedTask;
+            };
+            history.SelectedCommit = new CommitInfo { Hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Subject = "Older" };
+            history.MarkCompareFromCommand.Execute(null);
+            history.SelectedCommit = new CommitInfo { Hash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", Subject = "Newer" };
+
+            history.CompareWithSelectedCommand.Execute(null);
+
+            Assert.Equal("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", left);
+            Assert.Equal("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", right);
+        }
+
+        [Fact]
         public async Task RestoreSelectedCommitRestoresHashAndRefreshesStatus()
         {
             var gitService = new FakeGitService(new TaskCompletionSource<IReadOnlyList<string>>());
@@ -131,8 +177,11 @@ namespace TiaGitAddIn.Tests.UI
             public Task<OperationResult> FetchAsync(string? remote = null, CancellationToken ct = default) =>
                 Task.FromResult(OperationResult.Ok("Fetch completed."));
 
-            public Task<OperationResult> PullAsync(string? remote = null, string? branch = null, CancellationToken ct = default) =>
-                Task.FromResult(OperationResult.Ok("Pull completed."));
+            public Task<OperationResult> PullAsync(string? remote = null, string? branch = null, CancellationToken ct = default)
+            {
+                PullCalls++;
+                return Task.FromResult(OperationResult.Ok("Pull completed."));
+            }
 
             public Task<OperationResult> PushAsync(string? remote = null, string? branch = null, CancellationToken ct = default) =>
                 Task.FromResult(OperationResult.Ok("Push completed."));
@@ -192,6 +241,19 @@ namespace TiaGitAddIn.Tests.UI
 
             public Task<IReadOnlyList<RemoteInfo>> GetRemotesAsync(CancellationToken ct = default) =>
                 Task.FromResult<IReadOnlyList<RemoteInfo>>(new List<RemoteInfo>());
+
+            public PullPreview Preview { get; set; } = new PullPreview(new List<CommitInfo>(), new List<string>(), string.Empty);
+
+            public int PullCalls { get; private set; }
+
+            public Task<PullPreview> PreviewPullAsync(string? remote = null, CancellationToken ct = default) =>
+                Task.FromResult(Preview);
+
+            public Task<(string? Ours, string? Theirs)> GetConflictSidesAsync(string path, CancellationToken ct = default) =>
+                Task.FromResult<(string?, string?)>((null, null));
+
+            public Task<DiffResult> GetRangeDiffAsync(string leftCommitHash, string rightCommitHash, CancellationToken ct = default) =>
+                Task.FromResult(new DiffResult());
         }
     }
 }

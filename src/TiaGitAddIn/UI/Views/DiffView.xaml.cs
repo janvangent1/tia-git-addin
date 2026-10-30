@@ -37,5 +37,38 @@ namespace TiaGitAddIn.UI.Views
             try { await viewModel.SelectEntryAsync(entry, CancellationToken.None); }
             catch (OperationCanceledException) { }
         }
+
+        private async void OnReviewSelected(object sender, SelectionChangedEventArgs e)
+        {
+            if (DataContext is not DiffViewModel viewModel || viewModel.IsBusy)
+            {
+                return;
+            }
+
+            if (e.AddedItems.Count == 0 || e.AddedItems[0] is not DiffViewModel.ReviewBlock block)
+            {
+                return;
+            }
+
+            viewModel.SelectedEntry = block.Entry;
+            try { await viewModel.SelectEntryAsync(block.Entry, CancellationToken.None); }
+            catch (OperationCanceledException) { }
+        }
+
+        private async void OnHistorySelected(object sender, SelectionChangedEventArgs e)
+        {
+            if (DataContext is not DiffViewModel viewModel || viewModel.IsBusy)
+            {
+                return;
+            }
+
+            if (e.AddedItems.Count == 0 || e.AddedItems[0] is not DiffViewModel.FileHistoryLine line)
+            {
+                return;
+            }
+
+            try { await viewModel.OpenHistoryLineAsync(line); }
+            catch (OperationCanceledException) { }
+        }
     }
 }

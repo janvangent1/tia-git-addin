@@ -49,6 +49,18 @@ namespace TiaGitAddIn.Models
         /// </summary>
         public bool ShowScreenPreview { get; set; } = true;
 
+        /// <summary>
+        /// When true, a PLC tag table or data type is shown as a grid.
+        /// When false, that file stays as XML text.
+        /// </summary>
+        public bool ShowPlcTablePreview { get; set; } = true;
+
+        /// <summary>
+        /// When true, an SCL block opens on its declarations and statements.
+        /// When false, it opens on the colored lines. The other view stays on its tab.
+        /// </summary>
+        public bool ShowSclStructure { get; set; } = true;
+
         public List<string> DisabledHmiCategories { get; set; } = new List<string>();
 
         public List<string> DisabledHardwareCategories { get; set; } = new List<string>();

@@ -9,15 +9,17 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
     /// </summary>
     public sealed class ComparisonSelection
     {
-        public ComparisonSelection(string repositoryRelativePath, string? commitHash, PlcPairChangeKind changeKind)
+        public ComparisonSelection(string repositoryRelativePath, string? commitHash, PlcPairChangeKind changeKind, string? leftCommitHash = null)
         {
             RepositoryRelativePath = repositoryRelativePath;
             CommitHash = commitHash;
             ChangeKind = changeKind;
+            LeftCommitHash = leftCommitHash;
         }
 
         public string RepositoryRelativePath { get; }
         public string? CommitHash { get; }
         public PlcPairChangeKind ChangeKind { get; }
+        public string? LeftCommitHash { get; }
     }
 }

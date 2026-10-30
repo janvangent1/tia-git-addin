@@ -75,12 +75,25 @@
                 <Expander Header="Conflicts — Git cannot merge these files by itself"
                           IsExpanded="True"
                           Visibility="{Binding HasConflicts, Converter={StaticResource BoolToVis}}">
-                    <TreeView ItemsSource="{Binding ConflictedGroups}"
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <Button Content="Compare both sides"
+                                    Command="{Binding CompareConflictCommand}"
+                                    Padding="8,2"
+                                    Margin="0,0,6,0"
+                                    ToolTip="Show the two sides of the selected conflict in the comparison."/>
+                            <Button Content="Mark resolved"
+                                    Command="{Binding MarkResolvedCommand}"
+                                    Padding="8,2"
+                                    ToolTip="After the file is fixed in TIA, tell Git to keep that file."/>
+                        </StackPanel>
+                        <TreeView ItemsSource="{Binding ConflictedGroups}"
                               ItemTemplate="{StaticResource StatusNodeTemplate}"
                               ItemContainerStyle="{StaticResource ChangeTreeItemStyle}"
                               BorderThickness="0"
                               SelectedItemChanged="OnSelectionChanged"
                               MouseDoubleClick="OnDoubleClick"/>
+                    </StackPanel>
                 </Expander>
 
                 <Expander Header="Staged Changes" IsExpanded="True" Margin="0,8,0,0">

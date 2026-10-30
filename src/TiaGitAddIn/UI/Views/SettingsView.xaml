@@ -148,6 +148,28 @@
                 ToolTip="Screen preview draws buttons and I/O fields. XML text shows the exported file."/>
 
         <StackPanel Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="3" Margin="5,12,5,0">
+            <TextBlock Text="SCL" FontWeight="Bold"/>
+            <TextBlock Text="Structure lists the declarations and statements that changed. Text opens the colored lines. Both stay available: use Comparison and Raw text on the diff. Save, then open the diff again."
+                       TextWrapping="Wrap"
+                       Foreground="Gray"
+                       Margin="0,2,0,6"/>
+            <ComboBox ItemsSource="{Binding SclDiffChoices}"
+                      SelectedItem="{Binding SelectedSclDiff}"
+                      DisplayMemberPath="Caption"
+                      Margin="0,0,0,12"
+                      HorizontalAlignment="Left"
+                      MinWidth="220"/>
+            <TextBlock Text="PLC tags and data types" FontWeight="Bold"/>
+            <TextBlock Text="A tag table shows name, address, type, retain, and comment. A data type lists its members. XML text shows the exported file. Save, then open the diff again."
+                       TextWrapping="Wrap"
+                       Foreground="Gray"
+                       Margin="0,2,0,6"/>
+            <ComboBox ItemsSource="{Binding PlcTableDiffChoices}"
+                      SelectedItem="{Binding SelectedPlcTableDiff}"
+                      DisplayMemberPath="Caption"
+                      Margin="0,0,0,12"
+                      HorizontalAlignment="Left"
+                      MinWidth="220"/>
             <TextBlock Text="Whitespace" FontWeight="Bold"/>
             <TextBlock Text="These follow Git's diff options. If several are checked, the strongest one is used. Ignore all white space covers the others, except blank lines. Save stores every setting in this workspace. Then open the diff again."
                        TextWrapping="Wrap"
