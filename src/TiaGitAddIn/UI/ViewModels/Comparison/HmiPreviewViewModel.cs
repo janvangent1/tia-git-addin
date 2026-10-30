@@ -24,7 +24,7 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
             Ink = marked ? Freeze(Color.FromRgb(20, 20, 20)) : Freeze(Color.FromRgb(150, 150, 150));
             LabelWeight = marked ? FontWeights.Bold : FontWeights.Normal;
             ToolTipText = marked
-                ? Change + ": " + Label + (string.IsNullOrEmpty(item.Detail) ? string.Empty : " — " + item.Detail)
+                ? Change + ": " + Label + (string.IsNullOrEmpty(item.Detail) ? string.Empty : Environment.NewLine + item.Detail)
                 : Label;
         }
 

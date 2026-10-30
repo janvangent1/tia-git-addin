@@ -17,9 +17,23 @@ namespace TiaGitAddIn.Tests.Hmi
             HmiScreenItemPreview other = Assert.Single(preview.LeftScreen.Items, item => item.Name == "PB_B_STOP");
 
             Assert.Equal("Changed", jog.Change);
-            Assert.Equal("the tag or link it uses", jog.Detail);
+            Assert.Contains("BVB_DISH_DB_struct_BVB_FLUSH_C_Control_bo_JogFwd", jog.Detail);
+            Assert.Contains("Motion.BVB_DISH_DB_struct_BVB_FLUSH_C_Control_bo_JogFwd", jog.Detail);
             Assert.Equal("Changed", currentJog.Change);
             Assert.Equal("Unchanged", other.Change);
+        }
+
+        [Fact]
+        public void MovedButtonReportsItsOldAndNewPosition()
+        {
+            string previous = Screen("JogTag");
+            string current = previous.Replace("<Left>10</Left>", "<Left>50</Left>");
+
+            Assert.True(HmiFilePreview.TryCreate(previous, current, out HmiFilePreview preview));
+            HmiScreenItemPreview jog = Assert.Single(preview.RightScreen.Items, item => item.Name == "PB_B_JOG");
+
+            Assert.Equal("Changed", jog.Change);
+            Assert.Contains("Position: 10, 20 → 50, 20", jog.Detail);
         }
 
         [Fact]

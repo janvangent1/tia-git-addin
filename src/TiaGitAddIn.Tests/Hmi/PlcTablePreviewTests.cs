@@ -53,6 +53,25 @@ namespace TiaGitAddIn.Tests.Hmi
         }
 
         [Fact]
+        public void ComfortTagTableShowsTheTagNameInsteadOfAnXmlPath()
+        {
+            const string left =
+                "<Document><Hmi.Tag.TagTable ID=\"0\"><ObjectList>" +
+                "<Hmi.Tag ID=\"68\"><AttributeList><Name>HCM_Configuration_DB_VersionNumbers_s_Dish</Name>" +
+                "<DataType>WString</DataType></AttributeList></Hmi.Tag>" +
+                "</ObjectList></Hmi.Tag.TagTable></Document>";
+            string right = left.Replace(
+                "</ObjectList></Hmi.Tag.TagTable>",
+                "<Hmi.Tag ID=\"84\"><AttributeList><Name>HCM_StackerVersion</Name><DataType>Int</DataType></AttributeList></Hmi.Tag>" +
+                "</ObjectList></Hmi.Tag.TagTable>");
+
+            Assert.True(HmiFilePreview.TryCreate(left, right, out HmiFilePreview preview));
+            Assert.False(preview.IsPlcTable);
+            Assert.Contains(preview.Tags, row => row.Name == "HCM_Configuration_DB_VersionNumbers_s_Dish" && row.Change == "Unchanged");
+            Assert.Contains(preview.Tags, row => row.Name == "HCM_StackerVersion" && row.Change == "Added" && row.DataType == "Int");
+        }
+
+        [Fact]
         public void XmlChoiceDropsTheGrid()
         {
             const string text =

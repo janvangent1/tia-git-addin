@@ -1194,9 +1194,9 @@
     "semantic_hash": ""
   },
   "src/TiaGitAddIn/UI/ViewModels/Comparison/TextComparisonViewModel.cs": {
-    "mtime": 1793353099.2316947,
-    "seen": 1793354215.5294056,
-    "ast_hash": "f48cee6750f655d193c04727daf7f1d3",
+    "mtime": 1793367853.7481248,
+    "seen": 1793367928.387737,
+    "ast_hash": "8f4b09f9fa224629f5f6c5dc068f410b",
     "semantic_hash": ""
   },
   "src/TiaGitAddIn/UI/ViewModels/Comparison/UnsupportedComparisonViewModel.cs": {
@@ -1344,15 +1344,15 @@
     "semantic_hash": ""
   },
   "src/TiaGitAddIn/UI/Views/Comparison/TextDiffView.xaml": {
-    "mtime": 1793353114.4495976,
-    "seen": 1793354215.5294056,
-    "ast_hash": "0230b470b3a0aa86a175ddc88c9a9437",
+    "mtime": 1793367873.0051892,
+    "seen": 1793367928.387737,
+    "ast_hash": "1aafbc14c66c3a12bdca1b5119fa51e0",
     "semantic_hash": ""
   },
   "src/TiaGitAddIn/UI/Views/Comparison/TextDiffView.xaml.cs": {
-    "mtime": 1792355204.301515,
-    "seen": 1792509712.4795678,
-    "ast_hash": "64e2d1e67599adc52bac2083a7af460e",
+    "mtime": 1793367859.3204887,
+    "seen": 1793367928.387737,
+    "ast_hash": "07651eddb036993c79c565d6c2661fbf",
     "semantic_hash": ""
   },
   "src/TiaGitAddIn/UI/Views/DiffView.xaml": {
@@ -1458,9 +1458,9 @@
     "semantic_hash": ""
   },
   "src/TiaGitAddIn.Tests/UI/TextComparisonNavigationTests.cs": {
-    "mtime": 1793118830.9583614,
-    "seen": 1793118884.3852441,
-    "ast_hash": "e9495165d1ef8e148ed655d42258e463",
+    "mtime": 1793367513.9226537,
+    "seen": 1793367571.3893695,
+    "ast_hash": "6117c3ce7212ccda35f3c6d029c6da2a",
     "semantic_hash": ""
   },
   "src/TiaGitAddIn.Core/Models/Hmi/HmiDeviceExport.cs": {
@@ -1662,9 +1662,9 @@
     "semantic_hash": ""
   },
   "src/TiaGitAddIn/UI/ViewModels/AboutCoverage.cs": {
-    "mtime": 1793354869.257077,
-    "seen": 1793354982.8089778,
-    "ast_hash": "65253e34a761de4a8682acaa2c62ae54",
+    "mtime": 1793367873.9381711,
+    "seen": 1793367928.387737,
+    "ast_hash": "b3916a933b0751ec6b21b6ce70d8d452",
     "semantic_hash": ""
   },
   "src/TiaGitAddIn/UI/ViewModels/AboutViewModel.cs": {
@@ -1740,9 +1740,9 @@
     "semantic_hash": ""
   },
   "src/TiaGitAddIn.Core/Models/Hmi/HmiFilePreview.cs": {
-    "mtime": 1793353268.564085,
-    "seen": 1793354215.5266387,
-    "ast_hash": "3bb7aa934a933257e42ff56f13019672",
+    "mtime": 1793367872.636201,
+    "seen": 1793367928.3841047,
+    "ast_hash": "40a40203b979a4492affaf26369039f5",
     "semantic_hash": ""
   },
   "src/TiaGitAddIn.Core/Services/Comparison/CommentFilter.cs": {
@@ -1782,9 +1782,9 @@
     "semantic_hash": ""
   },
   "src/TiaGitAddIn/UI/ViewModels/Comparison/HmiPreviewViewModel.cs": {
-    "mtime": 1793118792.7216632,
-    "seen": 1793118884.3852441,
-    "ast_hash": "5e6acd807f6e18a559bba53a339108e7",
+    "mtime": 1793367352.1488085,
+    "seen": 1793367571.3893695,
+    "ast_hash": "80e1e55b556b86d9db6e51843cd5c902",
     "semantic_hash": ""
   },
   "src/TiaGitAddIn/Services/Hmi/ExportIssues.cs": {
@@ -1794,9 +1794,9 @@
     "semantic_hash": ""
   },
   "src/TiaGitAddIn.Tests/Hmi/HmiScreenPreviewTests.cs": {
-    "mtime": 1793118830.3529005,
-    "seen": 1793118884.3852441,
-    "ast_hash": "3968b30be273f6eeba1dcd610d9dfa7e",
+    "mtime": 1793367425.2967064,
+    "seen": 1793367571.3893695,
+    "ast_hash": "f7a6c8123a329c047e91ae68a4d44da8",
     "semantic_hash": ""
   },
   "src/TiaGitAddIn/UI/Views/TransferStatusWindow.cs": {
@@ -1854,9 +1854,9 @@
     "semantic_hash": ""
   },
   "src/TiaGitAddIn.Core/Services/Comparison/SclComparer.cs": {
-    "mtime": 1793351713.7541795,
-    "seen": 1793354215.5266387,
-    "ast_hash": "ff73aa7cceb2d81d346ca8eb1a2daae6",
+    "mtime": 1793358647.330444,
+    "seen": 1793358857.4712324,
+    "ast_hash": "b5993210eef91a1ce0e0a05b79bcba73",
     "semantic_hash": ""
   },
   "src/TiaGitAddIn.Core/Services/Comparison/SclComparisonStrategy.cs": {
@@ -1872,21 +1872,21 @@
     "semantic_hash": ""
   },
   "src/TiaGitAddIn.Core/Services/Comparison/SclModel.cs": {
-    "mtime": 1793351551.6605954,
-    "seen": 1793354215.5266387,
-    "ast_hash": "5983501a7261f4b757c3d435664193fa",
+    "mtime": 1793358628.1405716,
+    "seen": 1793358857.4712324,
+    "ast_hash": "1a7057f42625398631e9309a8f84b54a",
     "semantic_hash": ""
   },
   "src/TiaGitAddIn.Core/Services/Comparison/SclParser.cs": {
-    "mtime": 1793351646.252035,
-    "seen": 1793354215.5266387,
-    "ast_hash": "310f882b16b42be5ed74767cfb2c001d",
+    "mtime": 1793358637.4363668,
+    "seen": 1793358857.4712324,
+    "ast_hash": "bdb507870addbfb2f047056c2c60d6fc",
     "semantic_hash": ""
   },
   "src/TiaGitAddIn.Tests/Comparison/SclComparisonTests.cs": {
-    "mtime": 1793354880.7100377,
-    "seen": 1793354982.8089778,
-    "ast_hash": "97230a3371c655ae427be24b8ef8204e",
+    "mtime": 1793358663.4778256,
+    "seen": 1793358857.4712324,
+    "ast_hash": "64b50880384885eaa70eb78ff60ee99f",
     "semantic_hash": ""
   },
   "src/TiaGitAddIn.Tests/Hmi/PlcTablePreviewTests.cs": {

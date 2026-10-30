@@ -32,6 +32,22 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+
+        <Style x:Key="TagRowStyle" TargetType="ListViewItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="2,1"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Change}" Value="Added">
+                    <Setter Property="Background" Value="{StaticResource AddedBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Change}" Value="Removed">
+                    <Setter Property="Background" Value="{StaticResource RemovedBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Change}" Value="Changed">
+                    <Setter Property="Background" Value="{StaticResource ChangedBrush}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -45,7 +61,7 @@
         <StackPanel Grid.Row="0"
                     Orientation="Horizontal"
                     Margin="4,4,4,2"
-                    Visibility="{Binding ShowTextLines, Converter={StaticResource BoolToVis}}">
+                    Visibility="{Binding ShowChangeNavigation, Converter={StaticResource BoolToVis}}">
             <Button Content="Previous change"
                     Command="{Binding PreviousChangeCommand}"
                     Padding="8,2"
@@ -72,8 +88,7 @@
                        Foreground="#856404"/>
         </Border>
 
-        <DockPanel Grid.Row="2"
-                   MaxHeight="310"
+        <DockPanel Grid.Row="3"
                    Visibility="{Binding HasScreenPreview, Converter={StaticResource BoolToVis}}">
             <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,4,8,2">
                 <Border Width="14" Height="14" Background="#7DCEA0" BorderBrush="#1E8449" BorderThickness="2" Margin="0,0,4,0"/>
@@ -101,6 +116,11 @@
                         Padding="8,0"
                         ToolTip="Fit the screen drawing again."/>
             </StackPanel>
+            <TextBlock DockPanel.Dock="Top"
+                       Text="{Binding ScreenHoverText}"
+                       Margin="8,0,8,4"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource MutedBrush}"/>
             <ScrollViewer HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto">
                 <ItemsControl ItemsSource="{Binding ScreenPanes}">
@@ -142,7 +162,16 @@
                                                     BorderThickness="{Binding EdgeThickness}"
                                                     BorderBrush="{Binding Edge}"
                                                     Background="{Binding Fill}"
-                                                    ToolTip="{Binding ToolTipText}">
+                                                    MouseEnter="OnScreenBoxEnter"
+                                                    ToolTipService.ShowDuration="30000"
+                                                    ToolTipService.InitialShowDelay="200">
+                                                <Border.ToolTip>
+                                                    <ToolTip>
+                                                        <TextBlock Text="{Binding PlacementTarget.DataContext.ToolTipText, RelativeSource={RelativeSource AncestorType=ToolTip}}"
+                                                                   TextWrapping="Wrap"
+                                                                   MaxWidth="480"/>
+                                                    </ToolTip>
+                                                </Border.ToolTip>
                                                 <TextBlock Text="{Binding Label}"
                                                            Margin="2"
                                                            FontSize="10"
@@ -162,15 +191,18 @@
             </ScrollViewer>
         </DockPanel>
 
-        <ListView Grid.Row="2"
-                  MaxHeight="160"
+        <ListView x:Name="HmiTagListView"
+                  Grid.Row="3"
                   BorderThickness="0"
                   ItemsSource="{Binding TagRows}"
+                  ItemContainerStyle="{StaticResource TagRowStyle}"
+                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                   Visibility="{Binding HasHmiTagPreview, Converter={StaticResource BoolToVis}}">
             <ListView.View>
                 <GridView>
                     <GridViewColumn Header="Change" DisplayMemberBinding="{Binding Change}" Width="90"/>
-                    <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" Width="140"/>
+                    <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" Width="360"/>
                     <GridViewColumn Header="Address" DisplayMemberBinding="{Binding Address}" Width="140"/>
                     <GridViewColumn Header="Type" DisplayMemberBinding="{Binding DataType}" Width="120"/>
                     <GridViewColumn Header="Comment" DisplayMemberBinding="{Binding Comment}" Width="220"/>
@@ -178,10 +210,12 @@
             </ListView.View>
         </ListView>
 
-        <ListView Grid.Row="3"
+        <ListView x:Name="TagListView"
+                  Grid.Row="3"
                   Visibility="{Binding IsPlcTable, Converter={StaticResource BoolToVis}}"
                   BorderThickness="0"
                   ItemsSource="{Binding TagRows}"
+                  ItemContainerStyle="{StaticResource TagRowStyle}"
                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
                   ScrollViewer.VerticalScrollBarVisibility="Auto">
             <ListView.View>

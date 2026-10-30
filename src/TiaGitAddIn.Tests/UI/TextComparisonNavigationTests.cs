@@ -3,6 +3,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using TiaGitAddIn.Models.Comparison;
+using TiaGitAddIn.Models.Hmi;
 using TiaGitAddIn.UI.ViewModels.Comparison;
 using TiaGitAddIn.UI.Views.Comparison;
 using Xunit;
@@ -104,6 +105,41 @@ namespace TiaGitAddIn.Tests.UI
                 viewModel.PreviousChangeCommand.Execute(null);
                 Assert.Equal("two", viewModel.CurrentChangeLine.LeftText);
             });
+        }
+
+        [Fact]
+        public void NextChangeSelectsTheNextChangedTag()
+        {
+            const string left =
+                "<Document><SW.Tags.PlcTagTable><ObjectList>" +
+                "<SW.Tags.PlcTag><AttributeList><Name>Start</Name><DataTypeName>Bool</DataTypeName>" +
+                "<LogicalAddress>%M0.0</LogicalAddress></AttributeList></SW.Tags.PlcTag>" +
+                "<SW.Tags.PlcTag><AttributeList><Name>Stop</Name><DataTypeName>Bool</DataTypeName>" +
+                "<LogicalAddress>%M0.1</LogicalAddress></AttributeList></SW.Tags.PlcTag>" +
+                "</ObjectList></SW.Tags.PlcTagTable></Document>";
+            const string right =
+                "<Document><SW.Tags.PlcTagTable><ObjectList>" +
+                "<SW.Tags.PlcTag><AttributeList><Name>Start</Name><DataTypeName>Bool</DataTypeName>" +
+                "<LogicalAddress>%M0.2</LogicalAddress></AttributeList></SW.Tags.PlcTag>" +
+                "<SW.Tags.PlcTag><AttributeList><Name>Stop</Name><DataTypeName>Int</DataTypeName>" +
+                "<LogicalAddress>%M0.1</LogicalAddress></AttributeList></SW.Tags.PlcTag>" +
+                "</ObjectList></SW.Tags.PlcTagTable></Document>";
+            Assert.True(HmiFilePreview.TryCreate(left, right, out HmiFilePreview? preview));
+            TextComparisonViewModel viewModel = new TextComparisonViewModel(
+                new TextPresentation(Array.Empty<TextDiffLine>()),
+                ComparisonViewModelMetadata.From(new PlcComparisonResult(
+                    PlcArtifactKind.GenericXml, PlcComparisonMode.Text, PlcComparisonMode.Text,
+                    PlcSupportLevel.Fallback, "Tag table.", Array.Empty<PlcComparisonDiagnostic>(),
+                    new TextPresentation(Array.Empty<TextDiffLine>()), null)),
+                preview);
+
+            Assert.True(viewModel.ShowChangeNavigation);
+            Assert.Equal("2 changes", viewModel.ChangePositionText);
+            viewModel.NextChangeCommand.Execute(null);
+            Assert.Equal("Start", viewModel.CurrentTagRow!.Name);
+            viewModel.NextChangeCommand.Execute(null);
+            Assert.Equal("Stop", viewModel.CurrentTagRow.Name);
+            Assert.Equal("Change 2 of 2", viewModel.ChangePositionText);
         }
 
         [Fact]

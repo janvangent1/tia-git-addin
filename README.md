@@ -157,6 +157,9 @@ The table under **HMI and hardware in Git** is the list of what export and impor
 
 The add-in version is `AddInVersion` in `src/TiaGitAddIn/AddInPublisherConfiguration.xml`. Newest first.
 
+- **1.2.68** — An HMI tag table such as hcm software versions fills the comparison as a grid of tag names, instead of long XML paths in a short strip.
+- **1.2.67** — Hovering a highlighted screen item names the caption, position, size, or tag that changed, and the same text stays under the zoom buttons.
+- **1.2.66** — A PLC tag table colors added and changed rows and can jump to the next one. A screen drawing uses the full comparison height, and hovering a highlighted item says what changed.
 - **1.2.65** — An SCL declaration keeps its `{ ... }` attributes, so a change such as ExternalAccessible is shown in the structure and not only in the raw text.
 - **1.2.64** — Settings can open an SCL block on its structure or on the colored lines. Both views stay available on the diff.
 - **1.2.63** — An SCL block is compared as its declarations and statements, with the colored text still on the Raw text tab. Diff can review the SCL blocks in one commit and jump to the next change. File history is one line per version. A PLC tag table or data type opens as a grid. Pull shows the incoming commits and PLC files before it runs. A conflicted file can show both sides, and any two commits can be compared.

@@ -719,20 +719,10 @@ namespace TiaGitAddIn.Models.Hmi
                 }
                 else
                 {
-                    bool shapeChanged = item.Left != match.Left || item.Top != match.Top || item.Width != match.Width || item.Height != match.Height || item.Label != match.Label;
-                    bool linkChanged = !string.Equals(item.Links, match.Links, StringComparison.Ordinal);
-                    if (shapeChanged || linkChanged)
-                    {
-                        change = "Changed";
-                        if (linkChanged)
-                        {
-                            detail = "the tag or link it uses";
-                        }
-                    }
-                    else
-                    {
-                        change = "Unchanged";
-                    }
+                    HmiScreenItemPreview previous = markRight ? match : item;
+                    HmiScreenItemPreview current = markRight ? item : match;
+                    detail = DescribeChange(previous, current);
+                    change = detail.Length == 0 ? "Unchanged" : "Changed";
                 }
 
                 result.Add(new HmiScreenItemPreview(
@@ -749,6 +739,66 @@ namespace TiaGitAddIn.Models.Hmi
             }
 
             return result;
+        }
+
+        private static string DescribeChange(HmiScreenItemPreview previous, HmiScreenItemPreview current)
+        {
+            var notes = new List<string>();
+            if (previous.Label != current.Label)
+            {
+                notes.Add("Caption: " + Show(previous.Label) + " → " + Show(current.Label));
+            }
+
+            if (previous.Left != current.Left || previous.Top != current.Top)
+            {
+                notes.Add("Position: " + previous.Left + ", " + previous.Top + " → " + current.Left + ", " + current.Top);
+            }
+
+            if (previous.Width != current.Width || previous.Height != current.Height)
+            {
+                notes.Add("Size: " + previous.Width + " × " + previous.Height + " → " + current.Width + " × " + current.Height);
+            }
+
+            if (!string.Equals(previous.Links, current.Links, StringComparison.Ordinal))
+            {
+                DescribeLinks(notes, previous.Links, current.Links);
+            }
+
+            return string.Join(Environment.NewLine, notes);
+        }
+
+        private static void DescribeLinks(List<string> notes, string previous, string current)
+        {
+            string[] before = SplitLinks(previous);
+            string[] after = SplitLinks(current);
+            var afterSet = new HashSet<string>(after, StringComparer.Ordinal);
+            var beforeSet = new HashSet<string>(before, StringComparer.Ordinal);
+            foreach (string link in before)
+            {
+                if (!afterSet.Contains(link))
+                {
+                    notes.Add("Tag or link removed: " + link);
+                }
+            }
+
+            foreach (string link in after)
+            {
+                if (!beforeSet.Contains(link))
+                {
+                    notes.Add("Tag or link added: " + link);
+                }
+            }
+        }
+
+        private static string[] SplitLinks(string text)
+        {
+            return (text ?? string.Empty)
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        }
+
+        private static string Show(string text)
+        {
+            return string.IsNullOrWhiteSpace(text) ? "(none)" : text.Trim();
         }
 
         private static string ItemKey(HmiScreenItemPreview item)

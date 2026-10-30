@@ -45,9 +45,12 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
     public sealed class TextComparisonViewModel : ComparisonPresentationViewModel, INotifyPropertyChanged
     {
         private readonly int[] changeStarts;
+        private readonly int[] tagChangeIndexes;
         private int currentChangeIndex = -1;
         private TextDiffLineViewModel? currentChangeLine;
+        private HmiTagPreviewRow? currentTagRow;
         private double screenZoom = 1;
+        private string screenHoverText = "Hover a highlighted item to see what changed.";
 
         public TextComparisonViewModel(
             TextPresentation presentation,
@@ -64,6 +67,7 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
             TagRows = preview != null && preview.IsTagTable ? preview.Tags : Array.Empty<HmiTagPreviewRow>();
             IsPlcTable = preview != null && preview.IsPlcTable;
             changeStarts = FindChangeStarts(Lines);
+            tagChangeIndexes = FindTagChanges(TagRows);
             PreviousChangeCommand = new RelayCommand(_ => GoToPreviousChange(), _ => CanGoToPreviousChange);
             NextChangeCommand = new RelayCommand(_ => GoToNextChange(), _ => CanGoToNextChange);
             ScreenZoomOutCommand = new RelayCommand(_ => ScreenZoom = Math.Max(0.5, ScreenZoom - 0.25));
@@ -82,26 +86,32 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
         public bool HasTagPreview => TagRows.Count > 0;
         public bool IsPlcTable { get; }
         public bool HasHmiTagPreview => HasTagPreview && !IsPlcTable;
-        public bool ShowTextLines => !HasScreenPreview && !IsPlcTable;
+        public bool ShowTextLines => !HasScreenPreview && !HasTagPreview;
+        public bool ShowChangeNavigation => ShowTextLines || HasTagPreview;
         public bool ShowTruncationBanner => IsTruncated && ShowTextLines;
 
         /// <summary>The first line of the changed block last jumped to, or null before any jump.</summary>
         public TextDiffLineViewModel? CurrentChangeLine => currentChangeLine;
 
+        public HmiTagPreviewRow? CurrentTagRow => currentTagRow;
+
         public string ChangePositionText
         {
             get
             {
-                if (changeStarts.Length == 0)
+                int count = JumpCount;
+                if (count == 0)
                 {
                     return "No changes";
                 }
 
                 return currentChangeIndex < 0
-                    ? changeStarts.Length + " changes"
-                    : "Change " + (currentChangeIndex + 1) + " of " + changeStarts.Length;
+                    ? count + " changes"
+                    : "Change " + (currentChangeIndex + 1) + " of " + count;
             }
         }
+
+        private int JumpCount => HasTagPreview ? tagChangeIndexes.Length : changeStarts.Length;
 
         public RelayCommand PreviousChangeCommand { get; }
         public RelayCommand NextChangeCommand { get; }
@@ -128,9 +138,23 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
         public string ScreenZoomText =>
             Math.Round(ScreenZoom * 100).ToString(System.Globalization.CultureInfo.InvariantCulture) + "%";
 
+        public string ScreenHoverText => screenHoverText;
+
+        public void ShowScreenHover(string text)
+        {
+            string next = string.IsNullOrWhiteSpace(text) ? string.Empty : text;
+            if (screenHoverText == next)
+            {
+                return;
+            }
+
+            screenHoverText = next;
+            OnPropertyChanged(nameof(ScreenHoverText));
+        }
+
         private bool CanGoToPreviousChange => currentChangeIndex > 0;
 
-        private bool CanGoToNextChange => changeStarts.Length > 0 && currentChangeIndex < changeStarts.Length - 1;
+        private bool CanGoToNextChange => JumpCount > 0 && currentChangeIndex < JumpCount - 1;
 
         private void GoToNextChange()
         {
@@ -156,8 +180,17 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
 
         private void PublishCurrentChange()
         {
-            currentChangeLine = Lines[changeStarts[currentChangeIndex]];
-            OnPropertyChanged(nameof(CurrentChangeLine));
+            if (HasTagPreview)
+            {
+                currentTagRow = TagRows[tagChangeIndexes[currentChangeIndex]];
+                OnPropertyChanged(nameof(CurrentTagRow));
+            }
+            else
+            {
+                currentChangeLine = Lines[changeStarts[currentChangeIndex]];
+                OnPropertyChanged(nameof(CurrentChangeLine));
+            }
+
             OnPropertyChanged(nameof(ChangePositionText));
             PreviousChangeCommand.RaiseCanExecuteChanged();
             NextChangeCommand.RaiseCanExecuteChanged();
@@ -183,6 +216,21 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
                 }
 
                 insideChange = changed;
+            }
+
+            return starts.ToArray();
+        }
+
+        private static int[] FindTagChanges(IReadOnlyList<HmiTagPreviewRow> rows)
+        {
+            var starts = new List<int>();
+            for (int index = 0; index < rows.Count; index++)
+            {
+                string change = rows[index].Change;
+                if (change == "Added" || change == "Removed" || change == "Changed")
+                {
+                    starts.Add(index);
+                }
             }
 
             return starts.ToArray();

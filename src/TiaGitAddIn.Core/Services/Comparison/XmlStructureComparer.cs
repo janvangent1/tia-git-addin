@@ -262,6 +262,23 @@ namespace TiaGitAddIn.Services.Comparison
             return null;
         }
 
+        private static string ChildText(XElement element, string name)
+        {
+            foreach (XElement child in element.Descendants())
+            {
+                if (child.Name.LocalName.Equals(name, StringComparison.OrdinalIgnoreCase) && !child.HasElements)
+                {
+                    string text = (child.Value ?? string.Empty).Trim();
+                    if (text.Length > 0)
+                    {
+                        return text;
+                    }
+                }
+            }
+
+            return string.Empty;
+        }
+
         private static string DirectText(XElement element)
         {
             return string.Concat(element.Nodes().OfType<XText>().Select(node => node.Value)).Trim();
@@ -288,6 +305,12 @@ namespace TiaGitAddIn.Services.Comparison
         private static string Describe(string parentPath, XElement element)
         {
             string path = parentPath.Length == 0 ? Label(element, null) : parentPath + "/" + Label(element, null);
+            string name = ChildText(element, "Name");
+            if (name.Length > 0)
+            {
+                path += " " + name;
+            }
+
             int children = element.Elements().Count();
             if (children > 0)
             {
