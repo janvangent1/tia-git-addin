@@ -38,29 +38,94 @@ namespace TiaGitAddIn.Services
         {
             foreach (string line in SplitLines(output))
             {
-                string[] fields = line.Split(FieldSeparator);
-                if (fields.Length < 4)
+                if (TryParseCommitLine(line, out CommitInfo? commit) && commit != null)
                 {
+                    yield return commit;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Reads <c>git log --name-status</c> output. A rename keeps the name the file had in that commit.
+        /// </summary>
+        public static List<FileRevision> ParseFileHistory(string output)
+        {
+            var revisions = new List<FileRevision>();
+            List<string>? paths = null;
+            foreach (string line in SplitLines(output ?? string.Empty))
+            {
+                if (TryParseCommitLine(line, out CommitInfo? commit) && commit != null)
+                {
+                    paths = new List<string>();
+                    revisions.Add(new FileRevision { Commit = commit, Paths = paths });
                     continue;
                 }
 
-                DateTimeOffset? authorDate = DateTimeOffset.TryParse(
-                    fields[2],
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.AssumeUniversal,
-                    out DateTimeOffset parsedDate)
-                    ? parsedDate
-                    : null;
-
-                yield return new CommitInfo
+                if (paths != null && TryParseNameStatusPath(line, out string path))
                 {
-                    Hash = fields[0],
-                    AuthorName = fields[1],
-                    AuthorDate = authorDate,
-                    Subject = fields[3],
-                    ParentHash = fields.Length > 4 ? fields[4] : null
-                };
+                    paths.Add(path);
+                }
             }
+
+            return revisions;
+        }
+
+        private static bool TryParseCommitLine(string line, out CommitInfo? commit)
+        {
+            commit = null;
+            string[] fields = line.Split(FieldSeparator);
+            if (fields.Length < 4 || fields[0].IndexOf('\t') >= 0)
+            {
+                return false;
+            }
+
+            DateTimeOffset? authorDate = DateTimeOffset.TryParse(
+                fields[2],
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal,
+                out DateTimeOffset parsedDate)
+                ? parsedDate
+                : null;
+
+            commit = new CommitInfo
+            {
+                Hash = fields[0],
+                AuthorName = fields[1],
+                AuthorDate = authorDate,
+                Subject = fields[3],
+                ParentHash = fields.Length > 4 ? fields[4] : null
+            };
+            return true;
+        }
+
+        private static bool TryParseNameStatusPath(string line, out string path)
+        {
+            path = string.Empty;
+            int tab = line.IndexOf('\t');
+            if (tab <= 0)
+            {
+                return false;
+            }
+
+            string status = line.Substring(0, tab);
+            if (status.Length == 0 || "ACDMRTUXB".IndexOf(status[0]) < 0)
+            {
+                return false;
+            }
+
+            for (int index = 1; index < status.Length; index++)
+            {
+                if (!char.IsDigit(status[index]))
+                {
+                    return false;
+                }
+            }
+
+            string rest = line.Substring(tab + 1);
+            int lastTab = rest.LastIndexOf('\t');
+            string raw = lastTab >= 0 ? rest.Substring(lastTab + 1) : rest;
+            path = UnquotePorcelainPath(raw.Trim());
+            return path.Length > 0;
         }
 
         public static IEnumerable<BranchInfo> ParseBranches(string output)

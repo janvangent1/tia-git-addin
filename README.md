@@ -157,6 +157,9 @@ The table under **HMI and hardware in Git** is the list of what export and impor
 
 The add-in version is `AddInVersion` in `src/TiaGitAddIn/AddInPublisherConfiguration.xml`. Newest first.
 
+- **1.2.62** — File history no longer draws the open comparison on top of the version list. The History page uses the full width for changed files.
+- **1.2.61** — Show history on an open diff lists every version of that file in one view, newest at the top. Each block is the comparison for that commit.
+- **1.2.60** — Diff and History can step through the commits that changed one file, or a set of files you choose. Previous version and Next version open that comparison, newest first.
 - **1.2.59** — The history PDF lists the commits on the first page, then the changed files of every commit on the following pages.
 - **1.2.58** — PDF export includes ladder networks and highlighted screen items, keeps letters such as ä, and numbers the pages. History lists changed files under their folders.
 - **1.2.57** — A changed file whose name Git quotes, such as a block name with a space or an accent, keeps its path and can be compared.

@@ -181,6 +181,15 @@ namespace TiaGitAddIn.Tests.UI
             public Task<DiffResult> GetCommitDiffAsync(string commitHash, CancellationToken ct = default) =>
                 Task.FromResult(new DiffResult());
 
+            public Task<DiffResult> GetCommitDiffAsync(string commitHash, IReadOnlyList<string> repositoryRelativePaths, CancellationToken ct = default) =>
+                GetCommitDiffAsync(commitHash, ct);
+
+            public Task<DiffResult> GetWorkingTreeDiffAsync(IReadOnlyList<string> repositoryRelativePaths, CancellationToken ct = default) =>
+                GetWorkingTreeDiffAsync(ct);
+
+            public Task<IReadOnlyList<FileRevision>> GetFileHistoryAsync(IReadOnlyList<string> repositoryRelativePaths, int maxCount, CancellationToken ct = default) =>
+                Task.FromResult<IReadOnlyList<FileRevision>>(new List<FileRevision>());
+
             public Task<IReadOnlyList<RemoteInfo>> GetRemotesAsync(CancellationToken ct = default) =>
                 Task.FromResult<IReadOnlyList<RemoteInfo>>(new List<RemoteInfo>());
         }

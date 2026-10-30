@@ -39,6 +39,7 @@ namespace TiaGitAddIn.UI.ViewModels
             RefreshCommand = new AsyncCommand(() => RefreshAsync(), () => !IsBusy);
             RestoreCommand = new AsyncCommand(() => RestoreSelectedCommitAsync(), () => !IsBusy && SelectedCommit != null);
             ExportPdfCommand = new AsyncCommand(() => ExportPdfAsync(), () => !IsBusy && Commits.Count > 0);
+            ChooseFilesCommand = new AsyncCommand(ChooseFilesAsync, () => !IsBusy && this.repositoryPath.Length > 0);
             CancelCommand = new RelayCommand(_ => RequestCancel(), _ => IsBusy);
         }
 
@@ -81,10 +82,61 @@ namespace TiaGitAddIn.UI.ViewModels
 
         public Func<string, Task>? OpenFileAsync { get; set; }
 
+        public Func<IReadOnlyList<string>, Task>? OpenFileHistoryAsync { get; set; }
+
         public AsyncCommand RefreshCommand { get; }
         public AsyncCommand RestoreCommand { get; }
         public AsyncCommand ExportPdfCommand { get; }
+        public AsyncCommand ChooseFilesCommand { get; }
         public RelayCommand CancelCommand { get; }
+
+        private Task ChooseFilesAsync()
+        {
+            if (string.IsNullOrWhiteSpace(repositoryPath))
+            {
+                LastOperationMessage = "The workspace folder is not available.";
+                return Task.CompletedTask;
+            }
+
+            OpenFileDialog dialog = new()
+            {
+                Title = "Choose files",
+                InitialDirectory = repositoryPath,
+                Multiselect = true,
+                CheckFileExists = true,
+                Filter = "All files (*.*)|*.*"
+            };
+
+            if (dialog.ShowDialog() != true || dialog.FileNames.Length == 0)
+            {
+                return Task.CompletedTask;
+            }
+
+            var relative = new List<string>();
+            foreach (string fullPath in dialog.FileNames)
+            {
+                if (!RepositoryPaths.TryMakeRelative(repositoryPath, fullPath, out string path))
+                {
+                    LastOperationMessage = "Choose files inside the repository.";
+                    return Task.CompletedTask;
+                }
+
+                relative.Add(path);
+            }
+
+            return OpenHistory(relative);
+        }
+
+        private Task OpenHistory(IReadOnlyList<string> paths)
+        {
+            if (OpenFileHistoryAsync == null)
+            {
+                LastOperationMessage = "File history is not available.";
+                return Task.CompletedTask;
+            }
+
+            return OpenFileHistoryAsync(paths);
+        }
 
         public Task OpenFile(string path)
         {
@@ -234,6 +286,7 @@ namespace TiaGitAddIn.UI.ViewModels
                 RefreshCommand.RaiseCanExecuteChanged();
                 RestoreCommand.RaiseCanExecuteChanged();
                 ExportPdfCommand.RaiseCanExecuteChanged();
+                ChooseFilesCommand.RaiseCanExecuteChanged();
                 CancelCommand.RaiseCanExecuteChanged();
             });
         }

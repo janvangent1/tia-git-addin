@@ -107,6 +107,48 @@ namespace TiaGitAddIn.Tests.UI
         }
 
         [Fact]
+        public async Task ShowHistoryPresentsEveryVersionTogether()
+        {
+            const string newer = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+            const string older = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+            var git = new FakeGitService
+            {
+                FileHistory = new List<FileRevision>
+                {
+                    new FileRevision
+                    {
+                        Commit = new CommitInfo { Hash = newer, Subject = "Newest edit" },
+                        Paths = new List<string> { "PLC/Block.xml" }
+                    },
+                    new FileRevision
+                    {
+                        Commit = new CommitInfo { Hash = older, Subject = "Older edit" },
+                        Paths = new List<string> { "PLC/Block.xml" }
+                    }
+                }
+            };
+            var revisions = new RecordingRevisionProvider();
+            var viewModel = new DiffViewModel(
+                git, revisions, new StubComparisonCoordinator(), new StubMapper(),
+                uiDispatcher: ImmediateUiDispatcher.Instance);
+
+            await viewModel.StartVersionWalkAsync(new[] { "PLC/Block.xml" });
+
+            Assert.Equal(2, viewModel.FileHistorySections.Count);
+            Assert.Contains("Version 2 of 2", viewModel.FileHistorySections[0].Title);
+            Assert.Contains(newer.Substring(0, 7), viewModel.FileHistorySections[0].Title);
+            Assert.Contains("Version 1 of 2", viewModel.FileHistorySections[1].Title);
+            Assert.Contains(older.Substring(0, 7), viewModel.FileHistorySections[1].Title);
+            Assert.NotNull(viewModel.FileHistorySections[0].Presentation);
+            Assert.NotNull(viewModel.FileHistorySections[1].Presentation);
+            Assert.Equal(older, revisions.RightSource!.CommitHash);
+            Assert.Equal(PlcRevisionSourceKind.ParentOfCommit, revisions.LeftSource!.Kind);
+            Assert.Equal("PLC/Block.xml", revisions.LastPath);
+            Assert.Contains(newer, git.PathLimitedCommits);
+            Assert.Contains(older, git.PathLimitedCommits);
+        }
+
+        [Fact]
         public void SelectedEntry_SetterOnlyStoresValueAndTriggersNoComparison()
         {
             var gitService = new FakeGitService();
@@ -294,6 +336,12 @@ namespace TiaGitAddIn.Tests.UI
         {
             public DiffResult CommitDiff { get; set; } = new DiffResult();
 
+            public DiffResult WorkingTreePathDiff { get; set; } = new DiffResult();
+
+            public IReadOnlyList<FileRevision> FileHistory { get; set; } = new List<FileRevision>();
+
+            public List<string> PathLimitedCommits { get; } = new List<string>();
+
             public Task<GitStatus> GetStatusAsync(CancellationToken ct = default) => Task.FromResult(new GitStatus());
             public Task<OperationResult> StageAsync(IReadOnlyList<string> filePaths, CancellationToken ct = default) => Task.FromResult(OperationResult.Ok());
             public Task<OperationResult> UnstageAsync(IReadOnlyList<string> filePaths, CancellationToken ct = default) => Task.FromResult(OperationResult.Ok());
@@ -315,7 +363,39 @@ namespace TiaGitAddIn.Tests.UI
             public Task<OperationResult> SetRemoteUrlAsync(string remoteName, string url, CancellationToken ct = default) => Task.FromResult(OperationResult.Ok());
             public Task<IReadOnlyList<CommitInfo>> GetCommitLogAsync(int maxCount, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<CommitInfo>>(new List<CommitInfo>());
             public Task<DiffResult> GetWorkingTreeDiffAsync(CancellationToken ct = default) => Task.FromResult(new DiffResult());
+            public Task<DiffResult> GetWorkingTreeDiffAsync(IReadOnlyList<string> repositoryRelativePaths, CancellationToken ct = default) =>
+                Task.FromResult(WorkingTreePathDiff);
             public Task<DiffResult> GetCommitDiffAsync(string commitHash, CancellationToken ct = default) => Task.FromResult(CommitDiff);
+            public Task<DiffResult> GetCommitDiffAsync(string commitHash, IReadOnlyList<string> repositoryRelativePaths, CancellationToken ct = default)
+            {
+                PathLimitedCommits.Add(commitHash);
+                return Task.FromResult(DiffFor(commitHash));
+            }
+
+            public Task<IReadOnlyList<FileRevision>> GetFileHistoryAsync(IReadOnlyList<string> repositoryRelativePaths, int maxCount, CancellationToken ct = default) =>
+                Task.FromResult(FileHistory);
+
+            private DiffResult DiffFor(string commitHash)
+            {
+                foreach (FileRevision revision in FileHistory)
+                {
+                    if (!string.Equals(revision.Commit.Hash, commitHash, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    string path = revision.Paths.Count > 0 ? revision.Paths[0] : "file.xml";
+                    return new DiffResult
+                    {
+                        Entries = new List<DiffEntry>
+                        {
+                            new DiffEntry { FilePath = path, ChangeType = "M", Hunks = new List<DiffHunk>() }
+                        }
+                    };
+                }
+
+                return CommitDiff;
+            }
             public Task<IReadOnlyList<string>> GetCommitFilesAsync(string commitHash, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<string>>(new List<string>());
             public Task<IReadOnlyList<string>> ListExportFilesAsync(string commitHash, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<string>>(new List<string>());
             public Task<IReadOnlyList<RemoteInfo>> GetRemotesAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<RemoteInfo>>(new List<RemoteInfo>());

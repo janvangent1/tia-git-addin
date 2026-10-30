@@ -45,7 +45,13 @@ namespace TiaGitAddIn.Services
 
         Task<DiffResult> GetWorkingTreeDiffAsync(CancellationToken ct = default);
 
+        Task<DiffResult> GetWorkingTreeDiffAsync(IReadOnlyList<string> repositoryRelativePaths, CancellationToken ct = default);
+
         Task<DiffResult> GetCommitDiffAsync(string commitHash, CancellationToken ct = default);
+
+        Task<DiffResult> GetCommitDiffAsync(string commitHash, IReadOnlyList<string> repositoryRelativePaths, CancellationToken ct = default);
+
+        Task<IReadOnlyList<FileRevision>> GetFileHistoryAsync(IReadOnlyList<string> repositoryRelativePaths, int maxCount, CancellationToken ct = default);
 
         Task<IReadOnlyList<string>> GetCommitFilesAsync(string commitHash, CancellationToken ct = default);
 

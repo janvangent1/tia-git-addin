@@ -50,10 +50,12 @@ namespace TiaGitAddIn.UI.ViewModels
                 () => configurationService.Load(repositoryPath).DefaultRemote);
             History = new HistoryViewModel(gitService, UiDispatcher, RefreshStatusAndBranchesAsync, repositoryPath);
             Export = new ExportCatalogViewModel(gitService, UiDispatcher);
-            Diff = new DiffViewModel(gitService, revisionProvider, comparisonCoordinator, mapper, logger, UiDispatcher);
+            Diff = new DiffViewModel(
+                gitService, revisionProvider, comparisonCoordinator, mapper, logger, UiDispatcher, repositoryPath);
             Settings = new SettingsViewModel(configurationService, repositoryPath, gitService, UiDispatcher);
             About = new AboutViewModel();
             History.OpenFileAsync = OpenHistoryFileAsync;
+            History.OpenFileHistoryAsync = OpenFileHistoryAsync;
             Hmi = new HmiExchangeViewModel(
                 repositoryPath,
                 hmiExchange ?? new UnavailableHmiDeviceExchange(),
@@ -116,6 +118,12 @@ namespace TiaGitAddIn.UI.ViewModels
         {
             SelectedTabIndex = DiffTabIndex;
             return OpenDiffFileAsync(null, path);
+        }
+
+        private Task OpenFileHistoryAsync(System.Collections.Generic.IReadOnlyList<string> paths)
+        {
+            SelectedTabIndex = DiffTabIndex;
+            return Diff.StartVersionWalkAsync(paths);
         }
 
         private Task OpenHistoryFileAsync(string path)

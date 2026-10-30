@@ -9,10 +9,10 @@
         d:DesignWidth="900">
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="2*"/>
+            <RowDefinition Height="*"/>
             <RowDefinition Height="5"/>
             <RowDefinition Height="*"
-                    MinHeight="120"/>
+                    MinHeight="180"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -62,41 +62,11 @@
                 VerticalAlignment="Stretch"
                 Background="#DDDDDD"/>
 
-        <!-- Detail panel -->
-        <Grid Grid.Row="2"
-                Margin="5,3,5,3">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="5"/>
-                <ColumnDefinition Width="260"/>
-            </Grid.ColumnDefinitions>
-
-            <!-- Commit metadata + message -->
-            <Border Grid.Column="0"
-                    BorderThickness="1"
-                    BorderBrush="{StaticResource LineBrush}"
-                    Padding="8">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top"
-                               Text="Message"
-                               FontWeight="Bold"
-                               Margin="0,0,0,6"/>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <TextBlock Text="{Binding SelectedCommit.Subject}"
-                                   TextWrapping="Wrap"/>
-                    </ScrollViewer>
-                </DockPanel>
-            </Border>
-
-            <GridSplitter Grid.Column="1"
-                    Width="5"
-                    HorizontalAlignment="Stretch"
-                    Background="#DDDDDD"/>
-
-            <!-- Changed files -->
-            <Border Grid.Column="2"
-                    BorderThickness="1"
-                    BorderBrush="#CCCCCC">
+        <!-- Changed files. The commit message is already in the list above. -->
+        <Border Grid.Row="2"
+                Margin="5,3,5,3"
+                BorderThickness="1"
+                BorderBrush="#CCCCCC">
                 <DockPanel>
                     <Border DockPanel.Dock="Top"
                             Background="#F5F5F5"
@@ -128,8 +98,7 @@
                         </TreeView.ItemContainerStyle>
                     </TreeView>
                 </DockPanel>
-            </Border>
-        </Grid>
+        </Border>
 
         <!-- Status bar -->
         <StatusBar Grid.Row="3"
@@ -142,6 +111,11 @@
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
                 <StackPanel Orientation="Horizontal">
+                    <Button Content="Choose files"
+                            Command="{Binding ChooseFilesCommand}"
+                            Margin="0,0,8,0"
+                            Padding="10,2"
+                            ToolTip="Show every version of the files you pick, in one view on Diff. Files outside the repository are refused."/>
                     <Button Content="Export PDF"
                             Command="{Binding ExportPdfCommand}"
                             Margin="0,0,8,0"

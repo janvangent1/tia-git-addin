@@ -30,6 +30,8 @@ namespace TiaGitAddIn.UI.ViewModels
         private string? currentDiffCommitHash;
         private ComparisonPresentationViewModel? currentPresentation;
         private string fileFilter = string.Empty;
+        private readonly string repositoryPath;
+        private const int MaxVersions = 100;
 
         public DiffViewModel(
             IGitService gitService,
@@ -37,10 +39,13 @@ namespace TiaGitAddIn.UI.ViewModels
             IPlcComparisonCoordinator comparisonCoordinator,
             IComparisonPresentationMapper mapper,
             IAddInLogger? logger = null,
-            IUiDispatcher? uiDispatcher = null)
+            IUiDispatcher? uiDispatcher = null,
+            string? repositoryPath = null)
             : base(uiDispatcher)
         {
             this.gitService = gitService ?? throw new ArgumentNullException(nameof(gitService));
+            this.repositoryPath = repositoryPath ?? string.Empty;
+            string workspace = this.repositoryPath;
             if (revisionProvider == null) throw new ArgumentNullException(nameof(revisionProvider));
             if (comparisonCoordinator == null) throw new ArgumentNullException(nameof(comparisonCoordinator));
             if (mapper == null) throw new ArgumentNullException(nameof(mapper));
@@ -57,7 +62,38 @@ namespace TiaGitAddIn.UI.ViewModels
             ExportPdfCommand = new RelayCommand(_ => ExportPdf(), _ => !IsBusy && Entries.Count > 0);
             NextFileCommand = new RelayCommand(_ => MoveFile(1), _ => !IsBusy && Entries.Count > 1);
             PreviousFileCommand = new RelayCommand(_ => MoveFile(-1), _ => !IsBusy && Entries.Count > 1);
+            ShowHistoryCommand = new AsyncCommand(ShowHistoryOfSelectedFileAsync, () => !IsBusy && SelectedEntry != null);
+            ChooseFilesCommand = new AsyncCommand(ChooseFilesAsync, () => !IsBusy && workspace.Length > 0);
+            CloseHistoryCommand = new RelayCommand(_ => ClearFileHistory(), _ => !IsBusy && HasFileHistory);
             CancelCommand = new RelayCommand(_ => RequestCancel(), _ => IsBusy);
+        }
+
+        public sealed class FileHistorySection
+        {
+            public FileHistorySection(string title, ComparisonPresentationViewModel presentation)
+            {
+                Title = title;
+                Presentation = presentation;
+            }
+
+            public string Title { get; }
+            public ComparisonPresentationViewModel Presentation { get; }
+        }
+
+        private sealed class VersionStep
+        {
+            public VersionStep(string? commitHash, string subject, IReadOnlyList<string> paths, string focusPath)
+            {
+                CommitHash = commitHash;
+                Subject = subject ?? string.Empty;
+                Paths = paths;
+                FocusPath = focusPath;
+            }
+
+            public string? CommitHash { get; }
+            public string Subject { get; }
+            public IReadOnlyList<string> Paths { get; }
+            public string FocusPath { get; }
         }
 
         private sealed class NullLogger : IAddInLogger
@@ -81,7 +117,13 @@ namespace TiaGitAddIn.UI.ViewModels
         public DiffEntryViewModel? SelectedEntry
         {
             get => selectedEntry;
-            set => SetProperty(selectedEntry, value, updated => selectedEntry = updated);
+            set
+            {
+                if (SetProperty(selectedEntry, value, updated => selectedEntry = updated))
+                {
+                    ShowHistoryCommand?.RaiseCanExecuteChanged();
+                }
+            }
         }
 
         public string LastOperationMessage
@@ -119,6 +161,10 @@ namespace TiaGitAddIn.UI.ViewModels
             }
         }
 
+        public ObservableCollection<FileHistorySection> FileHistorySections { get; } = new ObservableCollection<FileHistorySection>();
+
+        public bool HasFileHistory => FileHistorySections.Count > 0;
+
         public string ComparisonKind
         {
             get
@@ -155,7 +201,109 @@ namespace TiaGitAddIn.UI.ViewModels
         public RelayCommand ExportPdfCommand { get; }
         public RelayCommand NextFileCommand { get; }
         public RelayCommand PreviousFileCommand { get; }
+        public AsyncCommand ShowHistoryCommand { get; }
+        public AsyncCommand ChooseFilesCommand { get; }
+        public RelayCommand CloseHistoryCommand { get; }
         public RelayCommand CancelCommand { get; }
+
+        public Task StartVersionWalkAsync(IReadOnlyList<string> paths)
+        {
+            if (paths == null || paths.Count == 0)
+            {
+                LastOperationMessage = "Select a file first.";
+                return Task.CompletedTask;
+            }
+
+            return RunBusyAsync("Loading file history…", async ct =>
+            {
+                IReadOnlyList<FileRevision> history = await gitService
+                    .GetFileHistoryAsync(paths, MaxVersions, ct)
+                    .ConfigureAwait(false);
+                DiffResult workingTree = await gitService
+                    .GetWorkingTreeDiffAsync(paths, ct)
+                    .ConfigureAwait(false);
+
+                var steps = new List<VersionStep>();
+                if (workingTree.Entries.Count > 0)
+                {
+                    string focus = FirstPath(workingTree, paths);
+                    steps.Add(new VersionStep(null, "Uncommitted changes", paths, focus));
+                }
+
+                foreach (FileRevision revision in history)
+                {
+                    string hash = revision.Commit?.Hash ?? string.Empty;
+                    if (hash.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    IReadOnlyList<string> stepPaths = revision.Paths != null && revision.Paths.Count > 0
+                        ? revision.Paths
+                        : paths;
+                    steps.Add(new VersionStep(hash, revision.Commit?.Subject ?? string.Empty, stepPaths, stepPaths[0]));
+                }
+
+                if (steps.Count == 0)
+                {
+                    ClearFileHistory();
+                    InvokeOnUI(() => LastOperationMessage = "No committed or uncommitted changes were found for the selected files.");
+                    return;
+                }
+
+                var sections = new List<FileHistorySection>();
+                for (int index = 0; index < steps.Count; index++)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    VersionStep step = steps[index];
+                    int number = steps.Count - index;
+                    string mark = string.IsNullOrEmpty(step.CommitHash) ? "uncommitted" : ShortHash(step.CommitHash!);
+                    string progress = $"Loading version {number} of {steps.Count}…";
+                    InvokeOnUI(() => BusyMessage = progress);
+
+                    DiffResult diff = string.IsNullOrEmpty(step.CommitHash)
+                        ? await gitService.GetWorkingTreeDiffAsync(step.Paths, ct).ConfigureAwait(false)
+                        : await gitService.GetCommitDiffAsync(step.CommitHash!, step.Paths, ct).ConfigureAwait(false);
+
+                    if (diff.Entries.Count == 0)
+                    {
+                        diff = new DiffResult
+                        {
+                            Entries = new List<DiffEntry>
+                            {
+                                new DiffEntry { FilePath = step.FocusPath, ChangeType = "M", Hunks = new List<DiffHunk>() }
+                            }
+                        };
+                    }
+
+                    foreach (DiffEntry entry in diff.Entries)
+                    {
+                        string path = string.IsNullOrWhiteSpace(entry.FilePath) ? step.FocusPath : entry.FilePath;
+                        var selection = new ComparisonSelection(path, step.CommitHash, ToChangeKind(entry.ChangeType));
+                        ComparisonPresentationViewModel presentation = await selectionCoordinator
+                            .BuildAsync(selection, ct)
+                            .ConfigureAwait(false);
+                        string file = diff.Entries.Count > 1 ? " · " + path : string.Empty;
+                        sections.Add(new FileHistorySection(
+                            $"Version {number} of {steps.Count} · {mark} · {step.Subject}{file}",
+                            presentation));
+                    }
+                }
+
+                InvokeOnUI(() =>
+                {
+                    FileHistorySections.Clear();
+                    foreach (FileHistorySection section in sections)
+                    {
+                        FileHistorySections.Add(section);
+                    }
+
+                    OnPropertyChanged(nameof(HasFileHistory));
+                    CloseHistoryCommand.RaiseCanExecuteChanged();
+                    LastOperationMessage = $"Showing {sections.Count} version(s), newest first.";
+                });
+            });
+        }
 
         public Task LoadCommitDiffAsync(string commitHash)
         {
@@ -163,15 +311,17 @@ namespace TiaGitAddIn.UI.ViewModels
 
             return RunBusyAsync("Loading diff…", async ct =>
             {
+                ClearFileHistory();
                 var result = await gitService.GetCommitDiffAsync(commitHash, ct).ConfigureAwait(false);
                 currentDiffCommitHash = commitHash;
-                ApplyDiffResult(result, $"Commit {commitHash.Substring(0, Math.Min(7, commitHash.Length))}");
+                ApplyDiffResult(result, $"Commit {ShortHash(commitHash)}");
             });
         }
 
         public Task LoadWorkingTreeDiffAsync() =>
             RunBusyAsync("Loading working tree diff…", async ct =>
             {
+                ClearFileHistory();
                 var result = await gitService.GetWorkingTreeDiffAsync(ct).ConfigureAwait(false);
                 currentDiffCommitHash = null;
                 ApplyDiffResult(result, "Working tree");
@@ -189,6 +339,7 @@ namespace TiaGitAddIn.UI.ViewModels
                 return Task.CompletedTask;
             }
 
+            ClearFileHistory();
             var selection = new ComparisonSelection(entry.FilePath, currentDiffCommitHash, ToChangeKind(entry.ChangeType));
             return selectionCoordinator.SelectAsync(selection, cancellationToken);
         }
@@ -218,6 +369,96 @@ namespace TiaGitAddIn.UI.ViewModels
             SelectNode(match);
             return SelectEntryAsync(match, CancellationToken.None);
         }
+
+        private Task ShowHistoryOfSelectedFileAsync()
+        {
+            string? path = SelectedEntry?.FilePath;
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                LastOperationMessage = "Select a file first.";
+                return Task.CompletedTask;
+            }
+
+            return StartVersionWalkAsync(new[] { path });
+        }
+
+        private Task ChooseFilesAsync()
+        {
+            if (string.IsNullOrWhiteSpace(repositoryPath))
+            {
+                LastOperationMessage = "The workspace folder is not available.";
+                return Task.CompletedTask;
+            }
+
+            OpenFileDialog dialog = new()
+            {
+                Title = "Choose files",
+                InitialDirectory = repositoryPath,
+                Multiselect = true,
+                CheckFileExists = true,
+                Filter = "All files (*.*)|*.*"
+            };
+
+            if (dialog.ShowDialog() != true || dialog.FileNames.Length == 0)
+            {
+                return Task.CompletedTask;
+            }
+
+            if (!TryMakeRelative(dialog.FileNames, out IReadOnlyList<string> relative))
+            {
+                LastOperationMessage = "Choose files inside the repository.";
+                return Task.CompletedTask;
+            }
+
+            return StartVersionWalkAsync(relative);
+        }
+
+        private bool TryMakeRelative(IEnumerable<string> fullPaths, out IReadOnlyList<string> relative)
+        {
+            var paths = new List<string>();
+            foreach (string fullPath in fullPaths)
+            {
+                if (!RepositoryPaths.TryMakeRelative(repositoryPath, fullPath, out string path))
+                {
+                    relative = Array.Empty<string>();
+                    return false;
+                }
+
+                paths.Add(path);
+            }
+
+            relative = paths;
+            return paths.Count > 0;
+        }
+
+        private static string FirstPath(DiffResult diff, IReadOnlyList<string> fallback)
+        {
+            string? fromDiff = diff.Entries.FirstOrDefault()?.FilePath;
+            if (!string.IsNullOrWhiteSpace(fromDiff))
+            {
+                return fromDiff!;
+            }
+
+            return fallback[0];
+        }
+
+        private void ClearFileHistory()
+        {
+            if (FileHistorySections.Count == 0)
+            {
+                return;
+            }
+
+            InvokeOnUI(() =>
+            {
+                FileHistorySections.Clear();
+                OnPropertyChanged(nameof(HasFileHistory));
+                CloseHistoryCommand.RaiseCanExecuteChanged();
+            });
+        }
+
+        private static string ShortHash(string hash) =>
+            hash.Substring(0, Math.Min(7, hash.Length));
 
         private static PlcPairChangeKind ToChangeKind(string? changeType) => changeType?.Trim().ToUpperInvariant() switch
         {
@@ -456,6 +697,9 @@ namespace TiaGitAddIn.UI.ViewModels
                 ExportPdfCommand.RaiseCanExecuteChanged();
                 NextFileCommand.RaiseCanExecuteChanged();
                 PreviousFileCommand.RaiseCanExecuteChanged();
+                ShowHistoryCommand.RaiseCanExecuteChanged();
+                ChooseFilesCommand.RaiseCanExecuteChanged();
+                CloseHistoryCommand.RaiseCanExecuteChanged();
                 CancelCommand.RaiseCanExecuteChanged();
             });
         }
