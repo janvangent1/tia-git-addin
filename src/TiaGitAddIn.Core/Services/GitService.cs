@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -124,6 +125,115 @@ namespace TiaGitAddIn.Services
             GitProcessResult result = await RunExclusiveAsync(args, ct).ConfigureAwait(false);
 
             return ToOperationResult(result, "Pull completed.", "Unable to pull from remote.");
+        }
+
+        public async Task<PullPreview> PreviewPullAsync(string? remote = null, CancellationToken ct = default)
+        {
+            OperationResult fetch = await FetchAsync(remote, ct).ConfigureAwait(false);
+            if (!fetch.Success)
+            {
+                return new PullPreview(Array.Empty<CommitInfo>(), Array.Empty<string>(), fetch.Message);
+            }
+
+            GitProcessResult upstream = await RunAsync(
+                new[] { "rev-parse", "--abbrev-ref", "@{upstream}" },
+                ct).ConfigureAwait(false);
+            if (!upstream.IsSuccess)
+            {
+                return new PullPreview(
+                    Array.Empty<CommitInfo>(),
+                    Array.Empty<string>(),
+                    "This branch does not track a remote branch.");
+            }
+
+            string target = (upstream.StandardOutput ?? string.Empty).Trim();
+            GitProcessResult log = await RunAsync(
+                new[] { "log", "--date=iso-strict", "--pretty=format:" + PrettyCommitFormat, "HEAD.." + target },
+                ct).ConfigureAwait(false);
+            if (!log.IsSuccess)
+            {
+                return new PullPreview(Array.Empty<CommitInfo>(), Array.Empty<string>(), "Unable to read the incoming commits.");
+            }
+
+            var commits = new List<CommitInfo>(GitOutputParser.ParseCommitLog(log.StandardOutput ?? string.Empty));
+            GitProcessResult names = await RunAsync(
+                new[] { "diff", "--name-only", "HEAD..." + target },
+                ct).ConfigureAwait(false);
+            var plcFiles = new List<string>();
+            int otherFiles = 0;
+            if (names.IsSuccess)
+            {
+                foreach (string raw in (names.StandardOutput ?? string.Empty).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    string path = raw.Trim();
+                    if (path.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    if (IsPlcPath(path))
+                    {
+                        plcFiles.Add(path);
+                    }
+                    else
+                    {
+                        otherFiles++;
+                    }
+                }
+            }
+
+            string message = commits.Count == 0
+                ? "Nothing new to pull."
+                : commits.Count + " commit(s) will arrive, including " + plcFiles.Count + " PLC file(s)."
+                    + (otherFiles > 0 ? " " + otherFiles + " other file(s) will arrive as well." : string.Empty);
+            return new PullPreview(commits, plcFiles, message);
+        }
+
+        public async Task<(string? Ours, string? Theirs)> GetConflictSidesAsync(string path, CancellationToken ct = default)
+        {
+            string relative = NormalizeRepositoryPath(path);
+            string? ours = await ReadStageAsync(2, relative, ct).ConfigureAwait(false);
+            string? theirs = await ReadStageAsync(3, relative, ct).ConfigureAwait(false);
+            return (ours, theirs);
+        }
+
+        public async Task<DiffResult> GetRangeDiffAsync(string leftCommitHash, string rightCommitHash, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(leftCommitHash) || !CommitHashPattern.IsMatch(leftCommitHash)
+                || string.IsNullOrWhiteSpace(rightCommitHash) || !CommitHashPattern.IsMatch(rightCommitHash))
+            {
+                throw new ArgumentException("Both commits must be selected.");
+            }
+
+            GitProcessResult result = await RunAsync(
+                new[] { "diff", "--no-color", leftCommitHash, rightCommitHash },
+                ct).ConfigureAwait(false);
+            EnsureSuccess(result, "Unable to compare those commits.");
+            return GitOutputParser.ParseDiff(result.StandardOutput);
+        }
+
+        private async Task<string?> ReadStageAsync(int stage, string path, CancellationToken ct)
+        {
+            GitProcessResult result = await RunAsync(
+                new[] { "show", ":" + stage.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":" + path },
+                ct).ConfigureAwait(false);
+            if (!result.IsSuccess || result.StandardOutput == null)
+            {
+                return null;
+            }
+
+            if (result.StandardOutput.IndexOf('\0') >= 0)
+            {
+                return null;
+            }
+
+            return result.StandardOutput;
+        }
+
+        private static bool IsPlcPath(string path)
+        {
+            return path.EndsWith(".scl", StringComparison.OrdinalIgnoreCase)
+                || path.IndexOf("PLC", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         public async Task<OperationResult> PushAsync(string? remote = null, string? branch = null, CancellationToken ct = default)
@@ -607,12 +717,22 @@ namespace TiaGitAddIn.Services
             return GitOutputParser.ParseCommitLog(result.StandardOutput).ToList();
         }
 
-        public async Task<DiffResult> GetWorkingTreeDiffAsync(CancellationToken ct = default)
+        public Task<DiffResult> GetWorkingTreeDiffAsync(CancellationToken ct = default) =>
+            GetWorkingTreeDiffAsync(null, ct);
+
+        public async Task<DiffResult> GetWorkingTreeDiffAsync(
+            IReadOnlyList<string>? repositoryRelativePaths,
+            CancellationToken ct = default)
         {
             string baseline = await HasHeadAsync(ct).ConfigureAwait(false) ? "HEAD" : EmptyTreeHash;
-            GitProcessResult result = await RunAsync(
-                new[] { "diff", baseline },
-                ct).ConfigureAwait(false);
+            var arguments = new List<string> { "diff", baseline };
+            if (repositoryRelativePaths != null)
+            {
+                arguments.Add("--");
+                arguments.AddRange(NormalizeRepositoryPaths(repositoryRelativePaths));
+            }
+
+            GitProcessResult result = await RunAsync(arguments, ct).ConfigureAwait(false);
 
             EnsureSuccess(result, "Unable to read working tree diff.");
             return GitOutputParser.ParseDiff(result.StandardOutput);
@@ -632,16 +752,62 @@ namespace TiaGitAddIn.Services
             return text.IndexOf("does not have any commits yet", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
-        public async Task<DiffResult> GetCommitDiffAsync(string commitHash, CancellationToken ct = default)
+        public Task<DiffResult> GetCommitDiffAsync(string commitHash, CancellationToken ct = default) =>
+            GetCommitDiffAsync(commitHash, null, ct);
+
+        public async Task<DiffResult> GetCommitDiffAsync(
+            string commitHash,
+            IReadOnlyList<string>? repositoryRelativePaths,
+            CancellationToken ct = default)
         {
             // diff-tree with --root yields the patch for any commit, including the initial
             // (parentless) commit where "{hash}^..{hash}" would fail with "unknown revision".
-            GitProcessResult result = await RunAsync(
-                new[] { "diff-tree", "--no-commit-id", "-p", "--root", commitHash },
-                ct).ConfigureAwait(false);
+            var arguments = new List<string> { "diff-tree", "--no-commit-id", "-p", "--root", commitHash };
+            if (repositoryRelativePaths != null)
+            {
+                arguments.Add("--");
+                arguments.AddRange(NormalizeRepositoryPaths(repositoryRelativePaths));
+            }
+
+            GitProcessResult result = await RunAsync(arguments, ct).ConfigureAwait(false);
 
             EnsureSuccess(result, "Unable to read commit diff.");
             return GitOutputParser.ParseDiff(result.StandardOutput);
+        }
+
+        public async Task<IReadOnlyList<FileRevision>> GetFileHistoryAsync(
+            IReadOnlyList<string> repositoryRelativePaths,
+            int maxCount,
+            CancellationToken ct = default)
+        {
+            if (maxCount <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maxCount), "Commit count must be positive.");
+            }
+
+            string[] paths = NormalizeRepositoryPaths(repositoryRelativePaths);
+            var arguments = new List<string> { "log" };
+            if (paths.Length == 1)
+            {
+                arguments.Add("--follow");
+            }
+
+            arguments.Add("--name-status");
+            arguments.Add("--date=iso-strict");
+            arguments.Add("--pretty=format:" + PrettyCommitFormat);
+            arguments.Add("-n");
+            arguments.Add(maxCount.ToString());
+            arguments.Add("--");
+            arguments.AddRange(paths);
+
+            GitProcessResult result = await RunAsync(arguments, ct).ConfigureAwait(false);
+            if (!result.IsSuccess && IsUnbornHead(result))
+            {
+                return Array.Empty<FileRevision>();
+            }
+
+            EnsureSuccess(result, "Unable to read file history.");
+            return GitOutputParser.ParseFileHistory(result.StandardOutput);
         }
 
         public async Task<IReadOnlyList<string>> GetCommitFilesAsync(string commitHash, CancellationToken ct = default)
@@ -704,6 +870,63 @@ namespace TiaGitAddIn.Services
             return result.IsSuccess
                 ? OperationResult.Ok(successMessage)
                 : OperationResult.Fail(failureMessage, result.StandardError);
+        }
+
+        private string[] NormalizeRepositoryPaths(IReadOnlyList<string> repositoryRelativePaths)
+        {
+            if (repositoryRelativePaths == null || repositoryRelativePaths.Count == 0)
+            {
+                throw new ArgumentException("Repository-relative path is required.", nameof(repositoryRelativePaths));
+            }
+
+            var normalized = new string[repositoryRelativePaths.Count];
+            for (int index = 0; index < repositoryRelativePaths.Count; index++)
+            {
+                normalized[index] = NormalizeRepositoryPath(repositoryRelativePaths[index]);
+            }
+
+            return normalized;
+        }
+
+        private string NormalizeRepositoryPath(string? repositoryRelativePath)
+        {
+            if (string.IsNullOrEmpty(repositoryRelativePath))
+            {
+                throw new ArgumentException("Repository-relative path is required.", nameof(repositoryRelativePath));
+            }
+
+            string path = repositoryRelativePath!;
+            if (path.IndexOf('\0') >= 0)
+            {
+                throw new ArgumentException("Path must not contain a NUL character.", nameof(repositoryRelativePath));
+            }
+
+            if (Path.IsPathRooted(path) || path.StartsWith("\\\\", StringComparison.Ordinal) || path.StartsWith("//", StringComparison.Ordinal))
+            {
+                throw new ArgumentException("Path must be repository-relative, not rooted.", nameof(repositoryRelativePath));
+            }
+
+            string normalized = path.Replace('\\', '/');
+            string[] segments = normalized.Split('/');
+            foreach (string segment in segments)
+            {
+                if (segment.Length == 0 || segment == "." || segment == "..")
+                {
+                    throw new ArgumentException(
+                        "Path must not contain empty, '.' or '..' segments.", nameof(repositoryRelativePath));
+                }
+            }
+
+            string combined = Path.GetFullPath(Path.Combine(repositoryRoot, normalized));
+            string rootWithSeparator = repositoryRoot.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
+                ? repositoryRoot
+                : repositoryRoot + Path.DirectorySeparatorChar;
+            if (!combined.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("Path escapes the repository root.", nameof(repositoryRelativePath));
+            }
+
+            return normalized;
         }
 
         private static void EnsureSuccess(GitProcessResult result, string message)

@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Win32;
 using TiaGitAddIn.Configuration;
 using TiaGitAddIn.Models;
 using TiaGitAddIn.Services;
+using TiaGitAddIn.Services.Hmi;
 using TiaGitAddIn.UI;
 
 namespace TiaGitAddIn.UI.ViewModels
@@ -23,6 +25,15 @@ namespace TiaGitAddIn.UI.ViewModels
         private bool remoteUrlEdited;
         private int maxLogEntries = 200;
         private bool compareXmlByElement = true;
+        private bool showScreenPreview = true;
+        private bool showPlcTablePreview = true;
+        private bool showSclStructure = true;
+        private bool ignoreTabExpansion;
+        private bool ignoreTrailingSpace;
+        private bool ignoreSpaceChange;
+        private bool ignoreAllSpace = true;
+        private bool ignoreBlankLines;
+        private bool ignoreComments;
         private string validationMessage = string.Empty;
         private bool canSaveSettings = true;
 
@@ -40,10 +51,16 @@ namespace TiaGitAddIn.UI.ViewModels
             BrowseGitExeCommand = new RelayCommand(_ => BrowseGitExe());
             SaveCommand = new AsyncCommand(() => SaveAsync(), () => canSaveSettings);
 
+            HmiCategories = Choices(HmiExportProgress.UnifiedCategories);
+            HardwareCategories = Choices(HmiExportProgress.HardwareCategories);
             LoadSettings();
             _ = RefreshRemoteUrlAsync();
             _ = FillIdentityFromGitAsync();
         }
+
+        public IReadOnlyList<ExportCategoryOption> HmiCategories { get; }
+
+        public IReadOnlyList<ExportCategoryOption> HardwareCategories { get; }
 
         public string GitExecutablePath
         {
@@ -150,6 +167,138 @@ namespace TiaGitAddIn.UI.ViewModels
             }
         }
 
+        public IReadOnlyList<ScreenDiffChoice> ScreenDiffChoices { get; } = new[]
+        {
+            new ScreenDiffChoice("Screen preview", true),
+            new ScreenDiffChoice("XML text", false)
+        };
+
+        public IReadOnlyList<ScreenDiffChoice> PlcTableDiffChoices { get; } = new[]
+        {
+            new ScreenDiffChoice("Grid", true),
+            new ScreenDiffChoice("XML text", false)
+        };
+
+        public IReadOnlyList<ScreenDiffChoice> SclDiffChoices { get; } = new[]
+        {
+            new ScreenDiffChoice("Structure", true),
+            new ScreenDiffChoice("Text", false)
+        };
+
+        public ScreenDiffChoice SelectedPlcTableDiff
+        {
+            get
+            {
+                foreach (ScreenDiffChoice choice in PlcTableDiffChoices)
+                {
+                    if (choice.ShowPreview == showPlcTablePreview)
+                    {
+                        return choice;
+                    }
+                }
+
+                return PlcTableDiffChoices[0];
+            }
+            set
+            {
+                if (value == null || value.ShowPreview == showPlcTablePreview)
+                {
+                    return;
+                }
+
+                showPlcTablePreview = value.ShowPreview;
+                OnPropertyChanged();
+            }
+        }
+
+        public ScreenDiffChoice SelectedSclDiff
+        {
+            get
+            {
+                foreach (ScreenDiffChoice choice in SclDiffChoices)
+                {
+                    if (choice.ShowPreview == showSclStructure)
+                    {
+                        return choice;
+                    }
+                }
+
+                return SclDiffChoices[0];
+            }
+            set
+            {
+                if (value == null || value.ShowPreview == showSclStructure)
+                {
+                    return;
+                }
+
+                showSclStructure = value.ShowPreview;
+                OnPropertyChanged();
+            }
+        }
+
+        public ScreenDiffChoice SelectedScreenDiff
+        {
+            get
+            {
+                foreach (ScreenDiffChoice choice in ScreenDiffChoices)
+                {
+                    if (choice.ShowPreview == showScreenPreview)
+                    {
+                        return choice;
+                    }
+                }
+
+                return ScreenDiffChoices[0];
+            }
+            set
+            {
+                if (value == null || value.ShowPreview == showScreenPreview)
+                {
+                    return;
+                }
+
+                showScreenPreview = value.ShowPreview;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool IgnoreTabExpansion
+        {
+            get => ignoreTabExpansion;
+            set => SetProperty(ref ignoreTabExpansion, value);
+        }
+
+        public bool IgnoreTrailingSpace
+        {
+            get => ignoreTrailingSpace;
+            set => SetProperty(ref ignoreTrailingSpace, value);
+        }
+
+        public bool IgnoreSpaceChange
+        {
+            get => ignoreSpaceChange;
+            set => SetProperty(ref ignoreSpaceChange, value);
+        }
+
+        public bool IgnoreAllSpace
+        {
+            get => ignoreAllSpace;
+            set => SetProperty(ref ignoreAllSpace, value);
+        }
+
+        public bool IgnoreBlankLines
+        {
+            get => ignoreBlankLines;
+            set => SetProperty(ref ignoreBlankLines, value);
+        }
+
+        public bool IgnoreComments
+        {
+            get => ignoreComments;
+            set => SetProperty(ref ignoreComments, value);
+        }
+
         public string ValidationMessage
         {
             get => validationMessage;
@@ -170,13 +319,51 @@ namespace TiaGitAddIn.UI.ViewModels
             remoteUrl = config.RemoteUrl ?? string.Empty;
             maxLogEntries = config.MaxLogEntries;
             compareXmlByElement = config.CompareXmlByElement;
+            showScreenPreview = config.ShowScreenPreview;
+            showPlcTablePreview = config.ShowPlcTablePreview;
+            showSclStructure = config.ShowSclStructure;
+            ignoreTabExpansion = config.IgnoreTabExpansion;
+            ignoreTrailingSpace = config.IgnoreTrailingSpace;
+            ignoreSpaceChange = config.IgnoreSpaceChange;
+            ignoreAllSpace = config.IgnoreAllSpace;
+            ignoreBlankLines = config.IgnoreBlankLines;
+            ignoreComments = config.IgnoreComments;
+            ApplyDisabled(HmiCategories, config.DisabledHmiCategories);
+            ApplyDisabled(HardwareCategories, config.DisabledHardwareCategories);
 
             OnPropertyChanged(string.Empty);
             Validate();
         }
 
+        public ExportCategorySet ExportCategories() =>
+            new ExportCategorySet(DisabledNames(HmiCategories), DisabledNames(HardwareCategories));
+
+        private static ExportCategoryOption[] Choices(IEnumerable<string> names) =>
+            names.Select(name => new ExportCategoryOption(name)).ToArray();
+
+        private static void ApplyDisabled(IReadOnlyList<ExportCategoryOption> choices, IEnumerable<string> disabled)
+        {
+            var off = new HashSet<string>(disabled ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+            foreach (ExportCategoryOption choice in choices)
+            {
+                choice.IsChecked = !off.Contains(choice.Name);
+            }
+        }
+
+        private static IEnumerable<string> DisabledNames(IEnumerable<ExportCategoryOption> choices)
+        {
+            foreach (ExportCategoryOption choice in choices)
+            {
+                if (!choice.IsChecked)
+                {
+                    yield return choice.Name;
+                }
+            }
+        }
+
         private Task SaveAsync()
         {
+            GitConfiguration existing = configurationService.Load(repositoryRoot);
             GitConfiguration config = new()
             {
                 GitExecutablePath = string.IsNullOrWhiteSpace(GitExecutablePath) ? null : GitExecutablePath,
@@ -187,7 +374,20 @@ namespace TiaGitAddIn.UI.ViewModels
                 CommitAuthorName = CommitAuthorName.Trim(),
                 CommitAuthorEmail = CommitAuthorEmail.Trim(),
                 CompareXmlByElement = compareXmlByElement,
-                Version = 1
+                ShowScreenPreview = showScreenPreview,
+                ShowPlcTablePreview = showPlcTablePreview,
+                ShowSclStructure = showSclStructure,
+                IgnoreTabExpansion = ignoreTabExpansion,
+                IgnoreTrailingSpace = ignoreTrailingSpace,
+                IgnoreSpaceChange = ignoreSpaceChange,
+                IgnoreAllSpace = ignoreAllSpace,
+                IgnoreBlankLines = ignoreBlankLines,
+                IgnoreComments = ignoreComments,
+                DisabledHmiCategories = DisabledNames(HmiCategories).ToList(),
+                DisabledHardwareCategories = DisabledNames(HardwareCategories).ToList(),
+                SiemensCompareToolPath = existing.SiemensCompareToolPath,
+                NodeExecutablePath = existing.NodeExecutablePath,
+                Version = existing.Version > 0 ? existing.Version : 1
             };
 
             try
@@ -394,6 +594,37 @@ namespace TiaGitAddIn.UI.ViewModels
             public string Caption { get; }
 
             public bool ByElement { get; }
+        }
+
+        public sealed class ScreenDiffChoice
+        {
+            public ScreenDiffChoice(string caption, bool showPreview)
+            {
+                Caption = caption;
+                ShowPreview = showPreview;
+            }
+
+            public string Caption { get; }
+
+            public bool ShowPreview { get; }
+        }
+
+        public sealed class ExportCategoryOption : ViewModelBase
+        {
+            private bool isChecked = true;
+
+            public ExportCategoryOption(string name)
+            {
+                Name = name;
+            }
+
+            public string Name { get; }
+
+            public bool IsChecked
+            {
+                get => isChecked;
+                set => SetProperty(ref isChecked, value);
+            }
         }
     }
 }

@@ -33,7 +33,7 @@ namespace TiaGitAddIn.Tests.UI
 
             ChangeNode device = roots[0];
             Assert.Equal("HMI · Line 1 (14)", device.Title);
-            Assert.True(device.IsExpanded);
+            Assert.False(device.IsExpanded);
             Assert.Equal(
                 new[]
                 {
@@ -54,7 +54,7 @@ namespace TiaGitAddIn.Tests.UI
             ChangeNode screens = device.Children!.First();
             Assert.Equal(new[] { "Motor.xml", "Start.xml" }, screens.Children!.Select(child => child.Title).ToArray());
             Assert.Equal("HmiExport/Line 1/Screens/Area/Motor.xml", screens.Children![0].Item);
-            Assert.True(screens.IsExpanded);
+            Assert.False(screens.IsExpanded);
 
             Assert.Equal("Blocks (1)", roots[1].Title);
             Assert.Equal("Main.xml", Assert.Single(roots[1].Children!).Title);
@@ -63,21 +63,20 @@ namespace TiaGitAddIn.Tests.UI
         }
 
         [Fact]
-        public void GroupCollapsesALargeCategoryAndKeepsTheDeviceOpen()
+        public void GroupStartsCollapsed()
         {
-            string[] paths = Enumerable.Range(1, ChangeTree.CollapseAbove + 1)
+            string[] paths = Enumerable.Range(1, 9)
                 .Select(index => "HmiExport/Panel/Screens/Screen" + index.ToString("00") + ".xml")
                 .Append("HmiExport/Panel/device.xml")
+                .Append("HardwareExport/G120/Drives/Drive.xml")
                 .ToArray();
 
-            ChangeNode device = Assert.Single(ChangeTree.Group(paths, path => path));
+            var roots = ChangeTree.Group(paths, path => path);
 
-            Assert.True(device.IsExpanded);
-            ChangeNode screens = device.Children!.Single(child => child.Title.StartsWith("Screens"));
-            ChangeNode configuration = device.Children!.Single(child => child.Title.StartsWith("Configuration"));
-            Assert.False(screens.IsExpanded);
-            Assert.True(configuration.IsExpanded);
-            Assert.Equal(ChangeTree.CollapseAbove + 1, screens.Children!.Count);
+            Assert.All(roots, node => Assert.False(node.IsExpanded));
+            Assert.All(roots.SelectMany(node => node.Children!), node => Assert.False(node.IsExpanded));
+            ChangeNode screens = roots.SelectMany(node => node.Children!).Single(child => child.Title.StartsWith("Screens"));
+            Assert.Equal(9, screens.Children!.Count);
         }
 
         [Fact]
@@ -111,6 +110,47 @@ namespace TiaGitAddIn.Tests.UI
             Assert.Equal(
                 new[] { "Hardware · G120 (3)", "Hardware · Networks (1)", "HMI · Panel (1)" },
                 roots.Select(node => node.Title).ToArray());
+        }
+
+        [Fact]
+        public void GroupNestsBlocksUnderTheirSoftwareUnit()
+        {
+            var roots = ChangeTree.Group(
+                new[]
+                {
+                    @"PLC\Software units\Unit_600_Motion\Program blocks\Motion\FB_Jog.xml",
+                    "PLC/Software units/Unit_600_Motion/Program blocks/FB_Stop.xml",
+                    "PLC/Software units/Unit_100_Library/Program blocks/FC_Scale.xml",
+                    "PLC/Program blocks/Main.xml",
+                },
+                path => path);
+
+            ChangeNode plc = Assert.Single(roots);
+            Assert.Equal("PLC (4)", plc.Title);
+            Assert.False(plc.IsExpanded);
+            Assert.Equal(
+                new[] { "Program blocks (1)", "Software units (3)" },
+                plc.Children!.Select(child => child.Title).ToArray());
+
+            ChangeNode units = plc.Children![1];
+            Assert.Equal(
+                new[] { "Unit_100_Library (1)", "Unit_600_Motion (2)" },
+                units.Children!.Select(child => child.Title).ToArray());
+
+            ChangeNode libraryBlocks = Assert.Single(units.Children![0].Children!);
+            Assert.Equal("Program blocks (1)", libraryBlocks.Title);
+            Assert.Equal("FC_Scale.xml", Assert.Single(libraryBlocks.Children!).Title);
+            Assert.Equal(
+                "PLC/Software units/Unit_100_Library/Program blocks/FC_Scale.xml",
+                libraryBlocks.Children![0].Item);
+
+            ChangeNode motionBlocks = Assert.Single(units.Children![1].Children!);
+            Assert.Equal("Program blocks (2)", motionBlocks.Title);
+            Assert.Equal(
+                new[] { "Motion (1)", "FB_Stop.xml" },
+                motionBlocks.Children!.Select(child => child.Title).ToArray());
+            Assert.Equal("FB_Jog.xml", Assert.Single(motionBlocks.Children![0].Children!).Title);
+            Assert.False(motionBlocks.Children![0].IsExpanded);
         }
 
         [Fact]

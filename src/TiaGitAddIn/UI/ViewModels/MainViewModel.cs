@@ -16,6 +16,8 @@ namespace TiaGitAddIn.UI.ViewModels
 {
     public sealed class MainViewModel : ViewModelBase
     {
+        private readonly IGitService gitService;
+
         public MainViewModel(
             string repositoryPath,
             IGitService gitService,
@@ -42,7 +44,8 @@ namespace TiaGitAddIn.UI.ViewModels
                 throw new ArgumentNullException(nameof(configurationService));
 
             RepositoryPath = repositoryPath;
-            Status = new StatusViewModel(gitService, UiDispatcher, ShowWorkingTreeDiffAsync);
+            this.gitService = gitService;
+            Status = new StatusViewModel(gitService, UiDispatcher, ShowWorkingTreeDiffAsync, OpenWorkingTreeFileAsync);
             Commit = new CommitViewModel(gitService, RefreshAfterCommitAsync, UiDispatcher);
             Branch = new BranchViewModel(
                 gitService,
@@ -50,14 +53,20 @@ namespace TiaGitAddIn.UI.ViewModels
                 () => configurationService.Load(repositoryPath).DefaultRemote);
             History = new HistoryViewModel(gitService, UiDispatcher, RefreshStatusAndBranchesAsync, repositoryPath);
             Export = new ExportCatalogViewModel(gitService, UiDispatcher);
-            Diff = new DiffViewModel(gitService, revisionProvider, comparisonCoordinator, mapper, logger, UiDispatcher);
+            Diff = new DiffViewModel(
+                gitService, revisionProvider, comparisonCoordinator, mapper, logger, UiDispatcher, repositoryPath);
             Settings = new SettingsViewModel(configurationService, repositoryPath, gitService, UiDispatcher);
             About = new AboutViewModel();
+            History.OpenFileAsync = OpenHistoryFileAsync;
+            History.OpenFileHistoryAsync = OpenFileHistoryAsync;
+            History.CompareRangeAsync = OpenRangeDiffAsync;
+            Status.CompareConflictAsync = OpenConflictAsync;
             Hmi = new HmiExchangeViewModel(
                 repositoryPath,
                 hmiExchange ?? new UnavailableHmiDeviceExchange(),
                 Status.RefreshAsync,
                 UiDispatcher);
+            Hmi.Categories = () => Settings.ExportCategories();
 
             CancelCommand = new RelayCommand(_ => CancelAll(), _ => IsBusy);
 
@@ -69,7 +78,7 @@ namespace TiaGitAddIn.UI.ViewModels
             Hmi.PropertyChanged += OnChildPropertyChanged;
         }
 
-        public const int DiffTabIndex = 5;
+        public const int DiffTabIndex = 4;
 
         private int selectedTabIndex;
 
@@ -108,6 +117,57 @@ namespace TiaGitAddIn.UI.ViewModels
         {
             SelectedTabIndex = DiffTabIndex;
             return Diff.LoadWorkingTreeDiffAsync();
+        }
+
+        private Task OpenWorkingTreeFileAsync(string path)
+        {
+            SelectedTabIndex = DiffTabIndex;
+            return OpenDiffFileAsync(null, path);
+        }
+
+        private Task OpenRangeDiffAsync(string leftHash, string rightHash)
+        {
+            SelectedTabIndex = DiffTabIndex;
+            return Diff.LoadRangeDiffAsync(leftHash, rightHash);
+        }
+
+        private async Task OpenConflictAsync(string path)
+        {
+            SelectedTabIndex = DiffTabIndex;
+            (string? ours, string? theirs) = await gitService.GetConflictSidesAsync(path).ConfigureAwait(false);
+            await Diff.ShowConflictAsync(path, ours, theirs).ConfigureAwait(false);
+        }
+
+        private Task OpenFileHistoryAsync(System.Collections.Generic.IReadOnlyList<string> paths)
+        {
+            SelectedTabIndex = DiffTabIndex;
+            return Diff.StartVersionWalkAsync(paths);
+        }
+
+        private Task OpenHistoryFileAsync(string path)
+        {
+            SelectedTabIndex = DiffTabIndex;
+            return OpenDiffFileAsync(History.SelectedCommit?.Hash, path);
+        }
+
+        private async Task OpenDiffFileAsync(string? commitHash, string path)
+        {
+            bool sameCommit = string.IsNullOrEmpty(commitHash)
+                ? Diff.IsWorkingTreeDiff
+                : string.Equals(Diff.LoadedCommitHash, commitHash, StringComparison.OrdinalIgnoreCase);
+            if (!sameCommit)
+            {
+                if (string.IsNullOrEmpty(commitHash))
+                {
+                    await Diff.LoadWorkingTreeDiffAsync().ConfigureAwait(false);
+                }
+                else
+                {
+                    await Diff.LoadCommitDiffAsync(commitHash!).ConfigureAwait(false);
+                }
+            }
+
+            await Diff.FocusFileAsync(path).ConfigureAwait(false);
         }
 
         private Task RefreshStatusAndBranchesAsync() =>
@@ -163,7 +223,7 @@ namespace TiaGitAddIn.UI.ViewModels
             });
         }
 
-        public bool ShowOverlay => IsBusy || Hmi.HasChecklist;
+        public bool ShowOverlay => IsBusy && !Hmi.HasChecklist;
 
         public bool ShowProgress => IsBusy;
 

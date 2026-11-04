@@ -70,7 +70,7 @@ namespace TiaGitAddIn.Services
 
         public Task<OperationResult> ExportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
         {
-            return RunOnCallerAsync(progress, ct, () => ExportCore(repositoryPath, progress, ct), blockDispatcher: true);
+            return RunOnCallerAsync(progress, ct, () => ExportCore(portal, repositoryPath, progress, ct), blockDispatcher: true);
         }
 
         public Task<OperationResult> ExportHardwareAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
@@ -81,12 +81,13 @@ namespace TiaGitAddIn.Services
                 portal,
                 repositoryPath,
                 ct,
-                message => ReportProgress(progress, string.Empty, message)), blockDispatcher: false);
+                message => ReportProgress(progress, string.Empty, message),
+                ExportCategorySet.CurrentOr(ExportCategorySet.All)), blockDispatcher: false);
         }
 
         public Task<OperationResult> ImportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
         {
-            return RunOnCallerAsync(progress, ct, () => ImportCore(repositoryPath, progress, ct), blockDispatcher: true);
+            return RunOnCallerAsync(progress, ct, () => ImportCore(portal, repositoryPath, progress, ct), blockDispatcher: true);
         }
 
         public Task<OperationResult> ImportHardwareAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
@@ -96,6 +97,33 @@ namespace TiaGitAddIn.Services
                 repositoryPath,
                 ct,
                 message => ReportProgress(progress, string.Empty, message)), blockDispatcher: false);
+        }
+
+        public Task<IReadOnlyList<string>> ListImportDifferencesAsync(string repositoryPath, CancellationToken ct = default)
+        {
+            Dispatcher dispatcher;
+            lock (callerGate)
+            {
+                dispatcher = callerDispatcher;
+            }
+
+            if (dispatcher == null)
+            {
+                return Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+            }
+
+            if (dispatcher.CheckAccess())
+            {
+                return Task.FromResult(ListImportDifferencesCore(portal, repositoryPath, ct));
+            }
+
+            return Task.Run(() => dispatcher.Invoke(() =>
+            {
+                using (Dispatcher.CurrentDispatcher.DisableProcessing())
+                {
+                    return ListImportDifferencesCore(portal, repositoryPath, ct);
+                }
+            }), ct);
         }
 
         private Task<OperationResult> RunOnCallerAsync(IProgress<string> progress, CancellationToken ct, Func<OperationResult> action, bool blockDispatcher)
@@ -126,6 +154,10 @@ namespace TiaGitAddIn.Services
                     catch (AggregateException ex) when (ex.InnerException is OperationCanceledException canceled)
                     {
                         throw canceled;
+                    }
+                    catch (AggregateException ex)
+                    {
+                        throw ex.GetBaseException();
                     }
 
                     return operation.Task.Result;
@@ -165,15 +197,80 @@ namespace TiaGitAddIn.Services
             }
         }
 
-        private OperationResult ExportCore(string repositoryPath, IProgress<string> progress, CancellationToken ct)
+        private OperationResult ExportCore(TiaPortal session, string repositoryPath, IProgress<string> progress, CancellationToken ct)
         {
+            return ExportCore(session, repositoryPath, progress, ct, null, true);
+        }
+
+        private IReadOnlyList<string> ListImportDifferencesCore(TiaPortal session, string repositoryPath, CancellationToken ct)
+        {
+            string temp = Path.Combine(Path.GetTempPath(), "TiaGitAddIn", "import-preview-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(temp);
+                OperationResult exported = ExportCore(session, temp, null, ct, ScreensAndTags(), false);
+                if (!exported.Success)
+                {
+                    return new[] { "The open project could not be read (" + exported.Message + "). Import can still continue." };
+                }
+
+                return HmiImportDifference.List(repositoryPath, temp);
+            }
+            finally
+            {
+                try
+                {
+                    if (Directory.Exists(temp))
+                    {
+                        Directory.Delete(temp, true);
+                    }
+                }
+                catch (Exception)
+                {
+                }
+            }
+        }
+
+        private static ExportCategorySet ScreensAndTags()
+        {
+            var disabled = new List<string>();
+            foreach (string category in HmiExportProgress.UnifiedCategories)
+            {
+                if (!category.Equals("Screens", StringComparison.OrdinalIgnoreCase)
+                    && !category.Equals("Tags", StringComparison.OrdinalIgnoreCase))
+                {
+                    disabled.Add(category);
+                }
+            }
+
+            foreach (string category in HmiExportProgress.ComfortCategories)
+            {
+                if (!category.Equals("Screens", StringComparison.OrdinalIgnoreCase)
+                    && !category.Equals("Tags", StringComparison.OrdinalIgnoreCase))
+                {
+                    disabled.Add(category);
+                }
+            }
+
+            return new ExportCategorySet(disabled, HmiExportProgress.HardwareCategories);
+        }
+
+        private OperationResult ExportCore(
+            TiaPortal session,
+            string repositoryPath,
+            IProgress<string> progress,
+            CancellationToken ct,
+            ExportCategorySet categories,
+            bool includeProjectContent)
+        {
+            ExportCategorySet selected = categories ?? ExportCategorySet.CurrentOr(ExportCategorySet.All);
             progress = new LoggingProgress(progress);
             try
             {
                 progress?.Report("Looking for HMI devices…");
                 List<UnifiedDevice> unified = new List<UnifiedDevice>();
                 List<ComfortDevice> comfort = new List<ComfortDevice>();
-                FindDevices(unified, comfort);
+                FindDevices(session, unified, comfort);
                 if (unified.Count == 0 && comfort.Count == 0)
                 {
                     return OperationResult.Fail("No Unified or WinCC Comfort HMI device was found in the open TIA project.");
@@ -185,9 +282,11 @@ namespace TiaGitAddIn.Services
                 {
                     ct.ThrowIfCancellationRequested();
                     UnifiedDevice device = unified[index];
+                    try
+                    {
                     progress?.Report("Unified panel " + (index + 1).ToString(CultureInfo.InvariantCulture) + " of " + unified.Count.ToString(CultureInfo.InvariantCulture) + ": " + device.Name);
                     Announce(progress, device.Name, HmiExportProgress.UnifiedCategories);
-                    HmiDeviceExport export = ReadDevice(device, progress, ct);
+                    HmiDeviceExport export = ReadDevice(device, progress, ct, selected);
                     screenCount += export.Screens.Count;
                     progress?.Report("Writing " + device.Name + "…");
                     string folder = HmiExportStore.DeviceFolder(repositoryPath, device.Name);
@@ -198,8 +297,14 @@ namespace TiaGitAddIn.Services
                         device.Name,
                         folder,
                         ct,
-                        message => ReportProgress(progress, device.Name + ": ", message));
+                        message => ReportProgress(progress, device.Name + ": ", message),
+                        selected);
                     HmiExportNormalizer.StabilizeCreationTimestamps(folder, previousTimestamps);
+                    }
+                    catch (Exception ex) when (!ExportIssues.MustStop(ex))
+                    {
+                        ExportIssues.Remember(device.Name, ex);
+                    }
                 }
 
                 int comfortFiles = 0;
@@ -208,26 +313,47 @@ namespace TiaGitAddIn.Services
                     ct.ThrowIfCancellationRequested();
                     ComfortDevice device = comfort[index];
                     string prefix = "WinCC Comfort " + (index + 1).ToString(CultureInfo.InvariantCulture) + " of " + comfort.Count.ToString(CultureInfo.InvariantCulture) + ": " + device.Name;
+                    try
+                    {
                     progress?.Report(prefix);
                     string folder = HmiExportStore.DeviceFolder(repositoryPath, device.Name);
                     IReadOnlyDictionary<string, string> previousTimestamps = HmiExportNormalizer.CaptureCreationTimestamps(folder);
                     folder = HmiExportStore.PrepareDeviceFolder(repositoryPath, device.Name, HmiDeviceExport.ComfortKind);
-                    int written = ComfortHmiExchange.Export(device.Target, folder, ct, message => ReportProgress(progress, prefix + " — ", message)) + 1;
+                    int written = ComfortHmiExchange.Export(
+                        device.Target,
+                        folder,
+                        ct,
+                        message => ReportProgress(progress, prefix + " — ", message),
+                        selected) + 1;
                     HmiExportNormalizer.StabilizeCreationTimestamps(folder, previousTimestamps);
                     comfortFiles += written;
                     fileCount += written;
+                    }
+                    catch (Exception ex) when (!ExportIssues.MustStop(ex))
+                    {
+                        ExportIssues.Remember(device.Name, ex);
+                    }
                 }
 
                 int projectFiles = 0;
-                foreach (Project project in portal.Projects)
+                if (includeProjectContent)
                 {
-                    ct.ThrowIfCancellationRequested();
-                    Announce(progress, project.Name, new[] { "Pictures", "Library" });
-                    projectFiles += ProjectContentExchange.Export(
-                        project,
-                        repositoryPath,
-                        ct,
-                        message => ReportProgress(progress, string.Empty, message));
+                    foreach (ProjectBase openProject in HardwareExchange.OpenProjects(session))
+                    {
+                        Project project = openProject as Project;
+                        if (project == null)
+                        {
+                            continue;
+                        }
+
+                        ct.ThrowIfCancellationRequested();
+                        Announce(progress, project.Name, new[] { "Pictures", "Library" });
+                        projectFiles += ProjectContentExchange.Export(
+                            project,
+                            repositoryPath,
+                            ct,
+                            message => ReportProgress(progress, string.Empty, message));
+                    }
                 }
 
                 fileCount += projectFiles;
@@ -241,11 +367,12 @@ namespace TiaGitAddIn.Services
             catch (Exception ex)
             {
                 HmiExportTrace.Error(ex);
+                ExportIssues.Remember(ex);
                 return OperationResult.Fail("Could not export the HMI device.", ex.Message);
             }
         }
 
-        private OperationResult ImportCore(string repositoryPath, IProgress<string> progress, CancellationToken ct)
+        private OperationResult ImportCore(TiaPortal session, string repositoryPath, IProgress<string> progress, CancellationToken ct)
         {
             progress = new LoggingProgress(progress);
             try
@@ -260,15 +387,21 @@ namespace TiaGitAddIn.Services
 
                 List<UnifiedDevice> unified = new List<UnifiedDevice>();
                 List<ComfortDevice> comfort = new List<ComfortDevice>();
-                FindDevices(unified, comfort);
+                FindDevices(session, unified, comfort);
                 if (unified.Count == 0 && comfort.Count == 0)
                 {
                     return OperationResult.Fail("No Unified or WinCC Comfort HMI device was found in the open TIA project.");
                 }
 
                 int projectItems = 0;
-                foreach (Project project in portal.Projects)
+                foreach (ProjectBase openProject in HardwareExchange.OpenProjects(session))
                 {
+                    Project project = openProject as Project;
+                    if (project == null)
+                    {
+                        continue;
+                    }
+
                     ct.ThrowIfCancellationRequested();
                     progress?.Report("Importing project pictures and library types for " + project.Name + "…");
                     projectItems += ProjectContentExchange.Import(project, repositoryPath, ct);
@@ -347,36 +480,31 @@ namespace TiaGitAddIn.Services
             catch (Exception ex)
             {
                 HmiExportTrace.Error(ex);
+                ExportIssues.Remember(ex);
                 return OperationResult.Fail("Could not import the HMI export.", ex.Message);
             }
         }
 
-        private void FindDevices(List<UnifiedDevice> unified, List<ComfortDevice> comfort)
+        private static void FindDevices(TiaPortal session, List<UnifiedDevice> unified, List<ComfortDevice> comfort)
         {
-            foreach (Project project in portal.Projects)
+            foreach (ProjectBase project in HardwareExchange.OpenProjects(session))
             {
-                foreach (Device device in project.Devices)
+                foreach (Device device in HardwareExchange.ListDevices(project, CancellationToken.None))
                 {
-                    CollectDevice(device, unified, comfort);
+                    if (HardwareExchange.IsDriveDevice(device))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        CollectDevice(device, unified, comfort);
+                    }
+                    catch (Exception ex) when (!ExportIssues.MustStop(ex))
+                    {
+                        ExportIssues.Remember(device == null ? "Device" : device.Name, ex);
+                    }
                 }
-
-                foreach (DeviceUserGroup group in project.DeviceGroups)
-                {
-                    CollectGroup(group, unified, comfort);
-                }
-            }
-        }
-
-        private static void CollectGroup(DeviceUserGroup group, List<UnifiedDevice> unified, List<ComfortDevice> comfort)
-        {
-            foreach (Device device in group.Devices)
-            {
-                CollectDevice(device, unified, comfort);
-            }
-
-            foreach (DeviceUserGroup child in group.Groups)
-            {
-                CollectGroup(child, unified, comfort);
             }
         }
 
@@ -390,7 +518,15 @@ namespace TiaGitAddIn.Services
 
         private static void CollectItem(string deviceName, DeviceItem item, List<UnifiedDevice> unified, List<ComfortDevice> comfort)
         {
-            SoftwareContainer container = item.GetService<SoftwareContainer>();
+            SoftwareContainer container = null;
+            try
+            {
+                container = item.GetService<SoftwareContainer>();
+            }
+            catch (Exception ex) when (!ExportIssues.MustStop(ex))
+            {
+                ExportIssues.Remember(item == null ? deviceName : item.Name, ex);
+            }
             if (container?.Software is HmiSoftware software)
             {
                 unified.Add(new UnifiedDevice(deviceName, software));
@@ -439,13 +575,23 @@ namespace TiaGitAddIn.Services
             return message + " Stage that folder to keep it in Git.";
         }
 
-        private static HmiDeviceExport ReadDevice(UnifiedDevice device, IProgress<string>? progress, CancellationToken ct)
+        private static HmiDeviceExport ReadDevice(
+            UnifiedDevice device,
+            IProgress<string>? progress,
+            CancellationToken ct,
+            ExportCategorySet categories)
         {
             var export = new HmiDeviceExport
             {
                 Name = device.Name,
                 Kind = HmiDeviceExport.UnifiedKind
             };
+
+            if (categories != null && !categories.AllowsHmi("Screens"))
+            {
+                progress?.Report(HmiExportProgress.Format(device.Name, "Screens", "skipped", 0, "Turned off in Settings."));
+                return export;
+            }
 
             int index = 0;
             progress?.Report(HmiExportProgress.Format(device.Name, "Screens", "running", 0, string.Empty));
@@ -493,73 +639,58 @@ namespace TiaGitAddIn.Services
             ref int index,
             CancellationToken ct)
         {
-            foreach (string name in CompositionNames(screens, screen => screen == null ? string.Empty : screen.Name, ct))
+            if (screens != null)
             {
-                ct.ThrowIfCancellationRequested();
-                HmiScreen screen = screens.Find(name);
-                if (screen == null)
-                {
-                    continue;
-                }
-
-                index++;
-                string location = string.IsNullOrEmpty(folder) ? screen.Name : folder + "/" + screen.Name;
-                progress?.Report(HmiExportProgress.Format(deviceName, "Screens", "running", index, location));
-                var screenExport = new HmiScreenExport
-                {
-                    Name = screen.Name,
-                    Folder = folder,
-                    Width = Convert.ToInt32(screen.Width, CultureInfo.InvariantCulture),
-                    Height = Convert.ToInt32(screen.Height, CultureInfo.InvariantCulture)
-                };
-
-                foreach (HmiScreenItemBase item in screen.ScreenItems)
+                foreach (HmiScreen screen in screens)
                 {
                     ct.ThrowIfCancellationRequested();
-                    HmiItemExport? exportedItem = ReadItem(item);
-                    if (exportedItem != null)
+                    if (screen == null || string.IsNullOrWhiteSpace(screen.Name))
                     {
-                        screenExport.Items.Add(exportedItem);
+                        continue;
                     }
-                }
 
-                screenExport.Content = UnifiedObjectSnapshot.Capture(screen, skipScreenItems: true);
-                export.Screens.Add(screenExport);
+                    index++;
+                    string location = string.IsNullOrEmpty(folder) ? screen.Name : folder + "/" + screen.Name;
+                    progress?.Report(HmiExportProgress.Format(deviceName, "Screens", "running", index, location));
+                    var screenExport = new HmiScreenExport
+                    {
+                        Name = screen.Name,
+                        Folder = folder,
+                        Width = Convert.ToInt32(screen.Width, CultureInfo.InvariantCulture),
+                        Height = Convert.ToInt32(screen.Height, CultureInfo.InvariantCulture)
+                    };
+
+                    foreach (HmiScreenItemBase item in screen.ScreenItems)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        HmiItemExport? exportedItem = ReadItem(item);
+                        if (exportedItem != null)
+                        {
+                            screenExport.Items.Add(exportedItem);
+                        }
+                    }
+
+                    screenExport.Content = UnifiedObjectSnapshot.Capture(screen, skipScreenItems: true);
+                    export.Screens.Add(screenExport);
+                }
             }
 
-            foreach (string name in CompositionNames(groups, group => group == null ? string.Empty : group.Name, ct))
+            if (groups == null)
+            {
+                return;
+            }
+
+            foreach (HmiScreenGroup group in groups)
             {
                 ct.ThrowIfCancellationRequested();
-                HmiScreenGroup group = groups.Find(name);
-                if (group == null)
+                if (group == null || string.IsNullOrWhiteSpace(group.Name))
                 {
                     continue;
                 }
 
-                string child = string.IsNullOrEmpty(folder) ? name : folder + "/" + name;
+                string child = string.IsNullOrEmpty(folder) ? group.Name : folder + "/" + group.Name;
                 ReadScreenLevel(group.Screens, group.Groups, child, deviceName, export, progress, ref index, ct);
             }
-        }
-
-        private static List<string> CompositionNames<T>(IEnumerable<T> items, Func<T, string> name, CancellationToken ct)
-        {
-            var names = new List<string>();
-            if (items == null)
-            {
-                return names;
-            }
-
-            foreach (T item in items)
-            {
-                ct.ThrowIfCancellationRequested();
-                string value = item == null ? string.Empty : name(item) ?? string.Empty;
-                if (!string.IsNullOrWhiteSpace(value))
-                {
-                    names.Add(value);
-                }
-            }
-
-            return names;
         }
 
         private static HmiItemExport ReadItem(HmiScreenItemBase item)

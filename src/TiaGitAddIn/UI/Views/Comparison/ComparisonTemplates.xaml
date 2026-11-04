@@ -19,6 +19,10 @@
         <views:TextDiffView/>
     </DataTemplate>
 
+    <DataTemplate DataType="{x:Type vm:SclComparisonViewModel}">
+        <views:SclDiffView/>
+    </DataTemplate>
+
     <!-- Unwraps LadComparisonViewModel.Content: LadDiffView expects the plain LadDiffViewModel. -->
     <DataTemplate DataType="{x:Type vm:LadComparisonViewModel}">
         <ladviews:LadDiffView DataContext="{Binding Content}"/>

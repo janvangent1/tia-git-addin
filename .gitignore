@@ -82,6 +82,9 @@ SACT_res/
 .fake
 *skills/
 
+__pycache__/
+*.pyc
+
 # Generated single-file plugin installer. The built exe is published; other output is not.
 /plugin_installer.exe
 installer/out/*

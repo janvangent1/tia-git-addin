@@ -14,34 +14,52 @@ namespace TiaGitAddIn.UI.ViewModels
     {
         private readonly IGitService gitService;
         private readonly Func<Task>? showChangesAsync;
+        private readonly Func<string, Task>? openFileAsync;
+        private List<FileStatusItemViewModel> stagedSource = new();
+        private List<FileStatusItemViewModel> unstagedSource = new();
+        private List<FileStatusItemViewModel> untrackedSource = new();
+        private List<FileStatusItemViewModel> conflictedSource = new();
         private ObservableCollection<FileStatusItemViewModel> stagedEntries = new();
         private ObservableCollection<FileStatusItemViewModel> unstagedEntries = new();
         private ObservableCollection<FileStatusItemViewModel> untrackedEntries = new();
+        private ObservableCollection<FileStatusItemViewModel> conflictedEntries = new();
         private ObservableCollection<FileStatusItemViewModel> allEntries = new();
         private ObservableCollection<ChangeNode> stagedGroups = new();
         private ObservableCollection<ChangeNode> unstagedGroups = new();
         private ObservableCollection<ChangeNode> untrackedGroups = new();
+        private ObservableCollection<ChangeNode> conflictedGroups = new();
         private string currentBranch = string.Empty;
         private string trackingSummary = string.Empty;
         private string statusSummary = "Status not loaded";
         private string lastOperationMessage = string.Empty;
+        private string fileFilter = string.Empty;
+        private FileStatusItemViewModel? selectedEntry;
 
         public StatusViewModel(
             IGitService gitService,
             IUiDispatcher? uiDispatcher = null,
-            Func<Task>? showChangesAsync = null)
+            Func<Task>? showChangesAsync = null,
+            Func<string, Task>? openFileAsync = null)
             : base(uiDispatcher)
         {
             this.gitService = gitService ?? throw new ArgumentNullException(nameof(gitService));
             this.showChangesAsync = showChangesAsync;
+            this.openFileAsync = openFileAsync;
             RefreshCommand = new AsyncCommand(() => RefreshAsync(), () => !IsBusy);
             ShowChangesCommand = new AsyncCommand(() => ShowChangesAsync(), () => !IsBusy && HasComparableChanges);
             StageSelectedCommand = new AsyncCommand(p => StageSelectedAsync(p), _ => !IsBusy);
             UnstageSelectedCommand = new AsyncCommand(p => UnstageSelectedAsync(p), _ => !IsBusy);
             DiscardSelectedCommand = new AsyncCommand(p => DiscardSelectedAsync(p), _ => !IsBusy);
             StageAllCommand = new AsyncCommand(() => StageAllAsync(), () => !IsBusy);
+            OpenSelectedCommand = new AsyncCommand(p => OpenSelectedAsync(p), _ => !IsBusy);
+            CompareConflictCommand = new AsyncCommand(() => CompareSelectedConflictAsync(), () => !IsBusy && SelectedConflictPath() != null);
+            MarkResolvedCommand = new AsyncCommand(() => MarkSelectedResolvedAsync(), () => !IsBusy && SelectedConflictPath() != null);
             CancelCommand = new RelayCommand(_ => RequestCancel(), _ => IsBusy);
         }
+
+        public Func<string, bool>? Confirm { get; set; }
+
+        public Func<string, Task>? CompareConflictAsync { get; set; }
 
         public ObservableCollection<FileStatusItemViewModel> StagedEntries
         {
@@ -61,6 +79,12 @@ namespace TiaGitAddIn.UI.ViewModels
             private set => SetProperty(untrackedEntries, value, updated => untrackedEntries = updated);
         }
 
+        public ObservableCollection<FileStatusItemViewModel> ConflictedEntries
+        {
+            get => conflictedEntries;
+            private set => SetProperty(conflictedEntries, value, updated => conflictedEntries = updated);
+        }
+
         public ObservableCollection<ChangeNode> StagedGroups
         {
             get => stagedGroups;
@@ -77,6 +101,41 @@ namespace TiaGitAddIn.UI.ViewModels
         {
             get => untrackedGroups;
             private set => SetProperty(untrackedGroups, value, updated => untrackedGroups = updated);
+        }
+
+        public ObservableCollection<ChangeNode> ConflictedGroups
+        {
+            get => conflictedGroups;
+            private set => SetProperty(conflictedGroups, value, updated => conflictedGroups = updated);
+        }
+
+        public bool HasConflicts => conflictedSource.Count > 0;
+
+        public int StagedCount => stagedSource.Count;
+
+        public string FileFilter
+        {
+            get => fileFilter;
+            set
+            {
+                if (SetProperty(fileFilter, value ?? string.Empty, updated => fileFilter = updated))
+                {
+                    PublishGroups();
+                }
+            }
+        }
+
+        public FileStatusItemViewModel? SelectedEntry
+        {
+            get => selectedEntry;
+            set
+            {
+                if (SetProperty(selectedEntry, value, updated => selectedEntry = updated))
+                {
+                    CompareConflictCommand?.RaiseCanExecuteChanged();
+                    MarkResolvedCommand?.RaiseCanExecuteChanged();
+                }
+            }
         }
 
         public ObservableCollection<FileStatusItemViewModel> Entries
@@ -115,9 +174,12 @@ namespace TiaGitAddIn.UI.ViewModels
         public AsyncCommand UnstageSelectedCommand { get; }
         public AsyncCommand DiscardSelectedCommand { get; }
         public AsyncCommand StageAllCommand { get; }
+        public AsyncCommand OpenSelectedCommand { get; }
+        public AsyncCommand CompareConflictCommand { get; }
+        public AsyncCommand MarkResolvedCommand { get; }
         public RelayCommand CancelCommand { get; }
 
-        private bool HasComparableChanges => StagedEntries.Count > 0 || UnstagedEntries.Count > 0;
+        private bool HasComparableChanges => stagedSource.Count > 0 || unstagedSource.Count > 0;
 
         public Task RefreshAsync() =>
             RunBusyAsync("Refreshing status…", LoadStatusCoreAsync);
@@ -131,19 +193,44 @@ namespace TiaGitAddIn.UI.ViewModels
             {
                 CurrentBranch = string.IsNullOrWhiteSpace(status.CurrentBranch) ? "(unknown)" : status.CurrentBranch;
                 TrackingSummary = BuildTrackingSummary(status);
-                StagedEntries = new ObservableCollection<FileStatusItemViewModel>(status.StagedEntries.Select(e => new FileStatusItemViewModel(e)));
-                UnstagedEntries = new ObservableCollection<FileStatusItemViewModel>(
-                    status.UnstagedEntries
-                        .Where(e => e.WorkTreeStatus != FileStatus.Untracked && e.IndexStatus != FileStatus.Untracked)
-                        .Select(e => new FileStatusItemViewModel(e)));
-                UntrackedEntries = new ObservableCollection<FileStatusItemViewModel>(status.UntrackedEntries.Select(e => new FileStatusItemViewModel(e)));
-                StagedGroups = ChangeTree.Group(StagedEntries, entry => entry.FilePath);
-                UnstagedGroups = ChangeTree.Group(UnstagedEntries, entry => entry.FilePath);
-                UntrackedGroups = ChangeTree.Group(UntrackedEntries, entry => entry.FilePath);
+                stagedSource = status.StagedEntries.Where(entry => !entry.IsConflicted).Select(entry => new FileStatusItemViewModel(entry)).ToList();
+                unstagedSource = status.UnstagedEntries
+                    .Where(entry => !entry.IsConflicted && entry.WorkTreeStatus != FileStatus.Untracked && entry.IndexStatus != FileStatus.Untracked)
+                    .Select(entry => new FileStatusItemViewModel(entry))
+                    .ToList();
+                untrackedSource = status.UntrackedEntries.Where(entry => !entry.IsConflicted).Select(entry => new FileStatusItemViewModel(entry)).ToList();
+                conflictedSource = status.Entries.Where(entry => entry.IsConflicted).Select(entry => new FileStatusItemViewModel(entry)).ToList();
+                PublishGroups();
                 Entries = new ObservableCollection<FileStatusItemViewModel>(status.Entries.Select(e => new FileStatusItemViewModel(e)));
                 StatusSummary = status.IsClean ? "Working tree clean" : $"{status.Entries.Count} changed files";
+                OnPropertyChanged(nameof(HasConflicts));
+                OnPropertyChanged(nameof(StagedCount));
                 ShowChangesCommand.RaiseCanExecuteChanged();
             });
+        }
+
+        private void PublishGroups()
+        {
+            StagedEntries = new ObservableCollection<FileStatusItemViewModel>(Matching(stagedSource));
+            UnstagedEntries = new ObservableCollection<FileStatusItemViewModel>(Matching(unstagedSource));
+            UntrackedEntries = new ObservableCollection<FileStatusItemViewModel>(Matching(untrackedSource));
+            ConflictedEntries = new ObservableCollection<FileStatusItemViewModel>(Matching(conflictedSource));
+            StagedGroups = ChangeTree.Group(StagedEntries, entry => entry.FilePath);
+            UnstagedGroups = ChangeTree.Group(UnstagedEntries, entry => entry.FilePath);
+            UntrackedGroups = ChangeTree.Group(UntrackedEntries, entry => entry.FilePath);
+            ConflictedGroups = ChangeTree.Group(ConflictedEntries, entry => entry.FilePath);
+        }
+
+        private IEnumerable<FileStatusItemViewModel> Matching(IEnumerable<FileStatusItemViewModel> source)
+        {
+            string filter = fileFilter.Trim();
+            if (filter.Length == 0)
+            {
+                return source;
+            }
+
+            return source.Where(entry =>
+                entry.FilePath.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
         public Task ShowChangesAsync() =>
@@ -155,8 +242,87 @@ namespace TiaGitAddIn.UI.ViewModels
         public Task UnstageSelectedAsync(object? parameter) =>
             ExecuteOnSelectionAsync(parameter, "Unstaging files…", gitService.UnstageAsync);
 
-        public Task DiscardSelectedAsync(object? parameter) =>
-            ExecuteOnSelectionAsync(parameter, "Discarding changes…", gitService.DiscardAsync);
+        public Task DiscardSelectedAsync(object? parameter)
+        {
+            List<string>? paths = ResolveSelectedPaths(parameter ?? SelectedEntry);
+            if (paths == null)
+            {
+                return Task.CompletedTask;
+            }
+
+            string prompt = paths.Count == 1
+                ? "Put " + paths[0] + " back to the last commit? This cannot be undone."
+                : "Put " + paths.Count.ToString() + " files back to the last commit? This cannot be undone.";
+            if (Confirm != null && !Confirm(prompt))
+            {
+                return Task.CompletedTask;
+            }
+
+            return RunPathsAsync(paths, "Discarding changes…", gitService.DiscardAsync);
+        }
+
+        public Task OpenSelectedAsync(object? parameter)
+        {
+            FileStatusItemViewModel? entry = parameter as FileStatusItemViewModel ?? SelectedEntry;
+            if (entry == null || openFileAsync == null)
+            {
+                return Task.CompletedTask;
+            }
+
+            return openFileAsync(entry.FilePath);
+        }
+
+        public Task CompareSelectedConflictAsync()
+        {
+            string? path = SelectedConflictPath();
+            if (path == null || CompareConflictAsync == null)
+            {
+                LastOperationMessage = "Select a conflicted file first.";
+                return Task.CompletedTask;
+            }
+
+            return CompareConflictAsync(path);
+        }
+
+        public Task MarkSelectedResolvedAsync()
+        {
+            string? path = SelectedConflictPath();
+            if (path == null)
+            {
+                LastOperationMessage = "Select a conflicted file first.";
+                return Task.CompletedTask;
+            }
+
+            return RunBusyAsync("Marking resolved…", async ct =>
+            {
+                OperationResult result = await gitService.StageAsync(new[] { path }, ct).ConfigureAwait(false);
+                InvokeOnUI(() => LastOperationMessage = result.Success
+                    ? "Marked resolved. Git will keep the file as it is in TIA."
+                    : GitUserMessages.Describe(result));
+                if (result.Success)
+                {
+                    await LoadStatusCoreAsync(ct).ConfigureAwait(false);
+                }
+            });
+        }
+
+        private string? SelectedConflictPath()
+        {
+            if (SelectedEntry == null)
+            {
+                return null;
+            }
+
+            foreach (FileStatusItemViewModel item in conflictedSource)
+            {
+                if (string.Equals(item.FilePath, SelectedEntry.FilePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return item.FilePath;
+                }
+            }
+
+            return null;
+        }
 
         public Task StageAllAsync() =>
             RunBusyAsync("Staging all files…", async ct =>
@@ -174,12 +340,20 @@ namespace TiaGitAddIn.UI.ViewModels
             string message,
             Func<IReadOnlyList<string>, CancellationToken, Task<OperationResult>> operation)
         {
-            List<string>? paths = ResolveSelectedPaths(parameter);
+            List<string>? paths = ResolveSelectedPaths(parameter ?? SelectedEntry);
             if (paths == null)
             {
                 return Task.CompletedTask;
             }
 
+            return RunPathsAsync(paths, message, operation);
+        }
+
+        private Task RunPathsAsync(
+            List<string> paths,
+            string message,
+            Func<IReadOnlyList<string>, CancellationToken, Task<OperationResult>> operation)
+        {
             return RunBusyAsync(message, async ct =>
             {
                 OperationResult result = await operation(paths, ct).ConfigureAwait(false);
@@ -231,6 +405,9 @@ namespace TiaGitAddIn.UI.ViewModels
                 UnstageSelectedCommand.RaiseCanExecuteChanged();
                 DiscardSelectedCommand.RaiseCanExecuteChanged();
                 StageAllCommand.RaiseCanExecuteChanged();
+                OpenSelectedCommand.RaiseCanExecuteChanged();
+                CompareConflictCommand.RaiseCanExecuteChanged();
+                MarkResolvedCommand.RaiseCanExecuteChanged();
                 CancelCommand.RaiseCanExecuteChanged();
             });
         }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -316,11 +317,15 @@ namespace TiaGitAddIn.Installer
                 " Browse to " + portalName + "\\" + UserAddInsName + ".";
         }
 
-        private static void PromptToInstallGit(string installedMessage)
+        private static void PromptToInstallGit(string installedMessage, GitCheck git)
         {
+            string problem = git != null && !string.IsNullOrEmpty(git.Path)
+                ? "git.exe was found at " + git.Path + " but it did not run." +
+                    (string.IsNullOrEmpty(git.Detail) ? string.Empty : " " + git.Detail)
+                : "Git for Windows was not found.";
             DialogResult answer = MessageBox.Show(
                 installedMessage + Environment.NewLine + Environment.NewLine +
-                "Git for Windows was not found. The add-in needs Git to work." + Environment.NewLine + Environment.NewLine +
+                problem + " The add-in needs a working git.exe." + Environment.NewLine + Environment.NewLine +
                 "Download Git for Windows now?",
                 "TIA Git Add-In",
                 MessageBoxButtons.YesNo,
@@ -349,41 +354,88 @@ namespace TiaGitAddIn.Installer
             }
         }
 
-        private static string FindGit()
+        internal sealed class GitCheck
         {
-            string fromPath = FindGitOnPath(Environment.GetEnvironmentVariable("PATH"));
-            if (fromPath != null)
-            {
-                return fromPath;
-            }
+            public bool Works;
+            public string Path;
+            public string Detail;
+        }
 
-            string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-            string programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string[] candidates = new string[]
-            {
-                Path.Combine(programFiles, "Git", "cmd", "git.exe"),
-                Path.Combine(programFiles, "Git", "bin", "git.exe"),
-                Path.Combine(programFilesX86, "Git", "cmd", "git.exe"),
-                Path.Combine(localAppData, "Programs", "Git", "cmd", "git.exe")
-            };
-
+        internal static GitCheck CheckGit()
+        {
+            string brokenPath = null;
+            string brokenDetail = null;
+            string[] candidates = GitCandidates();
             for (int i = 0; i < candidates.Length; i++)
             {
-                if (FileExists(candidates[i]))
+                string candidate = candidates[i];
+                if (!FileExists(candidate))
                 {
-                    return candidates[i];
+                    continue;
+                }
+
+                string detail;
+                if (GitRuns(candidate, out detail))
+                {
+                    return new GitCheck
+                    {
+                        Works = true,
+                        Path = candidate,
+                        Detail = detail
+                    };
+                }
+
+                if (brokenPath == null)
+                {
+                    brokenPath = candidate;
+                    brokenDetail = detail;
                 }
             }
 
-            return null;
+            return new GitCheck
+            {
+                Works = false,
+                Path = brokenPath,
+                Detail = brokenDetail
+            };
         }
 
-        private static string FindGitOnPath(string pathVariable)
+        internal static string DescribeGit(GitCheck git)
+        {
+            if (git != null && git.Works)
+            {
+                string version = string.IsNullOrEmpty(git.Detail) ? string.Empty : " (" + git.Detail + ")";
+                return "Git is working: " + git.Path + version;
+            }
+
+            if (git != null && !string.IsNullOrEmpty(git.Path))
+            {
+                string detail = string.IsNullOrEmpty(git.Detail) ? string.Empty : " " + git.Detail;
+                return "git.exe was found at " + git.Path + " but it did not run." + detail;
+            }
+
+            return "Git for Windows was not found. The add-in needs a working git.exe.";
+        }
+
+        private static string[] GitCandidates()
+        {
+            var found = new List<string>();
+            AddPathCandidates(found, Environment.GetEnvironmentVariable("PATH"));
+            string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            string programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            AddCandidate(found, Path.Combine(programFiles, "Git", "cmd", "git.exe"));
+            AddCandidate(found, Path.Combine(programFiles, "Git", "bin", "git.exe"));
+            AddCandidate(found, Path.Combine(programFilesX86, "Git", "cmd", "git.exe"));
+            AddCandidate(found, Path.Combine(localAppData, "Programs", "Git", "cmd", "git.exe"));
+            return found.ToArray();
+        }
+
+        private static void AddPathCandidates(List<string> found, string pathVariable)
         {
             if (pathVariable == null || pathVariable.Trim().Length == 0)
             {
-                return null;
+                return;
             }
 
             string[] entries = pathVariable.Split(Path.PathSeparator);
@@ -395,14 +447,77 @@ namespace TiaGitAddIn.Installer
                     continue;
                 }
 
-                string candidate = Path.Combine(directory, "git.exe");
-                if (FileExists(candidate))
+                AddCandidate(found, Path.Combine(directory, "git.exe"));
+            }
+        }
+
+        private static void AddCandidate(List<string> found, string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            for (int i = 0; i < found.Count; i++)
+            {
+                if (string.Equals(found[i], path, StringComparison.OrdinalIgnoreCase))
                 {
-                    return candidate;
+                    return;
                 }
             }
 
-            return null;
+            found.Add(path);
+        }
+
+        private static bool GitRuns(string gitExe, out string detail)
+        {
+            detail = string.Empty;
+            try
+            {
+                ProcessStartInfo info = new ProcessStartInfo
+                {
+                    FileName = gitExe,
+                    Arguments = "--version",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+                using (Process process = new Process())
+                {
+                    process.StartInfo = info;
+                    if (!process.Start())
+                    {
+                        detail = "Git did not start.";
+                        return false;
+                    }
+
+                    var outputTask = process.StandardOutput.ReadToEndAsync();
+                    var errorTask = process.StandardError.ReadToEndAsync();
+                    if (!process.WaitForExit(8000))
+                    {
+                        try
+                        {
+                            process.Kill();
+                        }
+                        catch (Exception)
+                        {
+                        }
+
+                        detail = "Git did not finish.";
+                        return false;
+                    }
+
+                    detail = (outputTask.Result + " " + errorTask.Result).Trim();
+                    return process.ExitCode == 0 &&
+                        detail.IndexOf("git version", StringComparison.OrdinalIgnoreCase) >= 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                detail = ex.Message;
+                return false;
+            }
         }
 
         private static bool FileExists(string path)
@@ -569,8 +684,10 @@ namespace TiaGitAddIn.Installer
             private readonly TextBox folderBox;
             private readonly Label installedVersion;
             private readonly Label folderStatus;
+            private readonly Label gitStatus;
             private readonly Button installButton;
             private FolderAssessment assessment;
+            private GitCheck git;
 
             public InstallForm(Payload payload)
             {
@@ -580,7 +697,7 @@ namespace TiaGitAddIn.Installer
                 MaximizeBox = false;
                 MinimizeBox = false;
                 StartPosition = FormStartPosition.CenterScreen;
-                ClientSize = new Size(640, 292);
+                ClientSize = new Size(640, 340);
                 Font = new Font("Segoe UI", 9f);
 
                 Label title = new Label
@@ -629,12 +746,18 @@ namespace TiaGitAddIn.Installer
                 {
                     AutoSize = false,
                     Location = new Point(16, 166),
-                    Size = new Size(608, 52)
+                    Size = new Size(608, 36)
+                };
+                gitStatus = new Label
+                {
+                    AutoSize = false,
+                    Location = new Point(16, 208),
+                    Size = new Size(608, 48)
                 };
                 installButton = new Button
                 {
                     Text = "Install",
-                    Location = new Point(436, 244),
+                    Location = new Point(436, 292),
                     Size = new Size(88, 28)
                 };
                 installButton.Click += InstallClick;
@@ -642,7 +765,7 @@ namespace TiaGitAddIn.Installer
                 {
                     Text = "Cancel",
                     DialogResult = DialogResult.Cancel,
-                    Location = new Point(532, 244),
+                    Location = new Point(532, 292),
                     Size = new Size(92, 28)
                 };
                 AcceptButton = installButton;
@@ -654,10 +777,21 @@ namespace TiaGitAddIn.Installer
                 Controls.Add(folderBox);
                 Controls.Add(browse);
                 Controls.Add(folderStatus);
+                Controls.Add(gitStatus);
                 Controls.Add(installButton);
                 Controls.Add(cancel);
                 folderBox.TextChanged += delegate { RefreshFolder(); };
                 RefreshFolder();
+                RefreshGit();
+            }
+
+            private void RefreshGit()
+            {
+                git = CheckGit();
+                gitStatus.Text = DescribeGit(git);
+                gitStatus.ForeColor = git.Works
+                    ? Color.FromArgb(0, 114, 104)
+                    : Color.FromArgb(140, 90, 0);
             }
 
             private void BrowseClick(object sender, EventArgs e)
@@ -738,17 +872,23 @@ namespace TiaGitAddIn.Installer
                     return;
                 }
 
+                RefreshGit();
                 string message = SuccessMessage(payload, destination);
                 string caption = string.IsNullOrEmpty(payload.ProductVersion)
                     ? "TIA Git Add-In"
                     : "TIA Git Add-In " + payload.ProductVersion;
-                if (FindGit() == null)
+                if (git == null || !git.Works)
                 {
-                    PromptToInstallGit(message);
+                    PromptToInstallGit(message, git);
                 }
                 else
                 {
-                    MessageBox.Show(this, message, caption, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(
+                        this,
+                        message + Environment.NewLine + Environment.NewLine + DescribeGit(git),
+                        caption,
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
                 }
 
                 DialogResult = DialogResult.OK;

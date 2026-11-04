@@ -68,6 +68,7 @@ namespace TiaGitAddIn.Services.Hmi
                 }
 
                 HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                 report?.Invoke(HmiExportProgress.Format(project.Name, "Pictures", "skipped", 0, ex.Message));
                 return 0;
             }
@@ -112,6 +113,7 @@ namespace TiaGitAddIn.Services.Hmi
                     }
 
                     HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                 }
             }
 
@@ -236,6 +238,7 @@ namespace TiaGitAddIn.Services.Hmi
                 }
 
                 HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
             }
 
             string typeFolder = Path.Combine(directory, HmiExportStore.UniqueName(type.Name, used));
@@ -265,6 +268,7 @@ namespace TiaGitAddIn.Services.Hmi
                 }
 
                 HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                 return 0;
             }
 
@@ -342,6 +346,7 @@ namespace TiaGitAddIn.Services.Hmi
                 }
 
                 HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                 return false;
             }
         }
@@ -418,7 +423,7 @@ namespace TiaGitAddIn.Services.Hmi
 
         private static bool IsSessionDead(Exception ex)
         {
-            return ex is NonRecoverableException || ex is EngineeringObjectDisposedException;
+            return ExportIssues.MustStop(ex);
         }
     }
 }

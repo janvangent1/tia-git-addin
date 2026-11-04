@@ -126,6 +126,12 @@ namespace TiaGitAddIn.IntegrationTests.Services
             Assert.Equal(
                 GitUserMessages.IdentityRequired,
                 GitUserMessages.Describe(OperationResult.Fail("Unable to create commit.", "Please tell me who you are.")));
+            Assert.Equal(
+                GitUserMessages.RemoteSignInRequired,
+                GitUserMessages.Explain("fatal: Authentication failed for 'https://dev.azure.com/org/project/_git/plc'"));
+            Assert.Equal(
+                GitUserMessages.RemoteSignInRequired,
+                GitUserMessages.Explain("fatal: could not read Username for 'https://github.com': terminal prompts disabled"));
         }
 
         private sealed class RecordingRunner : IGitProcessRunner

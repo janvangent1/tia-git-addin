@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
@@ -17,6 +18,8 @@ namespace TiaGitAddIn.UI.ViewModels
         private BranchInfo? selectedBranch;
         private string newBranchName = string.Empty;
         private string lastOperationMessage = string.Empty;
+        private string pullPreviewText = string.Empty;
+        private bool hasPullPreview;
 
         public BranchViewModel(
             IGitService gitService,
@@ -31,7 +34,8 @@ namespace TiaGitAddIn.UI.ViewModels
             CreateBranchCommand = new AsyncCommand(() => CreateBranchAsync(), () => !IsBusy && !string.IsNullOrWhiteSpace(NewBranchName));
             SwitchBranchCommand = new AsyncCommand(() => SwitchBranchAsync(), () => !IsBusy && SelectedBranch != null && !SelectedBranch.IsCurrent);
             FetchCommand = new AsyncCommand(() => FetchAsync(), () => !IsBusy);
-            PullCommand = new AsyncCommand(() => PullAsync(), () => !IsBusy);
+            PullCommand = new AsyncCommand(() => PreviewPullAsync(), () => !IsBusy);
+            ContinuePullCommand = new AsyncCommand(() => PullAsync(), () => !IsBusy && HasPullPreview);
             PushCommand = new AsyncCommand(() => PushAsync(), () => !IsBusy);
             CancelCommand = new RelayCommand(_ => RequestCancel(), _ => IsBusy);
         }
@@ -66,6 +70,24 @@ namespace TiaGitAddIn.UI.ViewModels
             }
         }
 
+        public string PullPreviewText
+        {
+            get => pullPreviewText;
+            private set => SetProperty(pullPreviewText, value ?? string.Empty, updated => pullPreviewText = updated);
+        }
+
+        public bool HasPullPreview
+        {
+            get => hasPullPreview;
+            private set
+            {
+                if (SetProperty(hasPullPreview, value, updated => hasPullPreview = updated))
+                {
+                    InvokeOnUI(() => ContinuePullCommand.RaiseCanExecuteChanged());
+                }
+            }
+        }
+
         public string LastOperationMessage
         {
             get => lastOperationMessage;
@@ -77,6 +99,7 @@ namespace TiaGitAddIn.UI.ViewModels
         public AsyncCommand SwitchBranchCommand { get; }
         public AsyncCommand FetchCommand { get; }
         public AsyncCommand PullCommand { get; }
+        public AsyncCommand ContinuePullCommand { get; }
         public AsyncCommand PushCommand { get; }
         public RelayCommand CancelCommand { get; }
 
@@ -127,11 +150,51 @@ namespace TiaGitAddIn.UI.ViewModels
                 InvokeOnUI(() => LastOperationMessage = GitUserMessages.Describe(result));
             });
 
+        private Task PreviewPullAsync() =>
+            RunBusyAsync("Checking what a pull would bring in…", async ct =>
+            {
+                PullPreview preview = await gitService.PreviewPullAsync(CurrentRemoteName(), ct).ConfigureAwait(false);
+                InvokeOnUI(() =>
+                {
+                    HasPullPreview = preview.HasIncoming;
+                    PullPreviewText = BuildPreviewText(preview);
+                    LastOperationMessage = preview.HasIncoming
+                        ? "Review the list, then continue the pull."
+                        : preview.Message;
+                });
+            });
+
+        private static string BuildPreviewText(PullPreview preview)
+        {
+            var lines = new List<string> { preview.Message };
+            foreach (CommitInfo commit in preview.Commits)
+            {
+                string hash = commit.Hash ?? string.Empty;
+                string mark = hash.Length > 7 ? hash.Substring(0, 7) : hash;
+                lines.Add(mark + "  " + (commit.Subject ?? string.Empty));
+            }
+
+            foreach (string file in preview.PlcFiles)
+            {
+                lines.Add(file);
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
         private Task PullAsync() =>
             RunBusyAsync("Pulling…", async ct =>
             {
                 var result = await gitService.PullAsync(CurrentRemoteName(), ct: ct).ConfigureAwait(false);
-                InvokeOnUI(() => LastOperationMessage = GitUserMessages.Describe(result));
+                InvokeOnUI(() =>
+                {
+                    LastOperationMessage = GitUserMessages.Describe(result);
+                    if (result.Success)
+                    {
+                        HasPullPreview = false;
+                        PullPreviewText = string.Empty;
+                    }
+                });
                 if (result.Success) await LoadBranchesCoreAsync(ct).ConfigureAwait(false);
             });
 
@@ -159,6 +222,7 @@ namespace TiaGitAddIn.UI.ViewModels
                 SwitchBranchCommand.RaiseCanExecuteChanged();
                 FetchCommand.RaiseCanExecuteChanged();
                 PullCommand.RaiseCanExecuteChanged();
+                ContinuePullCommand.RaiseCanExecuteChanged();
                 PushCommand.RaiseCanExecuteChanged();
                 CancelCommand.RaiseCanExecuteChanged();
             });

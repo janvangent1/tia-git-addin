@@ -21,6 +21,12 @@ namespace TiaGitAddIn.Services
 
         Task<OperationResult> PullAsync(string? remote = null, string? branch = null, CancellationToken ct = default);
 
+        Task<PullPreview> PreviewPullAsync(string? remote = null, CancellationToken ct = default);
+
+        Task<(string? Ours, string? Theirs)> GetConflictSidesAsync(string path, CancellationToken ct = default);
+
+        Task<DiffResult> GetRangeDiffAsync(string leftCommitHash, string rightCommitHash, CancellationToken ct = default);
+
         Task<OperationResult> PushAsync(string? remote = null, string? branch = null, CancellationToken ct = default);
 
         Task<IReadOnlyList<BranchInfo>> GetBranchesAsync(CancellationToken ct = default);
@@ -45,7 +51,13 @@ namespace TiaGitAddIn.Services
 
         Task<DiffResult> GetWorkingTreeDiffAsync(CancellationToken ct = default);
 
+        Task<DiffResult> GetWorkingTreeDiffAsync(IReadOnlyList<string> repositoryRelativePaths, CancellationToken ct = default);
+
         Task<DiffResult> GetCommitDiffAsync(string commitHash, CancellationToken ct = default);
+
+        Task<DiffResult> GetCommitDiffAsync(string commitHash, IReadOnlyList<string> repositoryRelativePaths, CancellationToken ct = default);
+
+        Task<IReadOnlyList<FileRevision>> GetFileHistoryAsync(IReadOnlyList<string> repositoryRelativePaths, int maxCount, CancellationToken ct = default);
 
         Task<IReadOnlyList<string>> GetCommitFilesAsync(string commitHash, CancellationToken ct = default);
 

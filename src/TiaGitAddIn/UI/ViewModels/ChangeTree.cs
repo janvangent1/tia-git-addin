@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using TiaGitAddIn.Services.Hmi;
 
@@ -9,7 +10,7 @@ namespace TiaGitAddIn.UI.ViewModels
     /// <summary>
     /// One row in a changed-file tree. Groups have children; a file row keeps the original item.
     /// </summary>
-    public sealed class ChangeNode
+    public sealed class ChangeNode : INotifyPropertyChanged
     {
         public ChangeNode(string title, object? item, IReadOnlyList<ChangeNode>? children, bool isExpanded)
         {
@@ -27,19 +28,34 @@ namespace TiaGitAddIn.UI.ViewModels
 
         public bool IsExpanded { get; }
 
-        public bool IsSelected { get; set; }
+        private bool isSelected;
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public bool IsSelected
+        {
+            get => isSelected;
+            set
+            {
+                if (isSelected == value)
+                {
+                    return;
+                }
+
+                isSelected = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+            }
+        }
 
         public bool IsFile => Item != null;
     }
 
     /// <summary>
-    /// Groups changed paths so an HMI export shows screens, scripts, tags, and the other
-    /// export folders instead of one flat list.
+    /// Groups changed paths. An HMI or hardware export is grouped by device and export folder.
+    /// PLC files keep their workspace folders, so a block sits under its software unit.
     /// </summary>
     public static class ChangeTree
     {
-        public const int CollapseAbove = 8;
-
         private static readonly string[] CategoryOrder =
         {
             "Screens",
@@ -78,7 +94,8 @@ namespace TiaGitAddIn.UI.ViewModels
             }
 
             var devices = new Dictionary<string, DeviceBucket>(StringComparer.OrdinalIgnoreCase);
-            var others = new Dictionary<string, List<FileRow>>(StringComparer.OrdinalIgnoreCase);
+            var folders = new Dictionary<string, FolderBucket>(StringComparer.OrdinalIgnoreCase);
+            var loose = new List<FileRow>();
 
             foreach (T item in items)
             {
@@ -98,13 +115,21 @@ namespace TiaGitAddIn.UI.ViewModels
                 }
                 else
                 {
-                    if (!others.TryGetValue(category, out List<FileRow>? rows))
+                    string[] parts = SplitPath(path);
+                    if (parts.Length <= 1)
                     {
-                        rows = new List<FileRow>();
-                        others.Add(category, rows);
+                        loose.Add(row);
                     }
-
-                    rows.Add(row);
+                    else if (!folders.TryGetValue(parts[0], out FolderBucket? folder))
+                    {
+                        folder = new FolderBucket(parts[0]);
+                        folders.Add(parts[0], folder);
+                        folder.Add(parts, 1, row);
+                    }
+                    else
+                    {
+                        folder.Add(parts, 1, row);
+                    }
                 }
             }
 
@@ -114,11 +139,15 @@ namespace TiaGitAddIn.UI.ViewModels
                 roots.Add(devices[device].ToNode());
             }
 
-            foreach (string name in others.Keys
-                .OrderBy(name => name.Equals("Other files", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
-                .ThenBy(name => name, StringComparer.OrdinalIgnoreCase))
+            foreach (string name in folders.Keys
+                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase))
             {
-                roots.Add(CategoryNode(name, others[name]));
+                roots.Add(folders[name].ToNode());
+            }
+
+            if (loose.Count > 0)
+            {
+                roots.Add(CategoryNode("Other files", loose));
             }
 
             return new ObservableCollection<ChangeNode>(roots);
@@ -216,7 +245,7 @@ namespace TiaGitAddIn.UI.ViewModels
             }
 
             string title = name + " (" + children.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")";
-            return new ChangeNode(title, null, children, children.Count <= CollapseAbove);
+            return new ChangeNode(title, null, children, false);
         }
 
         private static string CategoryName(string folder)
@@ -284,15 +313,81 @@ namespace TiaGitAddIn.UI.ViewModels
 
         private static string FileTitle(string path)
         {
-            string normalized = (path ?? string.Empty).Replace('\\', '/').Trim();
-            int slash = normalized.LastIndexOf('/');
-            string name = slash >= 0 ? normalized.Substring(slash + 1) : normalized;
-            return name.Length == 0 ? path ?? string.Empty : name;
+            string[] parts = SplitPath(path);
+            return parts.Length == 0 ? path ?? string.Empty : parts[parts.Length - 1];
+        }
+
+        private static string[] SplitPath(string path)
+        {
+            return (path ?? string.Empty)
+                .Replace('\\', '/')
+                .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
         }
 
         private const string HmiExportFolder = "HmiExport";
 
         private const string HardwareExportFolder = "HardwareExport";
+
+        private sealed class FolderBucket
+        {
+            private readonly string name;
+            private readonly List<FileRow> files = new List<FileRow>();
+            private readonly Dictionary<string, FolderBucket> folders =
+                new Dictionary<string, FolderBucket>(StringComparer.OrdinalIgnoreCase);
+
+            public FolderBucket(string name)
+            {
+                this.name = name;
+            }
+
+            public void Add(string[] parts, int index, FileRow row)
+            {
+                if (index >= parts.Length - 1)
+                {
+                    files.Add(row);
+                    return;
+                }
+
+                string folderName = parts[index];
+                if (!folders.TryGetValue(folderName, out FolderBucket? folder))
+                {
+                    folder = new FolderBucket(folderName);
+                    folders.Add(folderName, folder);
+                }
+
+                folder.Add(parts, index + 1, row);
+            }
+
+            public ChangeNode ToNode()
+            {
+                var children = new List<ChangeNode>();
+                foreach (FolderBucket folder in folders.Values
+                    .OrderBy(folder => folder.name, StringComparer.OrdinalIgnoreCase))
+                {
+                    children.Add(folder.ToNode());
+                }
+
+                files.Sort((left, right) => StringComparer.OrdinalIgnoreCase.Compare(left.Title, right.Title));
+                foreach (FileRow file in files)
+                {
+                    children.Add(new ChangeNode(file.Title, file.Item, null, false));
+                }
+
+                string title = name + " (" + FileCount().ToString(System.Globalization.CultureInfo.InvariantCulture) + ")";
+                return new ChangeNode(title, null, children, false);
+            }
+
+            private int FileCount()
+            {
+                int total = files.Count;
+                foreach (FolderBucket folder in folders.Values)
+                {
+                    total += folder.FileCount();
+                }
+
+                return total;
+            }
+        }
 
         private sealed class FileRow
         {
@@ -345,7 +440,7 @@ namespace TiaGitAddIn.UI.ViewModels
                 }
 
                 string title = label + " · " + deviceName + " (" + total.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")";
-                return new ChangeNode(title, null, children, true);
+                return new ChangeNode(title, null, children, false);
             }
         }
     }

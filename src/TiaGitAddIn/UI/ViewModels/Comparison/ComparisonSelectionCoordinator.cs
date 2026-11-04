@@ -84,15 +84,81 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
             return RunSelectionAsync(selection, myGeneration, linkedCts);
         }
 
+        /// <summary>
+        /// Builds one comparison without replacing the comparison currently shown. Used to stack every
+        /// version of a file in a single view.
+        /// </summary>
+        public async Task<ComparisonPresentationViewModel> BuildAsync(
+            ComparisonSelection selection,
+            CancellationToken cancellationToken)
+        {
+            if (selection == null) throw new ArgumentNullException(nameof(selection));
+            BuiltComparison built = await LoadPresentationAsync(selection, cancellationToken).ConfigureAwait(false);
+            return built.ViewModel;
+        }
+
         private async Task RunSelectionAsync(ComparisonSelection selection, long myGeneration, CancellationTokenSource linkedCts)
         {
             CancellationToken token = linkedCts.Token;
-            PlcRevisionLease? leftLease = null;
-            PlcRevisionLease? rightLease = null;
 
             try
             {
-                (PlcRevisionSource leftSource, PlcRevisionSource rightSource) = ResolveSources(selection.CommitHash);
+                BuiltComparison built = await LoadPresentationAsync(selection, token).ConfigureAwait(false);
+
+                dispatcher.Invoke(() =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (Interlocked.Read(ref generation) != myGeneration)
+                    {
+                        return;
+                    }
+
+                    if (built.IsError)
+                    {
+                        lock (gate)
+                        {
+                            appliedErrorsForTests.Add(string.Join(",", built.Result.Diagnostics.Select(d => d.Code)));
+                        }
+                    }
+
+                    apply(built.ViewModel);
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Comparison selection for '{selection.RepositoryRelativePath}' failed unexpectedly.", ex);
+                throw;
+            }
+            finally
+            {
+                // Only clear activeCts if it still points at this selection's own CTS: a newer selection
+                // may already have replaced it (and taken over responsibility for canceling/disposing this
+                // one). Without this, a selection that completes on its own (never superseded) would leave
+                // its already-disposed CTS referenced by activeCts, and the next unrelated SelectAsync call
+                // would throw ObjectDisposedException trying to cancel/dispose it.
+                lock (gate)
+                {
+                    if (ReferenceEquals(activeCts, linkedCts))
+                    {
+                        activeCts = null;
+                    }
+                }
+
+                linkedCts.Dispose();
+            }
+        }
+
+        private async Task<BuiltComparison> LoadPresentationAsync(ComparisonSelection selection, CancellationToken token)
+        {
+            PlcRevisionLease? leftLease = null;
+            PlcRevisionLease? rightLease = null;
+            try
+            {
+                (PlcRevisionSource leftSource, PlcRevisionSource rightSource) = ResolveSources(selection);
 
                 PlcComparisonResult? loadErrorResult = null;
                 try
@@ -118,58 +184,27 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
 
                 PlcComparisonResult result = loadErrorResult
                     ?? await comparisonCoordinator.CompareAsync(leftLease!.Revision, rightLease!.Revision, token).ConfigureAwait(false);
-
-                ComparisonPresentationViewModel viewModel = mapper.Map(result);
-                bool isErrorOutcome = loadErrorResult != null;
-
-                dispatcher.Invoke(() =>
-                {
-                    token.ThrowIfCancellationRequested();
-                    if (Interlocked.Read(ref generation) != myGeneration)
-                    {
-                        return;
-                    }
-
-                    if (isErrorOutcome)
-                    {
-                        lock (gate)
-                        {
-                            appliedErrorsForTests.Add(string.Join(",", result.Diagnostics.Select(d => d.Code)));
-                        }
-                    }
-
-                    apply(viewModel);
-                });
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                logger.Error($"Comparison selection for '{selection.RepositoryRelativePath}' failed unexpectedly.", ex);
-                throw;
+                return new BuiltComparison(mapper.Map(result), loadErrorResult != null, result);
             }
             finally
             {
                 DisposeLease(rightLease);
                 DisposeLease(leftLease);
-
-                // Only clear activeCts if it still points at this selection's own CTS: a newer selection
-                // may already have replaced it (and taken over responsibility for canceling/disposing this
-                // one). Without this, a selection that completes on its own (never superseded) would leave
-                // its already-disposed CTS referenced by activeCts, and the next unrelated SelectAsync call
-                // would throw ObjectDisposedException trying to cancel/dispose it.
-                lock (gate)
-                {
-                    if (ReferenceEquals(activeCts, linkedCts))
-                    {
-                        activeCts = null;
-                    }
-                }
-
-                linkedCts.Dispose();
             }
+        }
+
+        private sealed class BuiltComparison
+        {
+            public BuiltComparison(ComparisonPresentationViewModel viewModel, bool isError, PlcComparisonResult result)
+            {
+                ViewModel = viewModel;
+                IsError = isError;
+                Result = result;
+            }
+
+            public ComparisonPresentationViewModel ViewModel { get; }
+            public bool IsError { get; }
+            public PlcComparisonResult Result { get; }
         }
 
         private void DisposeLease(PlcRevisionLease? lease)
@@ -186,14 +221,49 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
             }
         }
 
-        private static (PlcRevisionSource Left, PlcRevisionSource Right) ResolveSources(string? commitHash)
+        public async Task CompareTextsAsync(string path, string? leftText, string? rightText, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrEmpty(commitHash))
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                throw new ArgumentException("A file path is required.", nameof(path));
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            PlcRevision left = TextRevision(PlcRevisionSide.Left, path, leftText);
+            PlcRevision right = TextRevision(PlcRevisionSide.Right, path, rightText);
+            PlcComparisonResult result = await comparisonCoordinator.CompareAsync(left, right, cancellationToken).ConfigureAwait(false);
+            ComparisonPresentationViewModel viewModel = mapper.Map(result);
+            dispatcher.Invoke(() => apply(viewModel));
+        }
+
+        private static PlcRevision TextRevision(PlcRevisionSide side, string path, string? text)
+        {
+            if (text == null)
+            {
+                PlcRevisionMissingReason reason = side == PlcRevisionSide.Left
+                    ? PlcRevisionMissingReason.Added
+                    : PlcRevisionMissingReason.Deleted;
+                return PlcRevision.Missing(side, PlcRevisionSource.Head, path, reason);
+            }
+
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(text);
+            return PlcRevision.Present(
+                side, PlcRevisionSource.Head, path, bytes, PlcTextEncoding.Utf8WithoutBom, text, false, string.Empty);
+        }
+
+        private static (PlcRevisionSource Left, PlcRevisionSource Right) ResolveSources(ComparisonSelection selection)
+        {
+            if (!string.IsNullOrEmpty(selection.LeftCommitHash) && !string.IsNullOrEmpty(selection.CommitHash))
+            {
+                return (PlcRevisionSource.Commit(selection.LeftCommitHash!), PlcRevisionSource.Commit(selection.CommitHash!));
+            }
+
+            if (string.IsNullOrEmpty(selection.CommitHash))
             {
                 return (PlcRevisionSource.Head, PlcRevisionSource.WorkingTree);
             }
 
-            return (PlcRevisionSource.ParentOfCommit(commitHash!), PlcRevisionSource.Commit(commitHash!));
+            return (PlcRevisionSource.ParentOfCommit(selection.CommitHash!), PlcRevisionSource.Commit(selection.CommitHash!));
         }
 
         public void Dispose()

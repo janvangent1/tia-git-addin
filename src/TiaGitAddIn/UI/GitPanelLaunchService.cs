@@ -69,17 +69,30 @@ namespace TiaGitAddIn.UI
 
         public GitPanelLaunchResult CreateViewModel(object projectContext)
         {
+            string? workspacePath = workspaceLocator.TryGetWorkspacePath(projectContext);
+            if (workspacePath == null || workspacePath.Trim().Length == 0)
+            {
+                return GitPanelLaunchResult.Fail(
+                    "Unable to resolve a VCI workspace path from the selected TIA item.");
+            }
+
+            return CreateViewModelForFolder(workspacePath);
+        }
+
+        /// <summary>
+        /// Opens the panel for a folder on disk. Used by the preview host, which has no TIA project.
+        /// </summary>
+        public GitPanelLaunchResult CreateViewModelForFolder(string folderPath)
+        {
+            if (string.IsNullOrWhiteSpace(folderPath))
+            {
+                return GitPanelLaunchResult.Fail("Choose a folder that contains the Git workspace.");
+            }
+
             try
             {
-                string? workspacePath = workspaceLocator.TryGetWorkspacePath(projectContext);
-                if (workspacePath == null || workspacePath.Trim().Length == 0)
-                {
-                    return GitPanelLaunchResult.Fail(
-                        "Unable to resolve a VCI workspace path from the selected TIA item.");
-                }
-
                 (bool found, string repositoryRoot, string? createdWithGit, string failure) =
-                    EnsureRepository(workspacePath);
+                    EnsureRepository(folderPath);
                 if (!found)
                 {
                     return GitPanelLaunchResult.Fail(failure);
@@ -105,12 +118,15 @@ namespace TiaGitAddIn.UI
                 IPlcRevisionProvider revisionProvider = new PlcRevisionProvider(blobReader, PlcRevisionProviderOptions.Default);
 
                 IPlcArtifactClassifier classifier = new PlcArtifactClassifier();
-                var textComparer = new LineTextComparer(TextComparisonLimits.Default);
+                var textComparer = new LineTextComparer(
+                    TextComparisonLimits.Default,
+                    () => DiffWhitespace.From(configurationService.Load(repositoryRoot)));
                 var resultFactory = new PlcComparisonResultFactory(textComparer);
                 var sanitizer = new ComparisonDiagnosticSanitizer();
                 var strategies = new IPlcComparisonStrategy[]
                 {
                     new LadComparisonStrategy(resultFactory, sanitizer),
+                    new SclComparisonStrategy(resultFactory, sanitizer),
                     new TextFallbackStrategy(resultFactory, () => configurationService.Load(repositoryRoot).CompareXmlByElement),
                 };
                 IPlcComparisonCoordinator comparisonCoordinator = new PlcComparisonCoordinator(
@@ -126,10 +142,14 @@ namespace TiaGitAddIn.UI
                     var mapper = new ComparisonPresentationMapper(new IComparisonPresentationViewModelFactory[]
                     {
                         new InterfacePresentationViewModelFactory(),
-                        new TextPresentationViewModelFactory(),
+                        new TextPresentationViewModelFactory(
+                            () => configurationService.Load(repositoryRoot).ShowScreenPreview,
+                            () => configurationService.Load(repositoryRoot).ShowPlcTablePreview),
                         new UnsupportedPresentationViewModelFactory(),
                         new ErrorPresentationViewModelFactory(),
                         new LadPresentationViewModelFactory(logger, dispatcher),
+                        new SclPresentationViewModelFactory(
+                            () => configurationService.Load(repositoryRoot).ShowSclStructure),
                     });
 
                     return new MainViewModel(

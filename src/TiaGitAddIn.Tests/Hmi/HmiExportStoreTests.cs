@@ -222,6 +222,7 @@ namespace TiaGitAddIn.Tests.Hmi
                 },
                 ImmediateUiDispatcher.Instance);
 
+            viewModel.ImportHmi = true;
             await viewModel.ImportAsync();
 
             Assert.Equal(new[] { @"C:\repo" }, exchange.ImportedPaths);
@@ -258,6 +259,30 @@ namespace TiaGitAddIn.Tests.Hmi
         }
 
         [Fact]
+        public async Task ExportFailureOpensAnError()
+        {
+            var exchange = new RecordingExchange
+            {
+                ExportResult = OperationResult.Fail("No Unified or WinCC Comfort HMI device was found in the open TIA project.")
+            };
+            var viewModel = new HmiExchangeViewModel(
+                @"C:\repo",
+                exchange,
+                () => Task.CompletedTask,
+                ImmediateUiDispatcher.Instance);
+            var shown = new System.Collections.Generic.List<string>();
+            viewModel.ShowError = shown.Add;
+            viewModel.ExportHardware = false;
+
+            await viewModel.ExportAsync();
+
+            Assert.True(viewModel.LastOperationFailed);
+            Assert.Contains("No Unified or WinCC Comfort HMI device was found", viewModel.LastOperationMessage);
+            Assert.Single(shown);
+            Assert.Contains("No Unified or WinCC Comfort HMI device was found", shown[0]);
+        }
+
+        [Fact]
         public async Task ImportRunsOnlyTheCheckedItems()
         {
             var exchange = new RecordingExchange();
@@ -267,6 +292,7 @@ namespace TiaGitAddIn.Tests.Hmi
                 () => Task.CompletedTask,
                 ImmediateUiDispatcher.Instance);
 
+            viewModel.ImportHmi = true;
             viewModel.ImportHardware = false;
             await viewModel.ImportAsync();
             Assert.Equal(new[] { @"C:\repo" }, exchange.ImportedPaths);
@@ -297,10 +323,12 @@ namespace TiaGitAddIn.Tests.Hmi
 
             public System.Collections.Generic.List<string> HardwarePaths { get; } = new System.Collections.Generic.List<string>();
 
+            public OperationResult ExportResult { get; set; } = OperationResult.Ok("Exported.");
+
             public Task<OperationResult> ExportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
             {
                 ExportedPaths.Add(repositoryPath);
-                return Task.FromResult(OperationResult.Ok("Exported."));
+                return Task.FromResult(ExportResult);
             }
 
             public Task<OperationResult> ExportHardwareAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
@@ -308,6 +336,9 @@ namespace TiaGitAddIn.Tests.Hmi
                 HardwarePaths.Add(repositoryPath);
                 return Task.FromResult(OperationResult.Ok("Exported hardware."));
             }
+
+            public Task<System.Collections.Generic.IReadOnlyList<string>> ListImportDifferencesAsync(string repositoryPath, CancellationToken ct = default) =>
+                Task.FromResult<System.Collections.Generic.IReadOnlyList<string>>(new string[0]);
 
             public Task<OperationResult> ImportAsync(string repositoryPath, IProgress<string> progress, CancellationToken ct = default)
             {

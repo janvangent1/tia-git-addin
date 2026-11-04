@@ -7,23 +7,30 @@ namespace TiaGitAddIn.Services.Comparison
     /// <summary>
     /// Bounded line-based text comparer. Below <see cref="TextComparisonLimits.MaximumMatrixCells"/> it
     /// builds a full Wagner-Fischer style alignment (match/substitute/delete/insert, cost 0/1/1/1) and
-    /// backtracks it into a diff; above that limit it falls back to an O(n+m) positional comparison.
-    /// Display output is bounded on line count and per-line character length; the underlying
-    /// <see cref="ComparisonRawText"/> passed in is never mutated or truncated.
+    /// backtracks it into a diff. Above that limit it still aligns a small edit, so one inserted line
+    /// does not mark every line below it, and falls back to a positional comparison only when the edit
+    /// is too large. Whitespace rules come from <see cref="DiffWhitespace"/>. Display output is bounded
+    /// on line count and per-line character length; the underlying <see cref="ComparisonRawText"/> passed
+    /// in is never mutated or truncated.
     /// </summary>
     public sealed class LineTextComparer : ITextComparer
     {
-        private readonly TextComparisonLimits _limits;
+        private const int MaximumAlignedEdits = 2000;
 
-        public LineTextComparer(TextComparisonLimits limits)
+        private readonly TextComparisonLimits _limits;
+        private readonly Func<DiffWhitespace> _whitespace;
+
+        public LineTextComparer(TextComparisonLimits limits, Func<DiffWhitespace>? whitespace = null)
         {
             _limits = limits ?? throw new ArgumentNullException(nameof(limits));
+            _whitespace = whitespace ?? (() => DiffWhitespace.Exact);
         }
 
         public TextPresentation Compare(ComparisonRawText rawText)
         {
             if (rawText == null) throw new ArgumentNullException(nameof(rawText));
 
+            DiffWhitespace whitespace = _whitespace();
             string[] leftLines = NormalizeAndSplitLines(rawText.LeftText);
             string[] rightLines = NormalizeAndSplitLines(rawText.RightText);
 
@@ -31,9 +38,28 @@ namespace TiaGitAddIn.Services.Comparison
             (string[] boundedRight, bool rightLinesCut) = BoundLineCount(rightLines);
 
             bool usedLinearFallback = (long)boundedLeft.Length * boundedRight.Length > _limits.MaximumMatrixCells;
+            string[] leftKey = boundedLeft;
+            string[] rightKey = boundedRight;
+            bool[] leftCommentOnly = Array.Empty<bool>();
+            bool[] rightCommentOnly = Array.Empty<bool>();
+            if (whitespace.IgnoreComments)
+            {
+                CommentFilter.Strip(boundedLeft, out leftKey, out leftCommentOnly);
+                CommentFilter.Strip(boundedRight, out rightKey, out rightCommentOnly);
+            }
+
             List<TextDiffLine> rawDiff = usedLinearFallback
-                ? BuildLinearDiff(boundedLeft, boundedRight)
-                : BuildBoundedDiff(boundedLeft, boundedRight);
+                ? BuildMyersOrLinear(leftKey, rightKey, boundedLeft, boundedRight, whitespace)
+                : BuildBoundedDiff(leftKey, rightKey, boundedLeft, boundedRight, whitespace);
+            if (whitespace.IgnoreComments)
+            {
+                rawDiff = DropCommentChanges(rawDiff, leftCommentOnly, rightCommentOnly);
+            }
+
+            if (whitespace.IgnoreBlankLines)
+            {
+                rawDiff = DropBlankChanges(rawDiff, whitespace);
+            }
 
             (List<TextDiffLine> lengthCappedDiff, bool anyLineLengthTruncated) = BoundLineLength(rawDiff);
 
@@ -95,55 +121,228 @@ namespace TiaGitAddIn.Services.Comparison
         }
 
         /// <summary>Compares by position only, in O(n+m); an unequal position emits removal then addition.</summary>
-        private static List<TextDiffLine> BuildLinearDiff(string[] left, string[] right)
+        private static List<TextDiffLine> BuildLinearDiff(
+            string[] leftKey,
+            string[] rightKey,
+            string[] leftDisplay,
+            string[] rightDisplay,
+            DiffWhitespace whitespace)
         {
             var result = new List<TextDiffLine>();
-            int max = Math.Max(left.Length, right.Length);
+            int max = Math.Max(leftKey.Length, rightKey.Length);
 
             for (int k = 0; k < max; k++)
             {
-                bool hasLeft = k < left.Length;
-                bool hasRight = k < right.Length;
+                bool hasLeft = k < leftKey.Length;
+                bool hasRight = k < rightKey.Length;
 
                 if (hasLeft && hasRight)
                 {
-                    AppendAlignedPair(result, left[k], k + 1, right[k], k + 1);
+                    AppendAlignedPair(result, leftKey[k], leftDisplay[k], k + 1, rightKey[k], rightDisplay[k], k + 1, whitespace);
                 }
                 else if (hasLeft)
                 {
-                    result.Add(new TextDiffLine(TextDiffLineKind.Removed, k + 1, null, left[k]));
+                    result.Add(new TextDiffLine(TextDiffLineKind.Removed, k + 1, null, leftDisplay[k]));
                 }
                 else
                 {
-                    result.Add(new TextDiffLine(TextDiffLineKind.Added, null, k + 1, right[k]));
+                    result.Add(new TextDiffLine(TextDiffLineKind.Added, null, k + 1, rightDisplay[k]));
                 }
             }
 
             return result;
         }
 
-        private static void AppendAlignedPair(List<TextDiffLine> result, string leftText, int leftLineNumber, string rightText, int rightLineNumber)
+        private static void AppendAlignedPair(
+            List<TextDiffLine> result,
+            string leftKey,
+            string leftDisplay,
+            int leftLineNumber,
+            string rightKey,
+            string rightDisplay,
+            int rightLineNumber,
+            DiffWhitespace whitespace)
         {
-            if (string.Equals(leftText, rightText, StringComparison.Ordinal))
+            if (whitespace.LinesMatch(leftKey, rightKey))
             {
-                result.Add(new TextDiffLine(TextDiffLineKind.Unchanged, leftLineNumber, rightLineNumber, leftText));
+                result.Add(new TextDiffLine(TextDiffLineKind.Unchanged, leftLineNumber, rightLineNumber, leftDisplay));
             }
             else
             {
-                result.Add(new TextDiffLine(TextDiffLineKind.Removed, leftLineNumber, null, leftText));
-                result.Add(new TextDiffLine(TextDiffLineKind.Added, null, rightLineNumber, rightText));
+                result.Add(new TextDiffLine(TextDiffLineKind.Removed, leftLineNumber, null, leftDisplay));
+                result.Add(new TextDiffLine(TextDiffLineKind.Added, null, rightLineNumber, rightDisplay));
             }
         }
 
-        private static List<TextDiffLine> BuildBoundedDiff(string[] left, string[] right)
+        private static List<TextDiffLine> DropBlankChanges(List<TextDiffLine> lines, DiffWhitespace whitespace)
         {
-            int[,] dp = BuildAlignmentMatrix(left, right);
-            List<DiffOp> ops = Backtrack(left, right, dp);
-            ops.Reverse();
-            return ExpandOps(ops, left, right);
+            var kept = new List<TextDiffLine>(lines.Count);
+            foreach (TextDiffLine line in lines)
+            {
+                bool blankChange = line.Kind is TextDiffLineKind.Added or TextDiffLineKind.Removed
+                    && whitespace.IsBlankLine(line.Text);
+                if (!blankChange)
+                {
+                    kept.Add(line);
+                }
+            }
+
+            return kept;
         }
 
-        private static int[,] BuildAlignmentMatrix(string[] left, string[] right)
+        private static List<TextDiffLine> DropCommentChanges(
+            List<TextDiffLine> lines,
+            bool[] leftCommentOnly,
+            bool[] rightCommentOnly)
+        {
+            var kept = new List<TextDiffLine>(lines.Count);
+            foreach (TextDiffLine line in lines)
+            {
+                if (line.Kind == TextDiffLineKind.Removed
+                    && line.LeftLineNumber is int left
+                    && left > 0
+                    && left <= leftCommentOnly.Length
+                    && leftCommentOnly[left - 1])
+                {
+                    continue;
+                }
+
+                if (line.Kind == TextDiffLineKind.Added
+                    && line.RightLineNumber is int right
+                    && right > 0
+                    && right <= rightCommentOnly.Length
+                    && rightCommentOnly[right - 1])
+                {
+                    continue;
+                }
+
+                kept.Add(line);
+            }
+
+            return kept;
+        }
+
+        private static List<TextDiffLine> BuildBoundedDiff(
+            string[] leftKey,
+            string[] rightKey,
+            string[] leftDisplay,
+            string[] rightDisplay,
+            DiffWhitespace whitespace)
+        {
+            int[,] dp = BuildAlignmentMatrix(leftKey, rightKey, whitespace);
+            List<DiffOp> ops = Backtrack(leftKey, rightKey, dp, whitespace);
+            ops.Reverse();
+            return ExpandOps(ops, leftDisplay, rightDisplay);
+        }
+
+        /// <summary>
+        /// Aligns a large file when the edit is small. A one-line insertion then stays one added line.
+        /// Past <see cref="MaximumAlignedEdits"/> it uses the positional comparison.
+        /// </summary>
+        private static List<TextDiffLine> BuildMyersOrLinear(
+            string[] leftKey,
+            string[] rightKey,
+            string[] leftDisplay,
+            string[] rightDisplay,
+            DiffWhitespace whitespace)
+        {
+            List<DiffOp>? ops = TryMyers(leftKey, rightKey, whitespace);
+            if (ops == null)
+            {
+                return BuildLinearDiff(leftKey, rightKey, leftDisplay, rightDisplay, whitespace);
+            }
+
+            return ExpandOps(ops, leftDisplay, rightDisplay);
+        }
+
+        private static List<DiffOp>? TryMyers(string[] left, string[] right, DiffWhitespace whitespace)
+        {
+            int n = left.Length;
+            int m = right.Length;
+            int limit = Math.Min(n + m, MaximumAlignedEdits);
+            int offset = limit;
+            var frontier = new int[(2 * limit) + 1];
+            var trace = new List<int[]>(limit + 1);
+
+            for (int distance = 0; distance <= limit; distance++)
+            {
+                var snapshot = new int[frontier.Length];
+                Array.Copy(frontier, snapshot, frontier.Length);
+                trace.Add(snapshot);
+
+                for (int k = -distance; k <= distance; k += 2)
+                {
+                    int index = k + offset;
+                    int x;
+                    if (k == -distance || (k != distance && frontier[index - 1] < frontier[index + 1]))
+                    {
+                        x = frontier[index + 1];
+                    }
+                    else
+                    {
+                        x = frontier[index - 1] + 1;
+                    }
+
+                    int y = x - k;
+                    while (x < n && y < m && whitespace.LinesMatch(left[x], right[y]))
+                    {
+                        x++;
+                        y++;
+                    }
+
+                    frontier[index] = x;
+                    if (x >= n && y >= m)
+                    {
+                        return BacktrackMyers(left, right, trace, offset);
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static List<DiffOp> BacktrackMyers(string[] left, string[] right, List<int[]> trace, int offset)
+        {
+            var ops = new List<DiffOp>();
+            int x = left.Length;
+            int y = right.Length;
+            for (int distance = trace.Count - 1; distance >= 0; distance--)
+            {
+                int[] frontier = trace[distance];
+                int k = x - y;
+                int previousK = k == -distance || (k != distance && frontier[k - 1 + offset] < frontier[k + 1 + offset])
+                    ? k + 1
+                    : k - 1;
+                int previousX = frontier[previousK + offset];
+                int previousY = previousX - previousK;
+
+                while (x > previousX && y > previousY)
+                {
+                    x--;
+                    y--;
+                    ops.Add(new DiffOp(DiffOpKind.Match, x, y));
+                }
+
+                if (distance > 0)
+                {
+                    if (x == previousX)
+                    {
+                        y--;
+                        ops.Add(new DiffOp(DiffOpKind.Insert, -1, y));
+                    }
+                    else
+                    {
+                        x--;
+                        ops.Add(new DiffOp(DiffOpKind.Delete, x, -1));
+                    }
+                }
+            }
+
+            ops.Reverse();
+            return ops;
+        }
+
+        private static int[,] BuildAlignmentMatrix(string[] left, string[] right, DiffWhitespace whitespace)
         {
             int m = left.Length;
             int n = right.Length;
@@ -155,7 +354,7 @@ namespace TiaGitAddIn.Services.Comparison
             {
                 for (int j = 1; j <= n; j++)
                 {
-                    int diagCost = dp[i - 1, j - 1] + (string.Equals(left[i - 1], right[j - 1], StringComparison.Ordinal) ? 0 : 1);
+                    int diagCost = dp[i - 1, j - 1] + (whitespace.LinesMatch(left[i - 1], right[j - 1]) ? 0 : 1);
                     int deleteCost = dp[i - 1, j] + 1;
                     int insertCost = dp[i, j - 1] + 1;
                     dp[i, j] = Math.Min(diagCost, Math.Min(deleteCost, insertCost));
@@ -173,7 +372,7 @@ namespace TiaGitAddIn.Services.Comparison
         /// deterministic tie-break this class documents for callers, since matched lines are unambiguous
         /// but a three-way cost tie is not resolved by the brief's own example tests.
         /// </summary>
-        private static List<DiffOp> Backtrack(string[] left, string[] right, int[,] dp)
+        private static List<DiffOp> Backtrack(string[] left, string[] right, int[,] dp, DiffWhitespace whitespace)
         {
             var ops = new List<DiffOp>();
             int i = left.Length;
@@ -181,7 +380,7 @@ namespace TiaGitAddIn.Services.Comparison
 
             while (i > 0 || j > 0)
             {
-                if (i > 0 && j > 0 && string.Equals(left[i - 1], right[j - 1], StringComparison.Ordinal))
+                if (i > 0 && j > 0 && whitespace.LinesMatch(left[i - 1], right[j - 1]))
                 {
                     ops.Add(new DiffOp(DiffOpKind.Match, i - 1, j - 1));
                     i--; j--;

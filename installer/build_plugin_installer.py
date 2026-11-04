@@ -1,9 +1,9 @@
 """Build plugin_installer.exe by embedding the latest TIA Git .addin file.
 
-This script does not compile anything. It appends the plugin package to
-installer/plugin_installer_stub.exe. Running the resulting exe checks the
-TIA Portal user add-ins folder, lets you browse to it when that folder is
-not the Portal UserAddIns folder, and then copies the package there:
+The script compiles installer/PluginInstaller.cs and appends the plugin
+package to that program. Running the resulting exe checks the TIA Portal
+user add-ins folder, lets you browse to it when that folder is not the
+Portal UserAddIns folder, and then copies the package there:
 
     %APPDATA%\\Siemens\\Automation\\Portal V21\\UserAddIns
 
@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import struct
+import subprocess
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -66,11 +67,24 @@ def main(argv: Optional[List[str]] = None) -> int:
     return 0
 
 
+def compile_installer(installer_dir: Path) -> Path:
+    project = installer_dir / "PluginInstaller.csproj"
+    completed = subprocess.run(
+        ["dotnet", "build", str(project), "-c", "Release", "--nologo"],
+        cwd=installer_dir.parent,
+        capture_output=True,
+        text=True,
+    )
+    exe = installer_dir / "bin" / "Release" / "PluginInstaller.exe"
+    if completed.returncode != 0 or not exe.is_file():
+        detail = (completed.stderr or completed.stdout or "").strip()
+        raise BuildError("Could not compile the installer.\n" + detail)
+    return exe
+
+
 def build(addin: Optional[str], output: Optional[str], portal_version: int) -> None:
     installer_dir = Path(__file__).resolve().parent
-    stub_path = installer_dir / "plugin_installer_stub.exe"
-    if not stub_path.is_file():
-        raise BuildError(f"Installer stub is missing: {stub_path}")
+    stub_path = compile_installer(installer_dir)
 
     addin_path = resolve_addin_path(installer_dir.parent, addin)
     if addin_path.stat().st_size <= 0:

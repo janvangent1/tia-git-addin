@@ -25,11 +25,18 @@ namespace TiaGitAddIn.Services
     {
         private static Action<string>? progressReport;
 
-        public static int Export(HmiTarget target, string deviceFolder, CancellationToken ct, Action<string> report)
+        public static int Export(
+            HmiTarget target,
+            string deviceFolder,
+            CancellationToken ct,
+            Action<string> report,
+            ExportCategorySet? categories = null)
         {
             Action<string>? previousReport = progressReport;
             string previousKind = progressKind;
+            ExportCategorySet previousCategories = enabledCategories;
             progressReport = report;
+            enabledCategories = categories ?? ExportCategorySet.All;
             try
             {
                 return ExportCore(target, deviceFolder, ct);
@@ -38,6 +45,7 @@ namespace TiaGitAddIn.Services
             {
                 progressReport = previousReport;
                 progressKind = previousKind;
+                enabledCategories = previousCategories;
             }
         }
 
@@ -72,6 +80,8 @@ namespace TiaGitAddIn.Services
             return count;
         }
 
+        private static ExportCategorySet enabledCategories = ExportCategorySet.All;
+
         private static string progressKind = "item";
 
         private static string progressDevice = string.Empty;
@@ -82,6 +92,12 @@ namespace TiaGitAddIn.Services
 
         private static int Run(string category, string kind, Func<int> export)
         {
+            if (!enabledCategories.AllowsHmi(category))
+            {
+                Emit(category, "skipped", 0, "Turned off in Settings.");
+                return 0;
+            }
+
             progressKind = kind;
             progressCategory = category;
             progressCount = 0;
@@ -485,6 +501,7 @@ namespace TiaGitAddIn.Services
                 catch (Exception ex)
                 {
                     HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                     if (IsSessionDead(ex))
                     {
                         throw new InvalidOperationException("System cycle \"" + Path.GetFileName(file) + "\" could not be imported.", ex);
@@ -593,6 +610,8 @@ namespace TiaGitAddIn.Services
                 ct.ThrowIfCancellationRequested();
                 index++;
                 string itemName;
+                using (ExportIssues.Push(progressKind + " " + index.ToString(CultureInfo.InvariantCulture)))
+                {
                 try
                 {
                     itemName = name(item);
@@ -600,6 +619,7 @@ namespace TiaGitAddIn.Services
                 catch (Exception ex)
                 {
                     HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                     if (IsSessionDead(ex))
                     {
                         throw new InvalidOperationException(
@@ -609,6 +629,7 @@ namespace TiaGitAddIn.Services
 
                     Report(progressKind + " " + index.ToString(CultureInfo.InvariantCulture) + " skipped: the name could not be read.");
                     continue;
+                }
                 }
 
                 if (string.IsNullOrWhiteSpace(itemName))
@@ -624,6 +645,8 @@ namespace TiaGitAddIn.Services
                 }
 
                 string fileName = HmiExportStore.UniqueName(itemName, used) + ".xml";
+                using (ExportIssues.Push(itemName))
+                {
                 try
                 {
                     export(item, new FileInfo(Path.Combine(directory, fileName)));
@@ -631,6 +654,7 @@ namespace TiaGitAddIn.Services
                 catch (Exception ex)
                 {
                     HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                     if (IsSessionDead(ex))
                     {
                         throw new InvalidOperationException(
@@ -640,6 +664,7 @@ namespace TiaGitAddIn.Services
 
                     Report(progressKind + " " + itemName + " failed: " + ex.Message);
                     continue;
+                }
                 }
 
                 count++;
@@ -695,6 +720,7 @@ namespace TiaGitAddIn.Services
                 catch (Exception ex)
                 {
                     HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                     if (IsSessionDead(ex))
                     {
                         throw new InvalidOperationException(
@@ -725,6 +751,7 @@ namespace TiaGitAddIn.Services
             catch (Exception ex)
             {
                 HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                 if (IsSessionDead(ex))
                 {
                     throw new InvalidOperationException("Comfort alarm compositions could not be read. TIA Portal ended the Openness session on that call.", ex);
@@ -767,6 +794,7 @@ namespace TiaGitAddIn.Services
             catch (Exception ex)
             {
                 HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                 if (IsSessionDead(ex))
                 {
                     throw new InvalidOperationException("Comfort composition \"" + name + "\" could not be read. TIA Portal ended the Openness session on that call.", ex);
@@ -794,6 +822,7 @@ namespace TiaGitAddIn.Services
             catch (Exception ex)
             {
                 HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                 if (IsSessionDead(ex))
                 {
                     throw new InvalidOperationException("Comfort composition \"" + name + "\" could not be read. TIA Portal ended the Openness session on that call.", ex);
@@ -825,6 +854,7 @@ namespace TiaGitAddIn.Services
                 catch (Exception ex)
                 {
                     HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                     if (IsSessionDead(ex))
                     {
                         throw new InvalidOperationException("Comfort alarm \"" + itemName + "\" could not be read. TIA Portal ended the Openness session on that call.", ex);
@@ -867,6 +897,7 @@ namespace TiaGitAddIn.Services
             catch (Exception ex)
             {
                 HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                 if (IsSessionDead(ex))
                 {
                     throw new InvalidOperationException("Comfort compositions could not be read. TIA Portal ended the Openness session on that call.", ex);
@@ -903,6 +934,7 @@ namespace TiaGitAddIn.Services
                 catch (Exception ex)
                 {
                     HmiExportTrace.Error(ex);
+                    ExportIssues.Remember(ex);
                     if (IsSessionDead(ex))
                     {
                         throw new InvalidOperationException("Comfort composition \"" + name + "\" could not be read. TIA Portal ended the Openness session on that call.", ex);
@@ -1252,7 +1284,7 @@ namespace TiaGitAddIn.Services
 
         private static bool IsSessionDead(Exception ex)
         {
-            return ex is NonRecoverableException || ex is EngineeringObjectDisposedException;
+            return ExportIssues.MustStop(ex);
         }
 
         private static void ImportNamed<T>(

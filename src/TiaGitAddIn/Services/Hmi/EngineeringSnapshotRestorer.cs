@@ -523,15 +523,7 @@ namespace TiaGitAddIn.Services.Hmi
 
         private static bool IsSessionDead(Exception ex)
         {
-            Exception current = ex is TargetInvocationException invocation ? invocation.InnerException : ex;
-            if (current is NonRecoverableException || current is EngineeringObjectDisposedException)
-            {
-                throw new InvalidOperationException(
-                    "TIA Portal closed the Openness session while importing a snapshot. " + current.Message,
-                    current);
-            }
-
-            return false;
+            return ExportIssues.MustStop(ex);
         }
     }
 }

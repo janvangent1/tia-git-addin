@@ -16,6 +16,9 @@ namespace TiaGitAddIn.Services
         public const string GitNotFoundBeforeRepository =
             "Git was not found, so no repository was created. Install Git for Windows. git.exe is usually at C:\\Program Files\\Git\\cmd\\git.exe.";
 
+        public const string RemoteSignInRequired =
+            "Git could not sign in to the remote. Open a command prompt in the workspace folder and run: git fetch. Git Credential Manager can store the sign-in there. Then use Push again. Leave the password out of the remote URL.";
+
         public static string Describe(OperationResult result)
         {
             if (result.Success)
@@ -47,6 +50,19 @@ namespace TiaGitAddIn.Services
             if (Contains(value, "tell me who you are") || Contains(value, "unable to auto-detect email"))
             {
                 return IdentityRequired;
+            }
+
+            if (Contains(value, "authentication failed")
+                || Contains(value, "could not read username")
+                || Contains(value, "could not read password")
+                || Contains(value, "terminal prompts disabled")
+                || Contains(value, "tf401019")
+                || Contains(value, "vs30063")
+                || Contains(value, "logon failed")
+                || Contains(value, "askpass")
+                || Contains(value, "returned error: 403"))
+            {
+                return RemoteSignInRequired;
             }
 
             return null;

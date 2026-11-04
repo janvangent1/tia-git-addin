@@ -70,7 +70,12 @@ namespace TiaGitAddIn.Reporting
                 return new PdfReport(title, lines);
             }
 
-            if (textLines.Count == 0)
+            if (bodyNote != null && bodyNote.Trim().Length > 0)
+            {
+                lines.Add(new PdfLine(bodyNote.Trim(), PdfLineStyle.Note));
+            }
+
+            if (textLines.Count == 0 && (bodyNote == null || bodyNote.Trim().Length == 0))
             {
                 lines.Add(new PdfLine("The text diff is empty.", PdfLineStyle.Note));
             }
@@ -82,8 +87,15 @@ namespace TiaGitAddIn.Reporting
                     ? PdfLineStyle.Added
                     : marker == "-" || marker == "\u2212"
                         ? PdfLineStyle.Removed
-                        : PdfLineStyle.Body;
-                lines.Add(new PdfLine(marker + " " + line.Text, style));
+                        : marker == "~"
+                            ? PdfLineStyle.Changed
+                            : marker == "#"
+                                ? PdfLineStyle.Heading
+                                : PdfLineStyle.Body;
+                string shown = marker == "#" || marker == "~" || marker == " "
+                    ? line.Text
+                    : marker + " " + line.Text;
+                lines.Add(new PdfLine(shown, style));
             }
 
             if (textTruncated)

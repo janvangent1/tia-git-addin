@@ -22,5 +22,8 @@ namespace TiaGitAddIn.UI.ViewModels.Comparison
         public string Limitation => Metadata.Limitation;
         public bool HasLimitation => Metadata.HasLimitation;
         public bool HasRawText => Metadata.HasRawText;
+
+        /// <summary>When true, the diff opens on the colored lines. The Comparison tab stays available.</summary>
+        public bool OpenRawText { get; protected set; }
     }
 }

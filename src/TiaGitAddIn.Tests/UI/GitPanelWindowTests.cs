@@ -44,6 +44,54 @@ namespace TiaGitAddIn.Tests.UI
         }
 
         [Fact]
+        public void TransferStatusOpensBesideThePanelAndCanBeMinimized()
+        {
+            var main = new MainViewModel(
+                @"C:\repo",
+                new FakeGitService(),
+                new UnusedRevisionProvider(),
+                new UnusedComparisonCoordinator(),
+                new UnusedPresentationMapper(),
+                new FakeConfigurationService());
+
+            WpfTestHost.Run(_ =>
+            {
+                var window = new GitPanelWindow(main)
+                {
+                    ShowInTaskbar = false,
+                    WindowStyle = WindowStyle.None,
+                    Width = 800,
+                    Height = 500
+                };
+                window.Show();
+                main.Hmi.ApplyExportProgress(TiaGitAddIn.Services.Hmi.HmiExportProgress.Format(
+                    "Panel", "Screens", "running", 2, "Start"));
+
+                TransferStatusWindow? transfer = null;
+                foreach (Window owned in window.OwnedWindows)
+                {
+                    if (owned is TransferStatusWindow status)
+                    {
+                        transfer = status;
+                    }
+                }
+
+                Assert.NotNull(transfer);
+                Assert.Equal("Transfer", transfer.Title);
+                Assert.True(transfer.IsVisible);
+                transfer.WindowState = WindowState.Minimized;
+                Assert.Equal(WindowState.Minimized, transfer.WindowState);
+                Assert.Equal(WindowState.Normal, window.WindowState);
+                Assert.NotNull(FindTabControl(window));
+
+                main.Hmi.DismissChecklistCommand.Execute(null);
+                Assert.False(main.Hmi.HasChecklist);
+                Assert.Equal(0, window.OwnedWindows.Count);
+                window.Close();
+            });
+        }
+
+        [Fact]
         public async Task SelectingTheHistoryTabLoadsTheCommitLog()
         {
             var gitService = new FakeGitService();
@@ -312,6 +360,15 @@ namespace TiaGitAddIn.Tests.UI
             public Task<DiffResult> GetCommitDiffAsync(string commitHash, CancellationToken ct = default) =>
                 Task.FromResult(new DiffResult());
 
+            public Task<DiffResult> GetCommitDiffAsync(string commitHash, IReadOnlyList<string> repositoryRelativePaths, CancellationToken ct = default) =>
+                GetCommitDiffAsync(commitHash, ct);
+
+            public Task<DiffResult> GetWorkingTreeDiffAsync(IReadOnlyList<string> repositoryRelativePaths, CancellationToken ct = default) =>
+                GetWorkingTreeDiffAsync(ct);
+
+            public Task<IReadOnlyList<FileRevision>> GetFileHistoryAsync(IReadOnlyList<string> repositoryRelativePaths, int maxCount, CancellationToken ct = default) =>
+                Task.FromResult<IReadOnlyList<FileRevision>>(new List<FileRevision>());
+
             public Task<IReadOnlyList<string>> GetCommitFilesAsync(string commitHash, CancellationToken ct = default) =>
                 Task.FromResult<IReadOnlyList<string>>(new List<string>());
 
@@ -320,6 +377,15 @@ namespace TiaGitAddIn.Tests.UI
 
             public Task<IReadOnlyList<RemoteInfo>> GetRemotesAsync(CancellationToken ct = default) =>
                 Task.FromResult<IReadOnlyList<RemoteInfo>>(new List<RemoteInfo>());
+
+            public Task<PullPreview> PreviewPullAsync(string? remote = null, CancellationToken ct = default) =>
+                Task.FromResult(new PullPreview(new List<CommitInfo>(), new List<string>(), string.Empty));
+
+            public Task<(string? Ours, string? Theirs)> GetConflictSidesAsync(string path, CancellationToken ct = default) =>
+                Task.FromResult<(string?, string?)>((null, null));
+
+            public Task<DiffResult> GetRangeDiffAsync(string leftCommitHash, string rightCommitHash, CancellationToken ct = default) =>
+                Task.FromResult(new DiffResult());
         }
     }
 }

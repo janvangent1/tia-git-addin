@@ -8,8 +8,12 @@
              mc:Ignorable="d"
              d:DesignHeight="450"
         d:DesignWidth="800">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <Grid Margin="10">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -127,8 +131,111 @@
                 MinWidth="220"
                 ToolTip="By element and attribute ignores formatting and attribute order. Plain text shows the file line by line."/>
 
-        <TextBlock Text="{Binding ValidationMessage}"
+        <Label Content="Screen:"
                 Grid.Row="8"
+                Grid.Column="0"
+                VerticalAlignment="Center"
+                ToolTip="Choose how an exported screen is shown in a diff."/>
+        <ComboBox ItemsSource="{Binding ScreenDiffChoices}"
+                SelectedItem="{Binding SelectedScreenDiff}"
+                DisplayMemberPath="Caption"
+                Grid.Row="8"
+                Grid.Column="1"
+                Margin="5"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Left"
+                MinWidth="220"
+                ToolTip="Screen preview draws buttons and I/O fields. XML text shows the exported file."/>
+
+        <StackPanel Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="3" Margin="5,12,5,0">
+            <TextBlock Text="SCL" FontWeight="Bold"/>
+            <TextBlock Text="Structure lists the declarations and statements that changed. Text opens the colored lines. Both stay available: use Comparison and Raw text on the diff. Save, then open the diff again."
+                       TextWrapping="Wrap"
+                       Foreground="Gray"
+                       Margin="0,2,0,6"/>
+            <ComboBox ItemsSource="{Binding SclDiffChoices}"
+                      SelectedItem="{Binding SelectedSclDiff}"
+                      DisplayMemberPath="Caption"
+                      Margin="0,0,0,12"
+                      HorizontalAlignment="Left"
+                      MinWidth="220"/>
+            <TextBlock Text="PLC tags and data types" FontWeight="Bold"/>
+            <TextBlock Text="A tag table shows name, address, type, retain, and comment. A data type lists its members. XML text shows the exported file. Save, then open the diff again."
+                       TextWrapping="Wrap"
+                       Foreground="Gray"
+                       Margin="0,2,0,6"/>
+            <ComboBox ItemsSource="{Binding PlcTableDiffChoices}"
+                      SelectedItem="{Binding SelectedPlcTableDiff}"
+                      DisplayMemberPath="Caption"
+                      Margin="0,0,0,12"
+                      HorizontalAlignment="Left"
+                      MinWidth="220"/>
+            <TextBlock Text="Whitespace" FontWeight="Bold"/>
+            <TextBlock Text="These follow Git's diff options. If several are checked, the strongest one is used. Ignore all white space covers the others, except blank lines. Save stores every setting in this workspace. Then open the diff again."
+                       TextWrapping="Wrap"
+                       Foreground="Gray"
+                       Margin="0,2,0,6"/>
+            <CheckBox Content="-E, --ignore-tab-expansion    ignore changes due to tab expansion"
+                      IsChecked="{Binding IgnoreTabExpansion}"
+                      Margin="0,2,0,2"
+                      ToolTip="A tab and the spaces it expands to are the same change."/>
+            <CheckBox Content="-Z, --ignore-trailing-space    ignore white space at line end"
+                      IsChecked="{Binding IgnoreTrailingSpace}"
+                      Margin="0,2,0,2"/>
+            <CheckBox Content="-b, --ignore-space-change    ignore changes in the amount of white space"
+                      IsChecked="{Binding IgnoreSpaceChange}"
+                      Margin="0,2,0,2"/>
+            <CheckBox Content="-w, --ignore-all-space    ignore all white space"
+                      IsChecked="{Binding IgnoreAllSpace}"
+                      Margin="0,2,0,2"/>
+            <CheckBox Content="-B, --ignore-blank-lines    ignore changes whose lines are all blank"
+                      IsChecked="{Binding IgnoreBlankLines}"
+                      Margin="0,2,0,2"/>
+            <CheckBox Content="Ignore comments    // and (* *) or *( *)"
+                      IsChecked="{Binding IgnoreComments}"
+                      Margin="0,8,0,2"
+                      ToolTip="A comment starts with //, or sits between (* and *) or *( and *). Off until you check it. Save, then open the diff again."/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="3" Margin="5,12,5,0">
+            <TextBlock Text="Export these HMI items" FontWeight="Bold"/>
+            <TextBlock Text="Unchecked items are left out of the next export. Comfort items with the same name follow these boxes. Save before you export."
+                       TextWrapping="Wrap"
+                       Foreground="Gray"
+                       Margin="0,2,0,6"/>
+            <ItemsControl ItemsSource="{Binding HmiCategories}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <CheckBox Content="{Binding Name}"
+                                  IsChecked="{Binding IsChecked}"
+                                  Margin="0,2,16,2"/>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="Export these hardware items" FontWeight="Bold" Margin="0,10,0,4"/>
+            <ItemsControl ItemsSource="{Binding HardwareCategories}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <CheckBox Content="{Binding Name}"
+                                  IsChecked="{Binding IsChecked}"
+                                  Margin="0,2,16,2"/>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+
+        <TextBlock Text="{Binding ValidationMessage}"
+                Grid.Row="11"
                 Grid.Column="0"
                 Grid.ColumnSpan="3"
                 Foreground="Red"
@@ -137,11 +244,12 @@
 
         <Button Content="Save Settings"
                 Command="{Binding SaveCommand}"
-                Grid.Row="9"
+                Grid.Row="12"
                 Grid.Column="1"
                 Grid.ColumnSpan="2"
                 HorizontalAlignment="Right"
                 Padding="20,5"
                 Margin="5"/>
     </Grid>
+    </ScrollViewer>
 </UserControl>

@@ -18,17 +18,33 @@
                 <DataTrigger Binding="{Binding StatusLabel}"
                              Value="+">
                     <Setter Property="Background"
-                            Value="#DDFFDD"/>
+                            Value="{StaticResource AddedBrush}"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding StatusLabel}"
                              Value="−">
                     <Setter Property="Background"
-                            Value="#FFDDDD"/>
+                            Value="{StaticResource RemovedBrush}"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding StatusLabel}"
                              Value="…">
                     <Setter Property="Background"
                             Value="#EFEFEF"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="TagRowStyle" TargetType="ListViewItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="2,1"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Change}" Value="Added">
+                    <Setter Property="Background" Value="{StaticResource AddedBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Change}" Value="Removed">
+                    <Setter Property="Background" Value="{StaticResource RemovedBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Change}" Value="Changed">
+                    <Setter Property="Background" Value="{StaticResource ChangedBrush}"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -38,12 +54,14 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0"
                     Orientation="Horizontal"
-                    Margin="4,4,4,2">
+                    Margin="4,4,4,2"
+                    Visibility="{Binding ShowChangeNavigation, Converter={StaticResource BoolToVis}}">
             <Button Content="Previous change"
                     Command="{Binding PreviousChangeCommand}"
                     Padding="8,2"
@@ -64,14 +82,158 @@
                 BorderBrush="#FFEEBA"
                 BorderThickness="0,0,0,1"
                 Padding="6,3"
-                Visibility="{Binding IsTruncated, Converter={StaticResource BoolToVis}}">
+                Visibility="{Binding ShowTruncationBanner, Converter={StaticResource BoolToVis}}">
             <TextBlock Text="Diff truncated: this comparison exceeded the configured size limits."
                        FontSize="11"
                        Foreground="#856404"/>
         </Border>
 
-        <ListView Grid.Row="2"
+        <DockPanel Grid.Row="3"
+                   Visibility="{Binding HasScreenPreview, Converter={StaticResource BoolToVis}}">
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,4,8,2">
+                <Border Width="14" Height="14" Background="#7DCEA0" BorderBrush="#1E8449" BorderThickness="2" Margin="0,0,4,0"/>
+                <TextBlock Text="Added" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <Border Width="14" Height="14" Background="#F1948A" BorderBrush="#C0392B" BorderThickness="2" Margin="0,0,4,0"/>
+                <TextBlock Text="Removed" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <Border Width="14" Height="14" Background="#F7DC6F" BorderBrush="#B7950B" BorderThickness="2" Margin="0,0,4,0"/>
+                <TextBlock Text="Changed" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBlock Text="Unchanged items are faded." VerticalAlignment="Center" Foreground="#777777" Margin="0,0,12,0"/>
+                <Button Content="−"
+                        Command="{Binding ScreenZoomOutCommand}"
+                        Padding="8,0"
+                        ToolTip="Make the screen drawing smaller."/>
+                <TextBlock Text="{Binding ScreenZoomText}"
+                           Margin="6,0"
+                           VerticalAlignment="Center"
+                           MinWidth="36"/>
+                <Button Content="+"
+                        Command="{Binding ScreenZoomInCommand}"
+                        Padding="8,0"
+                        ToolTip="Make the screen drawing larger."/>
+                <Button Content="100%"
+                        Command="{Binding ScreenZoomResetCommand}"
+                        Margin="6,0,0,0"
+                        Padding="8,0"
+                        ToolTip="Fit the screen drawing again."/>
+            </StackPanel>
+            <TextBlock DockPanel.Dock="Top"
+                       Text="{Binding ScreenHoverText}"
+                       Margin="8,0,8,4"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource MutedBrush}"/>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding ScreenPanes}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="8,4">
+                            <TextBlock Text="{Binding Title}" FontWeight="Bold" Margin="0,0,0,4"/>
+                            <TextBlock Text="This side has no screen."
+                                       FontStyle="Italic"
+                                       Foreground="#666666"
+                                       Visibility="{Binding IsMissing, Converter={StaticResource BoolToVis}}"/>
+                            <Border BorderBrush="#CCCCCC" BorderThickness="1" Background="#F7F7F7"
+                                    Width="{Binding CanvasWidth}" Height="{Binding CanvasHeight}">
+                                <Border.LayoutTransform>
+                                    <ScaleTransform ScaleX="{Binding DataContext.ScreenZoom, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    ScaleY="{Binding DataContext.ScreenZoom, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                </Border.LayoutTransform>
+                                <ItemsControl ItemsSource="{Binding Boxes}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <Canvas/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemContainerStyle>
+                                        <Style TargetType="ContentPresenter">
+                                            <Setter Property="Canvas.Left" Value="{Binding ScaledLeft}"/>
+                                            <Setter Property="Canvas.Top" Value="{Binding ScaledTop}"/>
+                                        </Style>
+                                    </ItemsControl.ItemContainerStyle>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Width="{Binding ScaledWidth}"
+                                                    Height="{Binding ScaledHeight}"
+                                                    BorderThickness="{Binding EdgeThickness}"
+                                                    BorderBrush="{Binding Edge}"
+                                                    Background="{Binding Fill}"
+                                                    MouseEnter="OnScreenBoxEnter"
+                                                    ToolTipService.ShowDuration="30000"
+                                                    ToolTipService.InitialShowDelay="200">
+                                                <Border.ToolTip>
+                                                    <ToolTip>
+                                                        <TextBlock Text="{Binding PlacementTarget.DataContext.ToolTipText, RelativeSource={RelativeSource AncestorType=ToolTip}}"
+                                                                   TextWrapping="Wrap"
+                                                                   MaxWidth="480"/>
+                                                    </ToolTip>
+                                                </Border.ToolTip>
+                                                <TextBlock Text="{Binding Label}"
+                                                           Margin="2"
+                                                           FontSize="10"
+                                                           FontWeight="{Binding LabelWeight}"
+                                                           Foreground="{Binding Ink}"
+                                                           TextWrapping="Wrap"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            </ScrollViewer>
+        </DockPanel>
+
+        <ListView x:Name="HmiTagListView"
+                  Grid.Row="3"
+                  BorderThickness="0"
+                  ItemsSource="{Binding TagRows}"
+                  ItemContainerStyle="{StaticResource TagRowStyle}"
+                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                  Visibility="{Binding HasHmiTagPreview, Converter={StaticResource BoolToVis}}">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Change" DisplayMemberBinding="{Binding Change}" Width="90"/>
+                    <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" Width="360"/>
+                    <GridViewColumn Header="Address" DisplayMemberBinding="{Binding Address}" Width="140"/>
+                    <GridViewColumn Header="Type" DisplayMemberBinding="{Binding DataType}" Width="120"/>
+                    <GridViewColumn Header="Comment" DisplayMemberBinding="{Binding Comment}" Width="220"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <ListView x:Name="TagListView"
+                  Grid.Row="3"
+                  Visibility="{Binding IsPlcTable, Converter={StaticResource BoolToVis}}"
+                  BorderThickness="0"
+                  ItemsSource="{Binding TagRows}"
+                  ItemContainerStyle="{StaticResource TagRowStyle}"
+                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Change" DisplayMemberBinding="{Binding Change}" Width="90"/>
+                    <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" Width="160"/>
+                    <GridViewColumn Header="Address" DisplayMemberBinding="{Binding Address}" Width="110"/>
+                    <GridViewColumn Header="Type" DisplayMemberBinding="{Binding DataType}" Width="120"/>
+                    <GridViewColumn Header="Retain" DisplayMemberBinding="{Binding Retain}" Width="70"/>
+                    <GridViewColumn Header="Default" DisplayMemberBinding="{Binding DefaultValue}" Width="90"/>
+                    <GridViewColumn Header="Comment" DisplayMemberBinding="{Binding Comment}" Width="240"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <ListView Grid.Row="3"
                   x:Name="LinesListView"
+                  Visibility="{Binding ShowTextLines, Converter={StaticResource BoolToVis}}"
                   BorderThickness="0"
                   ItemsSource="{Binding Lines}"
                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
